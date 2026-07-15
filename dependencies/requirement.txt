@@ -1,0 +1,6 @@
+PyMuPDF
+akshare
+baostock
+pikepdf
+pdfplumber
+requests
