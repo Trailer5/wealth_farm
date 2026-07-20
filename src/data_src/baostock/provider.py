@@ -131,10 +131,20 @@ class BaoStockDataSource:
         return baostock_result_to_records(result)
 
     def get_all_stocks(self, day: str) -> list[dict[str, Any]]:
-        """Fetch all listed securities on a trading day."""
+        """Disabled: full-market list should come from a gentler source.
 
-        result = self._query("query_all_stock", day=normalize_date_dash(day))
-        return baostock_result_to_records(result)
+        Live validation timed this BaoStock endpoint out even with isolated
+        90-second runs and backoff. It is not unique because CNINFO mappings,
+        single-symbol BaoStock basic info, and later exchange/AkShare lists can
+        cover the baseline security universe.
+        """
+
+        # Disabled original implementation:
+        # result = self._query("query_all_stock", day=normalize_date_dash(day))
+        # return baostock_result_to_records(result)
+        raise DataSourceError(
+            "BaoStock all-stock list is disabled; use CNINFO/security mappings or single-symbol basic info instead."
+        )
 
     def get_stock_basic(
         self,

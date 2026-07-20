@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import multiprocessing as mp
 import sys
 import time
 import traceback
@@ -104,25 +105,61 @@ def main() -> int:
         default=0.5,
         help="Seconds to sleep between checks to avoid hammering public endpoints.",
     )
+    parser.add_argument(
+        "--case-timeout",
+        type=float,
+        default=0.0,
+        help="Run each case in a separate process and fail it after this many seconds. Disabled by default.",
+    )
+    parser.add_argument(
+        "--retries",
+        type=int,
+        default=0,
+        help="Retry transient validation failures this many times.",
+    )
+    parser.add_argument(
+        "--retry-delay",
+        type=float,
+        default=5.0,
+        help="Base seconds to wait before retrying a transient validation failure.",
+    )
+    parser.add_argument(
+        "--gentle",
+        action="store_true",
+        help="Use slower, less aggressive validation settings for rate-limited public endpoints.",
+    )
     args = parser.parse_args()
 
     sys.path.insert(0, str(PROJECT_ROOT))
     TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+    if args.gentle:
+        args.sleep = max(args.sleep, 8.0)
+        args.case_timeout = max(args.case_timeout, 120.0)
+        args.retries = max(args.retries, 2)
+        args.retry_delay = max(args.retry_delay, 20.0)
 
-    context = ValidationContext(include_downloads=not args.skip_downloads)
-    try:
-        selected_groups = {group.lower() for group in args.groups}
-        selected_functions = [item.lower() for item in args.functions]
-        excluded_functions = [item.lower() for item in args.exclude_functions]
-        cases = [
-            case
-            for case in build_cases()
-            if _case_selected(case, selected_groups, selected_functions, excluded_functions)
-        ]
-        results = []
+    selected_groups = {group.lower() for group in args.groups}
+    selected_functions = [item.lower() for item in args.functions]
+    excluded_functions = [item.lower() for item in args.exclude_functions]
+    cases = [
+        case
+        for case in build_cases()
+        if _case_selected(case, selected_groups, selected_functions, excluded_functions)
+    ]
+    results = []
+    if args.case_timeout > 0:
         for case in cases:
             print(f"[real-validation] START {case.group}::{case.function_name}", file=sys.stderr, flush=True)
-            result = run_case(case, context)
+            result = run_case_with_retries(
+                case=case,
+                runner=lambda case=case: run_case_isolated(
+                    function_name=case.function_name,
+                    include_downloads=not args.skip_downloads,
+                    timeout_seconds=args.case_timeout,
+                ),
+                retries=args.retries,
+                retry_delay=args.retry_delay,
+            )
             print(
                 f"[real-validation] END {case.group}::{case.function_name} ok={result['ok']} count={result['count']}",
                 file=sys.stderr,
@@ -131,8 +168,27 @@ def main() -> int:
             results.append(result)
             if args.sleep:
                 time.sleep(args.sleep)
-    finally:
-        context.close()
+    else:
+        context = ValidationContext(include_downloads=not args.skip_downloads)
+        try:
+            for case in cases:
+                print(f"[real-validation] START {case.group}::{case.function_name}", file=sys.stderr, flush=True)
+                result = run_case_with_retries(
+                    case=case,
+                    runner=lambda case=case: run_case(case, context),
+                    retries=args.retries,
+                    retry_delay=args.retry_delay,
+                )
+                print(
+                    f"[real-validation] END {case.group}::{case.function_name} ok={result['ok']} count={result['count']}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                results.append(result)
+                if args.sleep:
+                    time.sleep(args.sleep)
+        finally:
+            context.close()
 
     summary = {
         "total": len(results),
@@ -141,6 +197,101 @@ def main() -> int:
     }
     print(json.dumps({"summary": summary, "results": results}, ensure_ascii=True, indent=2))
     return 0 if summary["failed"] == 0 else 1
+
+
+def run_case_with_retries(
+    case: ValidationCase,
+    runner: Callable[[], dict[str, Any]],
+    retries: int,
+    retry_delay: float,
+) -> dict[str, Any]:
+    result = runner()
+    attempt = 0
+    while attempt < retries and _should_retry_result(result):
+        attempt += 1
+        delay = retry_delay * attempt
+        print(
+            f"[real-validation] RETRY {case.group}::{case.function_name} attempt={attempt} delay={delay:g}s error={result.get('error')}",
+            file=sys.stderr,
+            flush=True,
+        )
+        time.sleep(delay)
+        result = runner()
+    if attempt:
+        result = {
+            **result,
+            "attempts": attempt + 1,
+        }
+    return result
+
+
+def _should_retry_result(result: dict[str, Any]) -> bool:
+    if result.get("ok"):
+        return False
+    error = f"{result.get('error') or ''}\n{result.get('traceback') or ''}"
+    retry_markers = (
+        "ConnectionError",
+        "RemoteDisconnected",
+        "TimeoutError",
+        "JSONDecodeError",
+        "Read timed out",
+        "Max retries exceeded",
+        "Remote end closed connection",
+    )
+    return any(marker in error for marker in retry_markers)
+
+
+def run_case_isolated(function_name: str, include_downloads: bool, timeout_seconds: float) -> dict[str, Any]:
+    """Run one validation case in a child process so hung providers can be terminated."""
+
+    queue: mp.Queue[dict[str, Any]] = mp.Queue(maxsize=1)
+    process = mp.Process(target=_run_case_worker, args=(function_name, include_downloads, queue))
+    process.start()
+    process.join(timeout_seconds)
+    if process.is_alive():
+        process.terminate()
+        process.join(5)
+        if process.is_alive():
+            process.kill()
+            process.join(5)
+        case = _case_by_function_name(function_name)
+        return {
+            "group": case.group,
+            "name": case.name,
+            "function": case.function_name,
+            "ok": False,
+            "count": 0,
+            "sample": None,
+            "error": f"TimeoutError: case exceeded {timeout_seconds:g} seconds",
+        }
+    if not queue.empty():
+        return queue.get()
+    case = _case_by_function_name(function_name)
+    return {
+        "group": case.group,
+        "name": case.name,
+        "function": case.function_name,
+        "ok": False,
+        "count": 0,
+        "sample": None,
+        "error": f"Worker exited without result; exit_code={process.exitcode}",
+    }
+
+
+def _run_case_worker(function_name: str, include_downloads: bool, queue: mp.Queue[dict[str, Any]]) -> None:
+    sys.path.insert(0, str(PROJECT_ROOT))
+    context = ValidationContext(include_downloads=include_downloads)
+    try:
+        queue.put(run_case(_case_by_function_name(function_name), context))
+    finally:
+        context.close()
+
+
+def _case_by_function_name(function_name: str) -> ValidationCase:
+    for case in build_cases():
+        if case.function_name == function_name:
+            return case
+    raise ValueError(f"Unknown validation function: {function_name}")
 
 
 def _case_selected(
@@ -161,8 +312,9 @@ def build_cases() -> list[ValidationCase]:
     return [
         ValidationCase("akshare", "A股日线", "AkShareDataSource.get_a_share_daily_bars", lambda c: c.akshare.get_a_share_daily_bars("600519", "2025-01-01", "2025-01-31")),
         ValidationCase("akshare", "A股历史周线", "AkShareDataSource.get_a_share_history", lambda c: c.akshare.get_a_share_history("600519", "2025-01-01", "2025-06-30", period="weekly")),
-        ValidationCase("akshare", "A股实时行情", "AkShareDataSource.get_a_share_spot", lambda c: c.akshare.get_a_share_spot()),
-        ValidationCase("akshare", "A股分钟线", "AkShareDataSource.get_a_share_minute_bars", lambda c: c.akshare.get_a_share_minute_bars("600519", "2025-01-02 09:30:00", "2025-01-02 15:00:00")),
+        # Disabled non-baseline routes: use daily bars now and add independent gentle providers later.
+        # ValidationCase("akshare", "A股实时行情", "AkShareDataSource.get_a_share_spot", lambda c: c.akshare.get_a_share_spot()),
+        # ValidationCase("akshare", "A股分钟线", "AkShareDataSource.get_a_share_minute_bars", lambda c: c.akshare.get_a_share_minute_bars("600519", "2025-01-02 09:30:00", "2025-01-02 15:00:00")),
         ValidationCase("akshare", "ETF实时行情", "AkShareDataSource.get_etf_spot", lambda c: c.akshare.get_etf_spot()),
         ValidationCase("akshare", "ETF日线", "AkShareDataSource.get_etf_daily_bars", lambda c: c.akshare.get_etf_daily_bars("510300", "2025-01-01", "2025-01-31")),
         ValidationCase("akshare", "开放式基金最新净值", "AkShareDataSource.get_open_fund_daily_navs", lambda c: c.akshare.get_open_fund_daily_navs()),
@@ -177,15 +329,16 @@ def build_cases() -> list[ValidationCase]:
         ValidationCase("akshare", "基金股票持仓", "AkShareDataSource.get_fund_stock_holdings", lambda c: c.akshare.get_fund_stock_holdings("000001", "2024")),
         ValidationCase("akshare", "基金债券持仓", "AkShareDataSource.get_fund_bond_holdings", lambda c: c.akshare.get_fund_bond_holdings("000001", "2024")),
         ValidationCase("akshare", "基金行业配置", "AkShareDataSource.get_fund_industry_allocation", lambda c: c.akshare.get_fund_industry_allocation("000001", "2024")),
-        ValidationCase("akshare", "CNINFO基金资产配置", "AkShareDataSource.get_fund_asset_allocation_cninfo", lambda c: c.akshare.get_fund_asset_allocation_cninfo(date="2024")),
-        ValidationCase("akshare", "CNINFO基金行业配置", "AkShareDataSource.get_fund_industry_allocation_cninfo", lambda c: c.akshare.get_fund_industry_allocation_cninfo(date="2024")),
+        ValidationCase("akshare", "CNINFO基金资产配置", "AkShareDataSource.get_fund_asset_allocation_cninfo", lambda c: c.akshare.get_fund_asset_allocation_cninfo()),
+        ValidationCase("akshare", "CNINFO基金行业配置", "AkShareDataSource.get_fund_industry_allocation_cninfo", lambda c: c.akshare.get_fund_industry_allocation_cninfo(date="20240630")),
         ValidationCase("akshare", "利润表", "AkShareDataSource.get_stock_profit_sheet", lambda c: c.akshare.get_stock_profit_sheet("600519")),
         ValidationCase("akshare", "资产负债表", "AkShareDataSource.get_stock_balance_sheet", lambda c: c.akshare.get_stock_balance_sheet("600519")),
         ValidationCase("akshare", "现金流量表", "AkShareDataSource.get_stock_cash_flow_sheet", lambda c: c.akshare.get_stock_cash_flow_sheet("600519")),
         ValidationCase("akshare", "财务指标", "AkShareDataSource.get_stock_financial_indicators", lambda c: c.akshare.get_stock_financial_indicators("600519")),
         ValidationCase("akshare", "财报披露计划", "AkShareDataSource.get_stock_report_disclosure", lambda c: c.akshare.get_stock_report_disclosure()),
         ValidationCase("akshare", "行业板块列表", "AkShareDataSource.get_industry_board_names", lambda c: c.akshare.get_industry_board_names()),
-        ValidationCase("akshare", "行业板块成分", "AkShareDataSource.get_industry_board_constituents", lambda c: c.akshare.get_industry_board_constituents(_first_board_name(c, "industry"))),
+        # Disabled non-baseline route: use board names now and add an independent constituent provider later.
+        # ValidationCase("akshare", "行业板块成分", "AkShareDataSource.get_industry_board_constituents", lambda c: c.akshare.get_industry_board_constituents(_first_board_name(c, "industry"))),
         ValidationCase("akshare", "概念板块列表", "AkShareDataSource.get_concept_board_names", lambda c: c.akshare.get_concept_board_names()),
         ValidationCase("akshare", "概念板块成分", "AkShareDataSource.get_concept_board_constituents", lambda c: c.akshare.get_concept_board_constituents(_first_board_name(c, "concept"))),
         ValidationCase("akshare", "通用API调用", "AkShareDataSource.call_api", lambda c: c.akshare.call_api("macro_china_gdp")),
@@ -193,7 +346,8 @@ def build_cases() -> list[ValidationCase]:
         ValidationCase("baostock", "A股日线", "BaoStockDataSource.get_a_share_daily_bars", lambda c: c.baostock.get_a_share_daily_bars("600519", "2025-01-01", "2025-01-31")),
         ValidationCase("baostock", "历史K线原始记录", "BaoStockDataSource.get_history_records", lambda c: c.baostock.get_history_records("600519", "2025-01-01", "2025-01-31")),
         ValidationCase("baostock", "交易日历", "BaoStockDataSource.get_trade_dates", lambda c: c.baostock.get_trade_dates("2025-01-01", "2025-01-31")),
-        ValidationCase("baostock", "全市场股票列表", "BaoStockDataSource.get_all_stocks", lambda c: c.baostock.get_all_stocks("2025-01-02")),
+        # Disabled non-baseline route: use CNINFO mappings and single-symbol basic info instead.
+        # ValidationCase("baostock", "全市场股票列表", "BaoStockDataSource.get_all_stocks", lambda c: c.baostock.get_all_stocks("2025-01-02")),
         ValidationCase("baostock", "股票基础信息原始记录", "BaoStockDataSource.get_stock_basic", lambda c: c.baostock.get_stock_basic("600519")),
         ValidationCase("baostock", "股票基础信息归一记录", "BaoStockDataSource.get_stock_basic_records", lambda c: c.baostock.get_stock_basic_records("600519")),
         ValidationCase("baostock", "盈利能力", "BaoStockDataSource.get_profit_data", lambda c: c.baostock.get_profit_data("600519", 2024, 4)),

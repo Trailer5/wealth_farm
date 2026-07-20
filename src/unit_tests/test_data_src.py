@@ -3,6 +3,7 @@ import unittest
 from src.data_src.akshare import AkShareDataSource
 from src.data_src.baostock import BaoStockDataSource
 from src.data_src.common import (
+    DataSourceError,
     normalize_a_share_code,
     normalize_date_compact,
     normalize_date_dash,
@@ -106,14 +107,18 @@ class FakeAkShare:
         return FakeFrame([{"净值日期": "2026-01-05", "单位净值": "1.0"}])
 
     def stock_profit_sheet_by_report_em(self, **kwargs):
-        if kwargs["symbol"] != "000001":
-            raise AssertionError("profit sheet symbol should be normalized for AkShare")
+        if kwargs["symbol"] != "SZ000001":
+            raise AssertionError("profit sheet symbol should use AkShare prefixed format")
         return FakeFrame([{"股票代码": "000001", "营业总收入": "100"}])
 
     def stock_balance_sheet_by_report_em(self, **kwargs):
+        if kwargs["symbol"] != "SZ000001":
+            raise AssertionError("balance sheet symbol should use AkShare prefixed format")
         return FakeFrame([{"股票代码": kwargs["symbol"], "资产总计": "200"}])
 
     def stock_cash_flow_sheet_by_report_em(self, **kwargs):
+        if kwargs["symbol"] != "SZ000001":
+            raise AssertionError("cash flow sheet symbol should use AkShare prefixed format")
         return FakeFrame([{"股票代码": kwargs["symbol"], "经营活动现金流量净额": "50"}])
 
     def stock_financial_analysis_indicator_em(self, **kwargs):
@@ -122,7 +127,7 @@ class FakeAkShare:
         return FakeFrame([{"股票代码": "000001", "净资产收益率": "10"}])
 
     def stock_report_disclosure(self, **kwargs):
-        return FakeFrame([{"市场": kwargs["symbol"], "报告期": "2026Q1"}])
+        return FakeFrame([{"市场": kwargs["market"], "报告期": "2026Q1"}])
 
     def stock_board_industry_name_em(self):
         return FakeFrame([{"板块名称": "银行"}])
@@ -247,11 +252,6 @@ class ProviderAdapterTest(unittest.TestCase):
 
     def test_akshare_market_and_fund_methods_return_records(self):
         provider = AkShareDataSource(FakeAkShare())
-        self.assertEqual(provider.get_a_share_spot()[0]["代码"], "000001")
-        self.assertEqual(
-            provider.get_a_share_minute_bars("000001", "2026-01-05 09:30:00", "2026-01-05 15:00:00")[0]["收盘"],
-            "10.2",
-        )
         self.assertEqual(provider.get_etf_spot()[0]["代码"], "510300")
         self.assertEqual(provider.get_etf_daily_bars("510300", "20260101", "20260131")[0].close, 4.05)
         self.assertEqual(provider.get_open_fund_daily_navs()[0]["基金代码"], "000001")
@@ -266,6 +266,15 @@ class ProviderAdapterTest(unittest.TestCase):
         self.assertEqual(provider.get_fund_bond_holdings("000001", "2026")[0].item_name, "测试债")
         self.assertEqual(provider.get_fund_industry_allocation("000001", "2026")[0].ratio, 3.4)
 
+    def test_disabled_akshare_non_baseline_methods_raise_clear_errors(self):
+        provider = AkShareDataSource(FakeAkShare())
+        with self.assertRaises(DataSourceError):
+            provider.get_a_share_spot()
+        with self.assertRaises(DataSourceError):
+            provider.get_a_share_minute_bars("000001", "2026-01-05 09:30:00", "2026-01-05 15:00:00")
+        with self.assertRaises(DataSourceError):
+            provider.get_industry_board_constituents("银行")
+
     def test_akshare_financial_and_board_methods_return_records(self):
         provider = AkShareDataSource(FakeAkShare())
         self.assertEqual(provider.get_stock_profit_sheet("000001")[0]["营业总收入"], "100")
@@ -274,7 +283,6 @@ class ProviderAdapterTest(unittest.TestCase):
         self.assertEqual(provider.get_stock_financial_indicators("000001")[0]["净资产收益率"], "10")
         self.assertEqual(provider.get_stock_report_disclosure()[0]["市场"], "沪深京")
         self.assertEqual(provider.get_industry_board_names()[0]["板块名称"], "银行")
-        self.assertEqual(provider.get_industry_board_constituents("银行")[0]["代码"], "000001")
         self.assertEqual(provider.get_concept_board_names()[0]["板块名称"], "中特估")
         self.assertEqual(provider.get_concept_board_constituents("中特估")[0]["代码"], "000001")
         self.assertEqual(provider.call_api("macro_china_gdp")[0]["季度"], "2026Q1")
@@ -293,10 +301,14 @@ class ProviderAdapterTest(unittest.TestCase):
     def test_baostock_reference_and_financial_methods_return_records(self):
         provider = BaoStockDataSource(FakeBaoStock())
         self.assertEqual(provider.get_trade_dates("20260101", "20260131")[0]["is_trading_day"], "1")
-        self.assertEqual(provider.get_all_stocks("2026-01-05")[0]["code"], "sz.000001")
         self.assertEqual(provider.get_stock_basic("000001")[0]["code_name"], "平安银行")
         self.assertEqual(provider.get_stock_basic_records("000001")[0].name, "平安银行")
         self.assertEqual(provider.get_profit_data("000001", 2026, 1)[0]["roeAvg"], "10.0")
+
+    def test_disabled_baostock_all_stocks_raises_clear_error(self):
+        provider = BaoStockDataSource(FakeBaoStock())
+        with self.assertRaises(DataSourceError):
+            provider.get_all_stocks("2026-01-05")
 
 
 if __name__ == "__main__":

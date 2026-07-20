@@ -491,8 +491,12 @@ class DataFetchService:
             raise ValueError(f"Unsupported fund portfolio source: {source}")
         normalized_type = report_type.strip().lower()
         if normalized_type in {"stock", "stock_holding", "stock_holdings"}:
+            # Experimental: live AkShare stock holdings currently fail parsing;
+            # prefer official fund disclosure PDF extraction for production use.
             return self.akshare.get_fund_stock_holdings(symbol, year)
         if normalized_type in {"bond", "bond_holding", "bond_holdings"}:
+            # Experimental: live AkShare bond holdings currently fail parsing;
+            # prefer official fund disclosure PDF extraction for production use.
             return self.akshare.get_fund_bond_holdings(symbol, year)
         if normalized_type in {"industry", "industry_allocation"}:
             return self.akshare.get_fund_industry_allocation(symbol, year)

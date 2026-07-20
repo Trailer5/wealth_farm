@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from src.data_src.common import normalize_date_dash, to_date_string
+from src.data_src.common import DataSourceError, normalize_date_dash, to_date_string
 from src.data_src.http_client import UrlLibHttpClient
 from src.data_src.models import DownloadedFile, ResearchReport
 
@@ -79,13 +79,21 @@ class EastmoneyResearchReportDataSource:
         report: ResearchReport,
         root_dir: str | Path = "data/research_reports",
     ) -> DownloadedFile:
-        """Download a research report PDF when explicitly requested."""
+        """Download a research report PDF when explicitly requested.
+
+        Eastmoney report metadata is useful, but live PDF URLs can return a
+        small JavaScript page instead of a real PDF. Keep this route explicit
+        and reject non-PDF bytes until a more reliable report file source is
+        found.
+        """
 
         if not report.pdf_url:
             raise ValueError(f"Research report has no PDF URL: {report.report_id}")
         target_path = self._target_pdf_path(report, Path(root_dir))
         target_path.parent.mkdir(parents=True, exist_ok=True)
         content = self.http.download_bytes(report.pdf_url)
+        if content[:4] != b"%PDF":
+            raise DataSourceError(f"Research report download did not return a PDF: {report.pdf_url}")
         sha256 = hashlib.sha256(content).hexdigest()
         if target_path.exists():
             existing_hash = hashlib.sha256(target_path.read_bytes()).hexdigest()

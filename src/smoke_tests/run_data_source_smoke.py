@@ -47,7 +47,8 @@ def main() -> int:
     if args.include_akshare:
         checks.extend(
             [
-                ("akshare.a_share_spot", lambda: AkShareDataSource().get_a_share_spot()),
+                # Disabled original check:
+                # ("akshare.a_share_spot", lambda: AkShareDataSource().get_a_share_spot()),
                 ("akshare.etf_spot", lambda: AkShareDataSource().get_etf_spot()),
             ]
         )

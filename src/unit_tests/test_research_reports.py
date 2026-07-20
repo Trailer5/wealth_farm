@@ -3,15 +3,17 @@ import unittest
 from pathlib import Path
 
 from src.data_src.eastmoney import EastmoneyResearchReportDataSource
+from src.data_src.common import DataSourceError
 from src.data_src.models import DocumentTable, DocumentText, ResearchReport
 from src.data_src.service import DataFetchService
 from src.data_store import SQLiteDataStore
 
 
 class FakeEastmoneyResearchHttp:
-    def __init__(self):
+    def __init__(self, download_content=b"%PDF fake research"):
         self.last_params = None
         self.last_download_url = None
+        self.download_content = download_content
 
     def get_json(self, url, params=None):
         self.last_params = params
@@ -33,7 +35,7 @@ class FakeEastmoneyResearchHttp:
 
     def download_bytes(self, url):
         self.last_download_url = url
-        return b"%PDF fake research"
+        return self.download_content
 
 
 class FakeResearchSource:
@@ -108,6 +110,15 @@ class EastmoneyResearchReportDataSourceTest(unittest.TestCase):
             self.assertTrue(Path(downloaded.file_path).exists())
             self.assertEqual(downloaded.size_bytes, len(b"%PDF fake research"))
             self.assertEqual(fake.last_download_url, report.pdf_url)
+
+    def test_download_pdf_rejects_non_pdf_content(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fake = FakeEastmoneyResearchHttp(download_content=b"<script>not pdf</script>")
+            source = EastmoneyResearchReportDataSource(fake)
+            report = source.search_stock_reports("600519", "20260701", "20260715")[0]
+
+            with self.assertRaises(DataSourceError):
+                source.download_pdf(report, root_dir=temp_dir)
 
 
 class ResearchReportStoreServiceTest(unittest.TestCase):

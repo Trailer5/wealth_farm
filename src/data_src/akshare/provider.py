@@ -71,9 +71,18 @@ class AkShareDataSource:
         ]
 
     def get_a_share_spot(self) -> list[dict[str, Any]]:
-        """Fetch real-time A-share quotes from Eastmoney via AkShare."""
+        """Disabled: A-share real-time quotes need a separate, gentler provider.
 
-        return self._records_from_api("stock_zh_a_spot_em")
+        The AkShare Eastmoney full-market endpoint repeatedly disconnects under
+        validation pressure and is not required for the current daily-level
+        baseline.
+        """
+
+        # Disabled original implementation:
+        # return self._records_from_api("stock_zh_a_spot_em")
+        raise DataSourceError(
+            "AkShare A-share spot is disabled; use daily bars now and add an independent quote provider later."
+        )
 
     def get_a_share_minute_bars(
         self,
@@ -83,15 +92,24 @@ class AkShareDataSource:
         period: str = "5",
         adjust: str = "",
     ) -> list[dict[str, Any]]:
-        """Fetch A-share minute bars when the AkShare endpoint is available."""
+        """Disabled: minute bars are outside the current daily-level baseline.
 
-        return self._records_from_api(
-            "stock_zh_a_hist_min_em",
-            symbol=to_akshare_symbol(symbol),
-            start_date=_normalize_minute_datetime(start_date),
-            end_date=_normalize_minute_datetime(end_date),
-            period=period,
-            adjust=adjust,
+        The AkShare minute endpoint repeatedly disconnects during validation.
+        Reintroduce minute bars through a dedicated provider when minute-level
+        research becomes a milestone.
+        """
+
+        # Disabled original implementation:
+        # return self._records_from_api(
+        #     "stock_zh_a_hist_min_em",
+        #     symbol=to_akshare_symbol(symbol),
+        #     start_date=_normalize_minute_datetime(start_date),
+        #     end_date=_normalize_minute_datetime(end_date),
+        #     period=period,
+        #     adjust=adjust,
+        # )
+        raise DataSourceError(
+            "AkShare A-share minute bars are disabled; the current baseline only requires daily bars."
         )
 
     def get_etf_spot(self) -> list[dict[str, Any]]:
@@ -193,13 +211,25 @@ class AkShareDataSource:
         return [self._fund_report_from_record(record, "fund_scale_open_sina") for record in records]
 
     def get_fund_stock_holdings(self, symbol: str, year: str) -> list[FundReportRecord]:
-        """Fetch public fund stock holdings for a year."""
+        """Fetch public fund stock holdings for a year.
+
+        This endpoint has useful fund look-through value, but the current
+        AkShare parser fails against live upstream responses. Keep this as an
+        experimental route and prefer official fund disclosure PDF parsing when
+        fund holdings become required.
+        """
 
         records = self._records_from_api("fund_portfolio_hold_em", symbol=to_akshare_symbol(symbol), date=str(year))
         return [self._fund_report_from_record(record, "fund_portfolio_hold_em", fallback_symbol=symbol) for record in records]
 
     def get_fund_bond_holdings(self, symbol: str, year: str) -> list[FundReportRecord]:
-        """Fetch public fund bond holdings for a year."""
+        """Fetch public fund bond holdings for a year.
+
+        This endpoint has useful bond-fund look-through value, but the current
+        AkShare parser fails against live upstream responses. Keep this as an
+        experimental route and prefer official fund disclosure PDF parsing when
+        bond holdings become required.
+        """
 
         records = self._records_from_api("fund_portfolio_bond_hold_em", symbol=to_akshare_symbol(symbol), date=str(year))
         return [self._fund_report_from_record(record, "fund_portfolio_bond_hold_em", fallback_symbol=symbol) for record in records]
@@ -220,7 +250,7 @@ class AkShareDataSource:
     def get_fund_asset_allocation_cninfo(self, **kwargs: Any) -> list[FundReportRecord]:
         """Fetch CNINFO public fund asset allocation reports."""
 
-        records = self._records_from_api("fund_report_asset_allocation_cninfo", **kwargs)
+        records = self._records_from_api("fund_report_asset_allocation_cninfo")
         return [self._fund_report_from_record(record, "fund_report_asset_allocation_cninfo") for record in records]
 
     def get_fund_industry_allocation_cninfo(self, **kwargs: Any) -> list[FundReportRecord]:
@@ -232,17 +262,17 @@ class AkShareDataSource:
     def get_stock_profit_sheet(self, symbol: str) -> list[dict[str, Any]]:
         """Fetch A-share income statement by reporting period."""
 
-        return self._records_from_api("stock_profit_sheet_by_report_em", symbol=to_akshare_symbol(symbol))
+        return self._records_from_api("stock_profit_sheet_by_report_em", symbol=_to_akshare_prefixed_symbol(symbol))
 
     def get_stock_balance_sheet(self, symbol: str) -> list[dict[str, Any]]:
         """Fetch A-share balance sheet by reporting period."""
 
-        return self._records_from_api("stock_balance_sheet_by_report_em", symbol=to_akshare_symbol(symbol))
+        return self._records_from_api("stock_balance_sheet_by_report_em", symbol=_to_akshare_prefixed_symbol(symbol))
 
     def get_stock_cash_flow_sheet(self, symbol: str) -> list[dict[str, Any]]:
         """Fetch A-share cash flow statement by reporting period."""
 
-        return self._records_from_api("stock_cash_flow_sheet_by_report_em", symbol=to_akshare_symbol(symbol))
+        return self._records_from_api("stock_cash_flow_sheet_by_report_em", symbol=_to_akshare_prefixed_symbol(symbol))
 
     def get_stock_financial_indicators(
         self,
@@ -260,7 +290,7 @@ class AkShareDataSource:
     def get_stock_report_disclosure(self, market: str = "沪深京") -> list[dict[str, Any]]:
         """Fetch scheduled financial report disclosure dates."""
 
-        return self._records_from_api("stock_report_disclosure", symbol=market)
+        return self._records_from_api("stock_report_disclosure", market=market)
 
     def get_industry_board_names(self) -> list[dict[str, Any]]:
         """Fetch Eastmoney industry board list."""
@@ -268,9 +298,18 @@ class AkShareDataSource:
         return self._records_from_api("stock_board_industry_name_em")
 
     def get_industry_board_constituents(self, board_name: str) -> list[dict[str, Any]]:
-        """Fetch Eastmoney industry board constituents."""
+        """Disabled: industry board constituents need a separate provider.
 
-        return self._records_from_api("stock_board_industry_cons_em", symbol=board_name)
+        The AkShare wrapper re-enters Eastmoney board mapping endpoints and
+        repeatedly disconnects under validation. Industry constituents are not
+        required by the current daily/fund/disclosure baseline.
+        """
+
+        # Disabled original implementation:
+        # return self._records_from_api("stock_board_industry_cons_em", symbol=board_name)
+        raise DataSourceError(
+            "AkShare industry board constituents are disabled; use board names now and add an independent provider later."
+        )
 
     def get_concept_board_names(self) -> list[dict[str, Any]]:
         """Fetch Eastmoney concept board list."""
@@ -434,3 +473,9 @@ def _normalize_minute_datetime(value: str) -> str:
     if ":" in text:
         return text
     return normalize_date_compact(text)
+
+
+def _to_akshare_prefixed_symbol(symbol: str) -> str:
+    market_symbol = to_akshare_market_symbol(symbol)
+    code, suffix = market_symbol.split(".")
+    return f"{suffix}{code}"
