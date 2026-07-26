@@ -23,4 +23,4 @@ jobs:
           python -m pip install -r dependencies/requirement.txt
 
       - name: Run unit tests
-        run: python src/unit_tests/run_all_unit_tests.py
+        run: python src/tests/run_all_unit_tests.py

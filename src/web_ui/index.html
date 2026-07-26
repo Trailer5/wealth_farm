@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Wealth Farm 投研工作台</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">WF</div>
+        <div>
+          <strong>Wealth Farm</strong>
+          <span>本地投研工作台</span>
+        </div>
+      </div>
+      <nav aria-label="主要功能">
+        <button class="nav-button active" data-view-target="dashboard">总览</button>
+        <button class="nav-button" data-view-target="asset">标的研究</button>
+        <button class="nav-button" data-view-target="portfolio">组合与持仓</button>
+        <button class="nav-button" data-view-target="alerts">提醒中心</button>
+        <button class="nav-button" data-view-target="reports">报告中心</button>
+        <button class="nav-button" data-view-target="ai">AI 研究</button>
+        <button class="nav-button" data-view-target="system">系统状态</button>
+      </nav>
+      <div class="sidebar-note">
+        <span class="status-dot"></span>
+        本地数据空间
+        <small>用户切换不是安全认证</small>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">WEALTH FARM / RESEARCH</p>
+          <h1 id="view-title">研究总览</h1>
+        </div>
+        <div class="topbar-actions">
+          <form id="global-asset-search" class="search-box">
+            <input id="global-asset-query" placeholder="搜索代码或名称" aria-label="搜索标的">
+            <button type="submit">搜索</button>
+          </form>
+          <label class="compact-field">用户
+            <select id="user-select"></select>
+          </label>
+          <button id="refresh-button" class="icon-button" type="button">刷新</button>
+        </div>
+      </header>
+
+      <div id="notice" class="notice" role="status"></div>
+
+      <main>
+        <section class="view active" data-view="dashboard">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">TODAY</p>
+              <h2>研究总览</h2>
+            </div>
+            <p class="section-description">聚合当前用户的关注、组合、提醒、报告与 AI 任务。</p>
+          </div>
+          <div class="metric-grid">
+            <article class="metric-card"><span>自选标的</span><strong id="metric-watchlist">0</strong></article>
+            <article class="metric-card"><span>当前持仓</span><strong id="metric-holdings">0</strong></article>
+            <article class="metric-card warning"><span>待处理提醒</span><strong id="metric-alerts">0</strong></article>
+            <article class="metric-card"><span>分析报告</span><strong id="metric-reports">0</strong></article>
+            <article class="metric-card accent"><span>AI 任务</span><strong id="metric-ai">0</strong></article>
+          </div>
+          <div class="content-grid">
+            <article class="panel span-7">
+              <div class="panel-heading"><h3>自选与研究焦点</h3><button data-open-view="asset">进入标的研究</button></div>
+              <div id="dashboard-watchlist" class="card-list"></div>
+            </article>
+            <article class="panel span-5">
+              <div class="panel-heading"><h3>待处理提醒</h3><button data-open-view="alerts">查看全部</button></div>
+              <div id="dashboard-alerts" class="card-list"></div>
+            </article>
+            <article class="panel span-6">
+              <div class="panel-heading"><h3>最新组合快照</h3><button data-open-view="portfolio">组合详情</button></div>
+              <div id="dashboard-portfolio"></div>
+            </article>
+            <article class="panel span-6">
+              <div class="panel-heading"><h3>最近研究产出</h3><button data-open-view="reports">报告中心</button></div>
+              <div id="dashboard-reports" class="card-list"></div>
+            </article>
+            <article class="panel span-12">
+              <div class="panel-heading"><h3>最近 AI 任务</h3><button data-open-view="ai">AI 研究</button></div>
+              <div id="dashboard-ai" class="horizontal-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" data-view="asset">
+          <div class="section-heading">
+            <div><p class="eyebrow">ASSET RESEARCH</p><h2>标的研究</h2></div>
+            <p class="section-description">从本地主数据选择标的，查看身份、因子、事件和研究状态。</p>
+          </div>
+          <article class="panel">
+            <form id="asset-search-form" class="asset-picker">
+              <label>本地标的搜索<input id="asset-query" placeholder="例如 600519、贵州茅台"></label>
+              <button type="submit">查找</button>
+              <label>当前标的<select id="asset-select"></select></label>
+            </form>
+          </article>
+          <div id="asset-summary" class="asset-hero empty-state">请选择一个已进入本地主数据的标的。</div>
+          <div class="content-grid">
+            <article class="panel span-12">
+              <div class="panel-heading">
+                <div>
+                  <h3>日线行情与数据来源</h3>
+                  <p class="muted">默认只读取本地数据；远程补取必须显式勾选。</p>
+                </div>
+                <span id="market-record-count" class="pill">0 条</span>
+              </div>
+              <form id="market-data-form" class="market-controls">
+                <label>开始日期<input id="market-start-date" type="date" required></label>
+                <label>结束日期<input id="market-end-date" type="date" required></label>
+                <label>数据集
+                  <select id="market-dataset">
+                    <option value="stock_daily_bars">A 股日线</option>
+                    <option value="fund_exchange_daily_bars">场内基金日线</option>
+                  </select>
+                </label>
+                <label class="checkbox-field remote-toggle">
+                  <input id="market-allow-remote" type="checkbox">
+                  缺失时允许远程补取
+                </label>
+                <div class="form-actions">
+                  <button type="submit" class="primary">查询行情</button>
+                  <button id="compute-factors-button" type="button">质量检查后重算因子</button>
+                </div>
+              </form>
+              <div id="market-status" class="market-status"></div>
+              <div id="market-chart" class="market-chart empty-state">提交查询后显示 OHLC 与成交量。</div>
+              <div id="market-table" class="data-table-wrap"></div>
+            </article>
+            <article class="panel span-4">
+              <h3>研究状态</h3>
+              <form id="watchlist-form">
+                <div class="selected-asset-line" data-selected-asset-label>未选择标的</div>
+                <label>关注理由<input id="watchlist-reason"></label>
+                <label>标签<input id="watchlist-tags" placeholder="价值, 核心资产"></label>
+                <div class="form-actions">
+                  <button type="submit" class="primary">保存自选</button>
+                  <button id="remove-watchlist-button" type="button" class="danger ghost">移出自选</button>
+                </div>
+              </form>
+              <hr>
+              <form id="asset-holding-form">
+                <label>持仓数量<input id="asset-holding-quantity" type="number" step="any" required></label>
+                <label>平均成本<input id="asset-holding-cost" type="number" step="any" min="0"></label>
+                <label>币种<input id="asset-holding-currency" value="CNY"></label>
+                <label>备注<input id="asset-holding-note"></label>
+                <div class="form-actions">
+                  <button type="submit" class="primary">保存持仓</button>
+                  <button id="remove-asset-holding-button" type="button" class="danger ghost">删除持仓</button>
+                </div>
+              </form>
+            </article>
+            <article class="panel span-8">
+              <div class="panel-heading"><h3>因子趋势</h3><span id="factor-summary" class="pill">0 项</span></div>
+              <div id="factor-chart" class="chart empty-state">暂无因子数据</div>
+              <div id="asset-factors" class="data-table-wrap"></div>
+            </article>
+            <article class="panel span-12">
+              <div class="panel-heading"><h3>结构化事件</h3><span id="event-summary" class="pill">0 项</span></div>
+              <div id="asset-events" class="timeline"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" data-view="portfolio">
+          <div class="section-heading">
+            <div><p class="eyebrow">PORTFOLIO</p><h2>组合与持仓</h2></div>
+            <p class="section-description">维护当前仓位，输入观察价格生成估值、权重和集中度快照。</p>
+          </div>
+          <div class="content-grid">
+            <article class="panel span-7">
+              <div class="panel-heading"><h3>当前持仓</h3><span id="holding-count" class="pill">0 项</span></div>
+              <div id="portfolio-holdings" class="card-list"></div>
+            </article>
+            <article class="panel span-5">
+              <h3>维护选中标的持仓</h3>
+              <form id="holding-form">
+                <div class="selected-asset-line" data-selected-asset-label>未选择标的</div>
+                <label>数量<input id="holding-quantity" type="number" step="any" required></label>
+                <label>平均成本<input id="holding-cost" type="number" step="any" min="0"></label>
+                <label>币种<input id="holding-currency" value="CNY"></label>
+                <label>备注<input id="holding-note"></label>
+                <div class="form-actions">
+                  <button type="submit" class="primary">保存持仓</button>
+                  <button id="remove-holding-button" type="button" class="danger ghost">删除持仓</button>
+                </div>
+              </form>
+            </article>
+            <article class="panel span-5">
+              <h3>生成组合估值</h3>
+              <form id="valuation-form">
+                <label>估值日期<input id="valuation-date" type="date" required></label>
+                <div id="valuation-price-fields" class="price-fields"></div>
+                <button type="submit" class="primary">计算并保存快照</button>
+              </form>
+            </article>
+            <article class="panel span-7">
+              <div class="panel-heading"><h3>历史快照</h3><span id="snapshot-count" class="pill">0 个</span></div>
+              <div id="portfolio-snapshots" class="card-list"></div>
+            </article>
+            <article class="panel span-12">
+              <h3>快照明细与风险</h3>
+              <div id="portfolio-detail" class="empty-state">选择一个组合快照查看持仓权重和浮动盈亏。</div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" data-view="alerts">
+          <div class="section-heading">
+            <div><p class="eyebrow">ALERTS</p><h2>提醒中心</h2></div>
+            <p class="section-description">管理规则、手动评估观察值，并处理已触发提醒。</p>
+          </div>
+          <div class="content-grid">
+            <article class="panel span-7">
+              <div class="panel-heading">
+                <h3>提醒记录</h3>
+                <select id="alert-filter" class="small-select">
+                  <option value="">全部状态</option>
+                  <option value="pending">待处理</option>
+                  <option value="acknowledged">已确认</option>
+                </select>
+              </div>
+              <div id="alerts-list" class="card-list"></div>
+            </article>
+            <article class="panel span-5">
+              <h3>手动价格观察</h3>
+              <form id="price-observation-form">
+                <div class="selected-asset-line" data-selected-asset-label>未选择标的</div>
+                <label>观察价格<input id="observed-price" type="number" step="any" required></label>
+                <label>观察时间<input id="observed-at" required></label>
+                <button type="submit" class="primary">评估价格规则</button>
+              </form>
+            </article>
+            <article class="panel span-5">
+              <h3>新建价格规则</h3>
+              <form id="price-rule-form">
+                <div class="selected-asset-line" data-selected-asset-label>未选择标的</div>
+                <label>触发方向
+                  <select id="price-rule-type">
+                    <option value="price_above">价格高于</option>
+                    <option value="price_below">价格低于</option>
+                  </select>
+                </label>
+                <label>阈值<input id="price-rule-threshold" type="number" step="any" required></label>
+                <button type="submit" class="primary">创建价格规则</button>
+              </form>
+            </article>
+            <article class="panel span-4">
+              <h3>新建事件规则</h3>
+              <form id="event-rule-form">
+                <label>事件类型<input id="event-rule-type" placeholder="financial_report" required></label>
+                <label class="checkbox-field"><input id="event-rule-global" type="checkbox">适用于全部标的</label>
+                <button type="submit" class="primary">创建事件规则</button>
+              </form>
+            </article>
+            <article class="panel span-3">
+              <h3>集中度规则</h3>
+              <form id="weight-rule-form">
+                <label>最大单仓权重<input id="weight-rule-threshold" type="number" min="0" max="100" step="0.1" value="40" required></label>
+                <button type="submit" class="primary">创建组合规则</button>
+              </form>
+            </article>
+            <article class="panel span-12">
+              <div class="panel-heading"><h3>当前规则</h3><span id="rule-count" class="pill">0 条</span></div>
+              <div id="alert-rules" class="horizontal-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" data-view="reports">
+          <div class="section-heading">
+            <div><p class="eyebrow">REPORTS</p><h2>报告中心</h2></div>
+            <p class="section-description">沉淀当前判断、证据摘要与后续跟踪事项。</p>
+          </div>
+          <div class="content-grid">
+            <article class="panel span-5">
+              <h3>创建分析报告</h3>
+              <form id="report-form">
+                <div class="selected-asset-line" data-selected-asset-label>未选择标的</div>
+                <label>标题<input id="report-title" required></label>
+                <label>摘要<textarea id="report-summary"></textarea></label>
+                <label>正文<textarea id="report-content" class="large-textarea" required></textarea></label>
+                <label>状态
+                  <select id="report-status"><option value="draft">草稿</option><option value="final">定稿</option></select>
+                </label>
+                <button type="submit" class="primary">创建报告</button>
+              </form>
+            </article>
+            <article class="panel span-7">
+              <div class="panel-heading"><h3>报告列表</h3><span id="report-count" class="pill">0 篇</span></div>
+              <div id="reports-list" class="card-list"></div>
+            </article>
+            <article class="panel span-12">
+              <h3>报告正文</h3>
+              <div id="report-detail" class="document-view empty-state">选择一篇报告查看正文。</div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" data-view="ai">
+          <div class="section-heading">
+            <div><p class="eyebrow">AI RESEARCH</p><h2>AI 研究</h2></div>
+            <p class="section-description">任务先冻结本地证据，再由用户显式调用已配置模型。</p>
+          </div>
+          <div class="content-grid">
+            <article class="panel span-5">
+              <h3>创建研究任务</h3>
+              <form id="ai-task-form">
+                <div class="selected-asset-line" data-selected-asset-label>未选择标的</div>
+                <label>研究问题<textarea id="ai-question" class="large-textarea" placeholder="结合当前因子、事件、持仓和报告，总结主要事实与风险。" required></textarea></label>
+                <button type="submit" class="primary">冻结上下文并创建任务</button>
+              </form>
+            </article>
+            <article class="panel span-7">
+              <div class="panel-heading"><h3>任务历史</h3><span id="ai-task-count" class="pill">0 项</span></div>
+              <div id="ai-tasks" class="card-list"></div>
+            </article>
+            <article class="panel span-12">
+              <div class="panel-heading">
+                <h3>任务结果</h3>
+                <button id="execute-ai-button" class="primary" type="button" disabled>显式执行模型</button>
+              </div>
+              <div id="ai-detail" class="empty-state">选择任务查看状态与结构化结果。</div>
+            </article>
+            <article class="panel span-6"><h3>证据快照</h3><div id="ai-evidence" class="card-list"></div></article>
+            <article class="panel span-6"><h3>工具调用记录</h3><div id="ai-tools" class="card-list"></div></article>
+          </div>
+        </section>
+
+        <section class="view" data-view="system">
+          <div class="section-heading">
+            <div><p class="eyebrow">SYSTEM</p><h2>系统状态</h2></div>
+            <p class="section-description">查看本地服务、用户空间、数据任务和主数据待处理项。</p>
+          </div>
+          <div class="content-grid">
+            <article class="panel span-4">
+              <h3>服务状态</h3>
+              <div id="system-health" class="empty-state">正在读取服务状态…</div>
+            </article>
+            <article class="panel span-4">
+              <h3>创建用户空间</h3>
+              <form id="user-form">
+                <label>显示名称<input id="new-user-name" required></label>
+                <button type="submit" class="primary">创建用户</button>
+              </form>
+            </article>
+            <article class="panel span-4">
+              <h3>用户空间</h3>
+              <div id="users-list" class="card-list"></div>
+            </article>
+            <article class="panel span-7">
+              <div class="panel-heading"><h3>数据质量任务</h3><span id="quality-count" class="pill">0 项</span></div>
+              <div id="quality-runs" class="card-list"></div>
+            </article>
+            <article class="panel span-5">
+              <h3>质量检查详情</h3>
+              <div id="quality-detail" class="empty-state">选择一个任务查看质量检查。</div>
+            </article>
+            <article class="panel span-12">
+              <div class="panel-heading"><h3>待处理主数据观察</h3><span id="unresolved-count" class="pill">0 项</span></div>
+              <div id="unresolved-observations" class="data-table-wrap"></div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

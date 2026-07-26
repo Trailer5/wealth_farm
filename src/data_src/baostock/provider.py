@@ -9,6 +9,7 @@ from ..common import (
     DependencyNotInstalledError,
     baostock_result_to_records,
     ensure_baostock_success,
+    normalize_a_share_code,
     normalize_date_dash,
     to_baostock_symbol,
     to_optional_float,
@@ -230,13 +231,13 @@ class BaoStockDataSource:
 
     def _daily_bar_from_record(self, record: dict[str, Any]) -> DailyBar:
         return DailyBar(
-            symbol=str(record.get("code")),
+            symbol=normalize_a_share_code(str(record.get("code") or "")),
             trade_date=str(record.get("date")),
             open=to_optional_float(record.get("open")),
             high=to_optional_float(record.get("high")),
             low=to_optional_float(record.get("low")),
             close=to_optional_float(record.get("close")),
-            volume=to_optional_float(record.get("volume")),
+            volume=_scale(to_optional_float(record.get("volume")), 100.0),
             amount=to_optional_float(record.get("amount")),
             source=f"{self.source}:query_history_k_data_plus",
             raw=dict(record),
@@ -251,3 +252,7 @@ class BaoStockDataSource:
             source=f"{self.source}:query_stock_basic",
             raw=dict(record),
         )
+
+
+def _scale(value: float | None, factor: float) -> float | None:
+    return value * factor if value is not None else None

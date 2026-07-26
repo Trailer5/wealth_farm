@@ -1,6 +1,9 @@
 PyMuPDF
 akshare
 baostock
+fastapi
+mootdx
 pikepdf
 pdfplumber
 requests
+uvicorn

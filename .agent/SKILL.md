@@ -17,7 +17,8 @@ Use this file to choose the smallest relevant project guidance. Do not read ever
 
 - `.agent/docs/development_rule.md`: code, tests, directories, docs, data, logs, references, temp files, or dependencies.
 - `.agent/docs/development_report_rule.md`: development plans, progress tracking, or development summaries.
-- `docs/短期开发计划-数据源与数据库.md`: A 股行情、基金数据、官方披露、研报、PDF、SQLite、provider、落库、相关测试。
+- `docs/modules/README.md`: 当前模块顺序和当前短期开发计划入口。
+- `docs/短期开发计划-daily_data跟踪集合与信息增量.md`: 自动跟踪集合、信息增量、关联、质量与发布边界。
 
 ## Quick Routing
 
@@ -25,8 +26,8 @@ Use this file to choose the smallest relevant project guidance. Do not read ever
 | --- | --- | --- |
 | Project layout or file placement | `.agent/docs/development_rule.md` | Ask if a new directory responsibility is ambiguous. |
 | Development progress or plan tracking | `.agent/docs/development_report_rule.md` | Also read the plan being updated. |
-| Data source or database work | `docs/短期开发计划-数据源与数据库.md` | Inspect `src/data_src/`, `src/data_store/`, `src/unit_tests/`. |
-| Unit tests or CI | `.agent/docs/development_rule.md` | Inspect `src/unit_tests/run_all_unit_tests.py` and `.github/workflows/`. |
+| Data source or database work | `docs/modules/README.md` and the owning module doc | Inspect `src/data_src/`, `src/data_store/`, and the owning module under `src/tests/`. |
+| Unit tests or CI | `.agent/docs/development_rule.md` | Inspect `src/tests/run_all_unit_tests.py`, `src/tests/<module>/`, and `.github/workflows/`. |
 | Agent rule changes | `.agent/SKILL.md` | Inspect `.agent/AGENT_README.md` and the owning `.agent/docs/` file. |
 
 ## Working Rules
@@ -38,11 +39,11 @@ Use this file to choose the smallest relevant project guidance. Do not read ever
 
 ## Common Development Request
 
-1. Read the relevant development plan, usually `docs/短期开发计划-数据源与数据库.md`.
+1. Read `docs/modules/README.md`, then the current relevant development plan.
 2. Pick the next incomplete checklist item or ask the user if multiple next steps have comparable priority.
 3. Implement the smallest useful slice.
-4. Add or update unit tests under `src/unit_tests/`.
-5. Run `python src/unit_tests/run_all_unit_tests.py` unless the change is docs-only.
+4. Add or update unit tests under `src/tests/<module>/unit_tests/`.
+5. Run `python src/tests/run_all_unit_tests.py` unless the change is docs-only.
 6. Use `.agent/docs/development_report_rule.md` for the final development progress checklist.
 
 ## Default Boundary

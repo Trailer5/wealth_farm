@@ -22,7 +22,6 @@ from src.data_src.models import (
     FundReportRecord,
     OCRQueueItem,
     ResearchReport,
-    SecurityInfo,
 )
 
 
@@ -46,16 +45,6 @@ class SQLiteDataStore:
                     version INTEGER PRIMARY KEY,
                     description TEXT NOT NULL,
                     applied_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-
-                CREATE TABLE IF NOT EXISTS securities (
-                    symbol TEXT PRIMARY KEY,
-                    name TEXT,
-                    security_type TEXT,
-                    exchange TEXT,
-                    source TEXT,
-                    raw_json TEXT,
-                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                 );
 
                 CREATE TABLE IF NOT EXISTS stock_daily_bars (
@@ -315,43 +304,6 @@ class SQLiteDataStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def upsert_securities(self, securities: Iterable[SecurityInfo]) -> int:
-        """Insert or update security and fund basic information."""
-
-        rows = [
-            {
-                "symbol": security.symbol,
-                "name": security.name,
-                "security_type": security.security_type,
-                "exchange": security.exchange,
-                "source": security.source,
-                "raw_json": json.dumps(security.raw, ensure_ascii=False, sort_keys=True),
-            }
-            for security in securities
-            if security.symbol
-        ]
-        if not rows:
-            return 0
-        with self._connect() as conn:
-            conn.executemany(
-                """
-                INSERT INTO securities (
-                    symbol, name, security_type, exchange, source, raw_json
-                ) VALUES (
-                    :symbol, :name, :security_type, :exchange, :source, :raw_json
-                )
-                ON CONFLICT(symbol) DO UPDATE SET
-                    name = excluded.name,
-                    security_type = excluded.security_type,
-                    exchange = excluded.exchange,
-                    source = excluded.source,
-                    raw_json = excluded.raw_json,
-                    updated_at = CURRENT_TIMESTAMP
-                """,
-                rows,
-            )
-        return len(rows)
-
     def upsert_fund_exchange_daily_bars(self, bars: Iterable[DailyBar]) -> int:
         """Insert or update exchange-traded fund daily bars."""
 
@@ -535,18 +487,6 @@ class SQLiteDataStore:
         """Read stock daily bars from SQLite."""
 
         return self._get_daily_bars("stock_daily_bars", symbol, start_date, end_date, source)
-
-    def get_security(self, symbol: str) -> dict[str, Any] | None:
-        """Read one security or fund basic information record."""
-
-        sql = """
-            SELECT symbol, name, security_type, exchange, source, raw_json
-            FROM securities
-            WHERE symbol = ?
-        """
-        with self._connect() as conn:
-            row = conn.execute(sql, [symbol]).fetchone()
-        return dict(row) if row else None
 
     def get_fund_exchange_daily_bars(
         self,

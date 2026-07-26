@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 
 class DataSourceError(RuntimeError):
@@ -18,6 +19,8 @@ def infer_a_share_exchange(symbol: str) -> str:
     """Infer A-share exchange prefix from a stock code."""
 
     code = normalize_a_share_code(symbol)
+    if code.startswith("92"):
+        return "bj"
     if code.startswith(("5", "6", "9")):
         return "sh"
     if code.startswith(("0", "1", "2", "3")):
@@ -120,6 +123,11 @@ def to_date_string(value: Any) -> str:
         return ""
     if len(text) >= 10 and text[4] == "-" and text[7] == "-":
         return text[:10]
+    if len(text) == 13 and text.isdigit():
+        return datetime.fromtimestamp(
+            int(text) / 1000,
+            tz=ZoneInfo("Asia/Shanghai"),
+        ).strftime("%Y-%m-%d")
     if len(text) == 8 and text.isdigit():
         return normalize_date_dash(text)
     return text

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
 from src.data_store import SQLiteDataStore
@@ -11,7 +11,10 @@ from src.data_src.akshare import AkShareDataSource
 from src.data_src.baostock import BaoStockDataSource
 from src.data_src.bse import BseDisclosureDataSource
 from src.data_src.cninfo import CninfoDataSource
-from src.data_src.common import normalize_a_share_code, to_akshare_symbol
+from src.data_src.common import (
+    normalize_a_share_code,
+    to_akshare_symbol,
+)
 from src.data_src.csrc import CsrcPublicInfoDataSource
 from src.data_src.cs_fund import CsFundDisclosureDataSource
 from src.data_src.eastmoney import EastmoneyExchangeFundDataSource, EastmoneyResearchReportDataSource
@@ -33,10 +36,12 @@ from src.data_src.models import (
     ResearchReport,
     SecurityInfo,
 )
+from src.data_src.mootdx import MootdxDataSource
 from src.data_src.sina import SinaExchangeFundDataSource
 from src.data_src.sse import SseDisclosureDataSource
 from src.data_src.szse import SzseDisclosureDataSource
 from src.data_src.tencent import TencentExchangeFundDataSource
+from src.data_src.process_executor import run_provider_task
 from src.document_processing import (
     FinancialFieldExtractor,
     PaddleOCRTextExtractor,
@@ -44,6 +49,7 @@ from src.document_processing import (
     PDFTextExtractor,
     TesseractOCRTextExtractor,
 )
+from src.master_data import MasterDataService, SQLiteMasterDataRepository
 
 
 DEFAULT_EXCHANGE_FUND_SPOT_SOURCES = ["eastmoney", "tencent", "sina", "akshare"]
@@ -82,8 +88,11 @@ class DataFetchService:
         pdf_table_extractor: PDFTableExtractor | None = None,
         financial_field_extractor: FinancialFieldExtractor | None = None,
         ocr_extractors: dict[str, object] | None = None,
+        master_data_service: MasterDataService | None = None,
+        mootdx_source: MootdxDataSource | None = None,
     ) -> None:
         self.store = store
+        self._master_data = master_data_service
         self.akshare = akshare_source or AkShareDataSource()
         self.baostock = baostock_source or BaoStockDataSource()
         self.bse = bse_source or BseDisclosureDataSource()
@@ -97,6 +106,7 @@ class DataFetchService:
         self.sina = sina_source or SinaExchangeFundDataSource()
         self.sse = sse_source or SseDisclosureDataSource()
         self.szse = szse_source or SzseDisclosureDataSource()
+        self.mootdx = mootdx_source or MootdxDataSource()
         self.pdf_text_extractor = pdf_text_extractor or PDFTextExtractor()
         self.pdf_table_extractor = pdf_table_extractor or PDFTableExtractor()
         self.financial_field_extractor = financial_field_extractor or FinancialFieldExtractor()
@@ -109,6 +119,16 @@ class DataFetchService:
         """Initialize local storage required by the service."""
 
         self.store.initialize()
+
+    @property
+    def master_data(self) -> MasterDataService:
+        """Initialize master data persistence only when identity data is needed."""
+
+        if self._master_data is None:
+            self._master_data = MasterDataService(
+                SQLiteMasterDataRepository(self.store.db_path)
+            )
+        return self._master_data
 
     def fetch_a_share_daily_bars(
         self,
@@ -123,7 +143,45 @@ class DataFetchService:
             return self.baostock.get_a_share_daily_bars(symbol, start_date, end_date)
         if source == "akshare":
             return self.akshare.get_a_share_daily_bars(symbol, start_date, end_date)
+        if source == "mootdx":
+            return self.mootdx.get_a_share_daily_bars(symbol, start_date, end_date)
+        if source == "tencent":
+            return self.tencent.get_a_share_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+            )
+        if source == "sina":
+            return self.sina.get_a_share_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+            )
         raise ValueError(f"Unsupported A-share daily bar source: {source}")
+
+    def fetch_trade_calendar(
+        self,
+        start_date: str,
+        end_date: str,
+        source: str = "baostock",
+        timeout_seconds: float | None = None,
+    ) -> list[dict[str, object]]:
+        """Fetch exchange trading calendar records."""
+
+        if timeout_seconds is not None:
+            return run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_trade_calendar",
+                {
+                    "source": source,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                },
+                timeout_seconds=timeout_seconds,
+            )
+        if source == "baostock":
+            return self.baostock.get_trade_dates(start_date, end_date)
+        raise ValueError(f"Unsupported trade calendar source: {source}")
 
     def fetch_and_store_a_share_daily_bars(
         self,
@@ -131,11 +189,35 @@ class DataFetchService:
         start_date: str,
         end_date: str,
         source: str = "baostock",
+        timeout_seconds: float | None = None,
     ) -> FetchResult:
         """Fetch A-share daily bars and persist them to SQLite."""
 
         self.initialize()
-        bars = self.fetch_a_share_daily_bars(symbol, start_date, end_date, source)
+        fetched_bars = (
+            run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_a_share_daily_bars",
+                {
+                    "source": source,
+                    "symbol": symbol,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                },
+                timeout_seconds=timeout_seconds,
+            )
+            if timeout_seconds is not None
+            else self.fetch_a_share_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+                source,
+            )
+        )
+        bars = [
+            replace(bar, symbol=normalize_a_share_code(bar.symbol))
+            for bar in fetched_bars
+        ]
         stored_count = self.store.upsert_stock_daily_bars(bars)
         return FetchResult(
             symbol=normalize_a_share_code(symbol),
@@ -178,6 +260,22 @@ class DataFetchService:
 
         if source == "akshare":
             return self.akshare.get_etf_daily_bars(symbol, start_date, end_date)
+        if source == "baostock":
+            return self.baostock.get_a_share_daily_bars(symbol, start_date, end_date)
+        if source == "mootdx":
+            return self.mootdx.get_etf_daily_bars(symbol, start_date, end_date)
+        if source == "tencent":
+            return self.tencent.get_etf_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+            )
+        if source == "sina":
+            return self.sina.get_etf_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+            )
         raise ValueError(f"Unsupported ETF daily bar source: {source}")
 
     def fetch_exchange_fund_spot(
@@ -316,11 +414,35 @@ class DataFetchService:
         start_date: str,
         end_date: str,
         source: str = "akshare",
+        timeout_seconds: float | None = None,
     ) -> FetchResult:
         """Fetch exchange-traded fund daily bars and persist them to SQLite."""
 
         self.initialize()
-        bars = self.fetch_etf_daily_bars(symbol, start_date, end_date, source)
+        fetched_bars = (
+            run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_etf_daily_bars",
+                {
+                    "source": source,
+                    "symbol": symbol,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                },
+                timeout_seconds=timeout_seconds,
+            )
+            if timeout_seconds is not None
+            else self.fetch_etf_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+                source,
+            )
+        )
+        bars = [
+            replace(bar, symbol=normalize_a_share_code(bar.symbol))
+            for bar in fetched_bars
+        ]
         stored_count = self.store.upsert_fund_exchange_daily_bars(bars)
         return FetchResult(
             symbol=to_akshare_symbol(symbol),
@@ -333,9 +455,20 @@ class DataFetchService:
         self,
         symbol: str,
         source: str = "akshare",
+        timeout_seconds: float | None = None,
     ) -> list[FundNav]:
         """Fetch normalized open-end fund NAV history."""
 
+        if timeout_seconds is not None:
+            return run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_open_fund_nav_history",
+                {
+                    "source": source,
+                    "symbol": symbol,
+                },
+                timeout_seconds=timeout_seconds,
+            )
         if source == "akshare":
             return self.akshare.get_open_fund_nav_history_records(symbol)
         raise ValueError(f"Unsupported open fund NAV source: {source}")
@@ -344,11 +477,16 @@ class DataFetchService:
         self,
         symbol: str,
         source: str = "akshare",
+        timeout_seconds: float | None = None,
     ) -> FetchResult:
         """Fetch open-end fund NAV history and persist it to SQLite."""
 
         self.initialize()
-        navs = self.fetch_open_fund_nav_history(symbol, source)
+        navs = self.fetch_open_fund_nav_history(
+            symbol,
+            source,
+            timeout_seconds=timeout_seconds,
+        )
         stored_count = self.store.upsert_fund_nav_daily(navs)
         return FetchResult(
             symbol=to_akshare_symbol(symbol),
@@ -377,12 +515,15 @@ class DataFetchService:
 
         self.initialize()
         securities = self.fetch_stock_basic_info(symbol, source)
-        stored_count = self.store.upsert_securities(securities)
+        resolutions = [
+            self.master_data.ingest_security_info(security)
+            for security in securities
+        ]
         return FetchResult(
             symbol=normalize_a_share_code(symbol) if symbol else "ALL",
             source=source,
             fetched_count=len(securities),
-            stored_count=stored_count,
+            stored_count=len(resolutions),
         )
 
     def fetch_fund_basic_info(self, source: str = "akshare") -> list[SecurityInfo]:
@@ -397,12 +538,15 @@ class DataFetchService:
 
         self.initialize()
         securities = self.fetch_fund_basic_info(source)
-        stored_count = self.store.upsert_securities(securities)
+        resolutions = [
+            self.master_data.ingest_security_info(security)
+            for security in securities
+        ]
         return FetchResult(
             symbol="ALL",
             source=source,
             fetched_count=len(securities),
-            stored_count=stored_count,
+            stored_count=len(resolutions),
         )
 
     def fetch_fund_value_estimates(self, source: str = "akshare") -> list[FundEstimate]:
