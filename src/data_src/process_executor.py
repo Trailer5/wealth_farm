@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import multiprocessing as mp
 import queue
+import time
 import traceback
 from typing import Any
 
@@ -51,32 +52,56 @@ def run_provider_task(
         ),
     )
     process.start()
-    process.join(timeout_seconds)
+    deadline = time.monotonic() + timeout_seconds
+    payload = None
+    while payload is None:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            _terminate_process(process)
+            result_queue.close()
+            raise ProviderProcessTimeoutError(
+                f"{module_name}.{function_name} exceeded "
+                f"{timeout_seconds:g} seconds"
+            )
+        try:
+            # Drain the queue before joining. Large provider results can
+            # otherwise fill the pipe and prevent the child from exiting.
+            payload = result_queue.get(
+                timeout=min(0.1, remaining)
+            )
+        except queue.Empty as exc:
+            if process.exitcode is not None:
+                process.join()
+                try:
+                    payload = result_queue.get(timeout=0.2)
+                except queue.Empty:
+                    result_queue.close()
+                    raise ProviderProcessError(
+                        f"{module_name}.{function_name} exited "
+                        f"without a result; "
+                        f"exit_code={process.exitcode}"
+                    ) from exc
+    process.join(3)
     if process.is_alive():
-        process.terminate()
-        process.join(3)
-        if process.is_alive():
-            process.kill()
-            process.join(3)
-        result_queue.close()
-        raise ProviderProcessTimeoutError(
-            f"{module_name}.{function_name} exceeded {timeout_seconds:g} seconds"
-        )
-    try:
-        payload = result_queue.get(timeout=1)
-    except queue.Empty as exc:
-        raise ProviderProcessError(
-            f"{module_name}.{function_name} exited without a result; "
-            f"exit_code={process.exitcode}"
-        ) from exc
-    finally:
-        result_queue.close()
+        _terminate_process(process)
+    result_queue.close()
     if payload["ok"]:
         return payload["value"]
     raise ProviderProcessError(
         f"{payload['error_type']}: {payload['error']}",
         remote_traceback=payload["traceback"],
     )
+
+
+def _terminate_process(process: Any) -> None:
+    if not process.is_alive():
+        process.join()
+        return
+    process.terminate()
+    process.join(3)
+    if process.is_alive():
+        process.kill()
+        process.join(3)
 
 
 def _provider_worker(

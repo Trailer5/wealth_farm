@@ -51,11 +51,28 @@ class TencentExchangeFundDataSource:
 
         return self._get_daily_bars(symbol, start_date, end_date)
 
+    def get_index_daily_bars(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+        exchange: str,
+    ) -> list[DailyBar]:
+        """Fetch mainland index daily bars with explicit exchange."""
+
+        return self._get_daily_bars(
+            symbol,
+            start_date,
+            end_date,
+            exchange=exchange,
+        )
+
     def _get_daily_bars(
         self,
         symbol: str,
         start_date: str,
         end_date: str,
+        exchange: str | None = None,
     ) -> list[DailyBar]:
         code = normalize_a_share_code(symbol)
         start = _parse_date(start_date)
@@ -67,7 +84,11 @@ class TencentExchangeFundDataSource:
             raise ValueError(
                 "Tencent baseline provider supports up to 640 daily bars"
             )
-        exchange_symbol = to_exchange_symbol(code)
+        exchange_symbol = (
+            f"{exchange.lower()}{code}"
+            if exchange is not None
+            else to_exchange_symbol(code)
+        )
         payload = self.http.get_json(
             self.KLINE_URL,
             params={

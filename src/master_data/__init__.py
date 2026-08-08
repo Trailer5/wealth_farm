@@ -2,6 +2,7 @@
 
 from .models import (
     ASSET_TYPE_EXCHANGE_FUND,
+    ASSET_TYPE_INDEX,
     ASSET_TYPE_OPEN_FUND,
     ASSET_TYPE_STOCK,
     ASSET_TYPE_UNKNOWN,
@@ -25,6 +26,7 @@ from .sqlite_repository import IdentityMappingConflictError, SQLiteMasterDataRep
 
 __all__ = [
     "ASSET_TYPE_EXCHANGE_FUND",
+    "ASSET_TYPE_INDEX",
     "ASSET_TYPE_OPEN_FUND",
     "ASSET_TYPE_STOCK",
     "ASSET_TYPE_UNKNOWN",

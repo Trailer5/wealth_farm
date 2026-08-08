@@ -1,0 +1,1 @@
+"""Security discovery smoke tests."""

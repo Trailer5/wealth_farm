@@ -35,6 +35,29 @@ class SecurityInfo:
 
 
 @dataclass(frozen=True)
+class IndexConstituent:
+    """One constituent in a dated index snapshot."""
+
+    index_symbol: str
+    index_name: str
+    constituent_symbol: str
+    constituent_name: str
+    exchange: str
+    effective_date: str
+    source: str
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class StockIndustryInfo:
+    symbol: str
+    name: str
+    industry_name: str
+    source: str
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class DataSourceStatus:
     """Data source availability and field completeness status."""
 

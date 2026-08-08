@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -103,9 +104,10 @@ def to_optional_float(value: Any) -> float | None:
             return None
         value = stripped.replace(",", "")
     try:
-        return float(value)
+        result = float(value)
     except (TypeError, ValueError):
         return None
+    return result if math.isfinite(result) else None
 
 
 def to_date_string(value: Any) -> str:

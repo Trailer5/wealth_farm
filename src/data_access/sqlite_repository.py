@@ -11,6 +11,7 @@ from src.master_data import Asset
 
 from .models import (
     DATASET_EXCHANGE_FUND_DAILY_BARS,
+    DATASET_INDEX_DAILY_BARS,
     DATASET_STOCK_DAILY_BARS,
     DataCoverage,
 )
@@ -321,6 +322,12 @@ class SQLiteDataAccessRepository:
             return self.get_stock_daily_bars(asset, start_date, end_date)
         if dataset == DATASET_EXCHANGE_FUND_DAILY_BARS:
             return self.store.get_fund_exchange_daily_bars(
+                asset.standard_symbol,
+                start_date=start_date,
+                end_date=end_date,
+            )
+        if dataset == DATASET_INDEX_DAILY_BARS:
+            return self.store.get_index_daily_bars(
                 asset.standard_symbol,
                 start_date=start_date,
                 end_date=end_date,

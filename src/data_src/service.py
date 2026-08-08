@@ -17,7 +17,11 @@ from src.data_src.common import (
 )
 from src.data_src.csrc import CsrcPublicInfoDataSource
 from src.data_src.cs_fund import CsFundDisclosureDataSource
-from src.data_src.eastmoney import EastmoneyExchangeFundDataSource, EastmoneyResearchReportDataSource
+from src.data_src.eastmoney import (
+    EastmoneyExchangeFundDataSource,
+    EastmoneyResearchReportDataSource,
+    EastmoneyStockIndustryDataSource,
+)
 from src.data_src.fund_company import FundCompanyDisclosureDataSource
 from src.data_src.models import (
     DailyBar,
@@ -79,6 +83,7 @@ class DataFetchService:
         cs_fund_source: CsFundDisclosureDataSource | None = None,
         eastmoney_source: EastmoneyExchangeFundDataSource | None = None,
         eastmoney_research_source: EastmoneyResearchReportDataSource | None = None,
+        eastmoney_industry_source: EastmoneyStockIndustryDataSource | None = None,
         fund_company_source: FundCompanyDisclosureDataSource | None = None,
         tencent_source: TencentExchangeFundDataSource | None = None,
         sina_source: SinaExchangeFundDataSource | None = None,
@@ -101,6 +106,10 @@ class DataFetchService:
         self.cs_fund = cs_fund_source or CsFundDisclosureDataSource()
         self.eastmoney = eastmoney_source or EastmoneyExchangeFundDataSource()
         self.eastmoney_research = eastmoney_research_source or EastmoneyResearchReportDataSource()
+        self.eastmoney_industry = (
+            eastmoney_industry_source
+            or EastmoneyStockIndustryDataSource()
+        )
         self.fund_company = fund_company_source or FundCompanyDisclosureDataSource()
         self.tencent = tencent_source or TencentExchangeFundDataSource()
         self.sina = sina_source or SinaExchangeFundDataSource()
@@ -451,6 +460,122 @@ class DataFetchService:
             stored_count=stored_count,
         )
 
+    def fetch_index_daily_bars(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+        exchange: str,
+        source: str = "akshare",
+        timeout_seconds: float | None = None,
+    ) -> list[DailyBar]:
+        """Fetch normalized mainland index daily bars."""
+
+        if timeout_seconds is not None:
+            return run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_index_daily_bars",
+                {
+                    "source": source,
+                    "symbol": symbol,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "exchange": exchange,
+                },
+                timeout_seconds=timeout_seconds,
+            )
+        if source == "tencent":
+            return self.tencent.get_index_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+                exchange,
+            )
+        if source == "sina":
+            return self.sina.get_index_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+                exchange,
+            )
+        if source == "akshare":
+            return self.akshare.get_index_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+            )
+        raise ValueError(f"Unsupported index daily source: {source}")
+
+    def fetch_and_store_index_daily_bars(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+        exchange: str,
+        source: str = "akshare",
+        timeout_seconds: float | None = None,
+    ) -> FetchResult:
+        """Fetch index daily bars and persist them to SQLite."""
+
+        self.initialize()
+        bars = self.fetch_index_daily_bars(
+            symbol,
+            start_date,
+            end_date,
+            exchange,
+            source=source,
+            timeout_seconds=timeout_seconds,
+        )
+        stored_count = self.store.upsert_index_daily_bars(bars)
+        return FetchResult(
+            symbol=normalize_a_share_code(symbol),
+            source=source,
+            fetched_count=len(bars),
+            stored_count=stored_count,
+        )
+
+    def fetch_index_constituents(
+        self,
+        symbol: str,
+        source: str = "akshare",
+        timeout_seconds: float | None = None,
+    ):
+        """Fetch one current index constituent snapshot."""
+
+        if timeout_seconds is not None:
+            return run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_index_constituents",
+                {
+                    "source": source,
+                    "symbol": symbol,
+                },
+                timeout_seconds=timeout_seconds,
+            )
+        if source == "akshare":
+            return self.akshare.get_index_constituents(symbol)
+        raise ValueError(
+            f"Unsupported index constituent source: {source}"
+        )
+
+    def fetch_gold_spot_history(
+        self,
+    ) -> list[dict[str, object]]:
+        return self.akshare.get_gold_spot_history()
+
+    def fetch_copper_continuous_history(
+        self,
+    ) -> list[dict[str, object]]:
+        return self.akshare.get_copper_continuous_history()
+
+    def fetch_stock_industries(
+        self,
+        symbols: list[str],
+    ):
+        return self.eastmoney_industry.get_stock_industries(
+            symbols
+        )
+
     def fetch_open_fund_nav_history(
         self,
         symbol: str,
@@ -549,9 +674,20 @@ class DataFetchService:
             stored_count=len(resolutions),
         )
 
-    def fetch_fund_value_estimates(self, source: str = "akshare") -> list[FundEstimate]:
+    def fetch_fund_value_estimates(
+        self,
+        source: str = "akshare",
+        timeout_seconds: float | None = None,
+    ) -> list[FundEstimate]:
         """Fetch platform-estimated fund values."""
 
+        if timeout_seconds is not None:
+            return run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_fund_estimates",
+                {"source": source},
+                timeout_seconds=timeout_seconds,
+            )
         if source == "akshare":
             return self.akshare.get_fund_value_estimates()
         raise ValueError(f"Unsupported fund estimate source: {source}")
@@ -569,9 +705,20 @@ class DataFetchService:
             stored_count=stored_count,
         )
 
-    def fetch_fund_purchase_status(self, source: str = "akshare") -> list[FundPurchaseStatus]:
+    def fetch_fund_purchase_status(
+        self,
+        source: str = "akshare",
+        timeout_seconds: float | None = None,
+    ) -> list[FundPurchaseStatus]:
         """Fetch fund purchase and redemption statuses."""
 
+        if timeout_seconds is not None:
+            return run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_fund_purchase_status",
+                {"source": source},
+                timeout_seconds=timeout_seconds,
+            )
         if source == "akshare":
             return self.akshare.get_fund_purchase_status_records()
         raise ValueError(f"Unsupported fund purchase status source: {source}")
@@ -589,9 +736,24 @@ class DataFetchService:
             stored_count=stored_count,
         )
 
-    def fetch_fund_scale_records(self, fund_type: str = "股票型基金", source: str = "akshare") -> list[FundReportRecord]:
+    def fetch_fund_scale_records(
+        self,
+        fund_type: str = "股票型基金",
+        source: str = "akshare",
+        timeout_seconds: float | None = None,
+    ) -> list[FundReportRecord]:
         """Fetch open-end fund scale records."""
 
+        if timeout_seconds is not None:
+            return run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_fund_scale",
+                {
+                    "source": source,
+                    "fund_type": fund_type,
+                },
+                timeout_seconds=timeout_seconds,
+            )
         if source == "akshare":
             return self.akshare.get_fund_scale_records(fund_type)
         raise ValueError(f"Unsupported fund scale source: {source}")
@@ -646,6 +808,33 @@ class DataFetchService:
             return self.akshare.get_fund_industry_allocation(symbol, year)
         raise ValueError(f"Unsupported fund portfolio report type: {report_type}")
 
+    def fetch_fund_allocation_records(
+        self,
+        symbol: str,
+        year: str,
+        source: str = "akshare",
+        timeout_seconds: float | None = None,
+    ) -> list[FundReportRecord]:
+        """Fetch normalized fund industry allocation records."""
+
+        if timeout_seconds is not None:
+            return run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_fund_allocation",
+                {
+                    "source": source,
+                    "symbol": symbol,
+                    "year": year,
+                },
+                timeout_seconds=timeout_seconds,
+            )
+        return self.fetch_fund_portfolio_records(
+            symbol,
+            year,
+            "industry_allocation",
+            source,
+        )
+
     def fetch_disclosure_documents(
         self,
         symbol: str,
@@ -663,6 +852,41 @@ class DataFetchService:
             category=category,
             search_key=search_key,
         )
+
+    def fetch_disclosure_documents_by_source(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+        source: str,
+        timeout_seconds: float | None = None,
+    ) -> list[DisclosureDocument]:
+        """Fetch one symbol's disclosure metadata from one source."""
+
+        if timeout_seconds is not None:
+            return run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_disclosure_documents",
+                {
+                    "source": source,
+                    "symbol": symbol,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                },
+                timeout_seconds=timeout_seconds,
+            )
+        methods = {
+            "cninfo": self.fetch_disclosure_documents,
+            "sse": self.fetch_sse_disclosure_documents,
+            "szse": self.fetch_szse_disclosure_documents,
+            "bse": self.fetch_bse_disclosure_documents,
+        }
+        method = methods.get(source)
+        if method is None:
+            raise ValueError(
+                f"Unsupported disclosure source: {source}"
+            )
+        return method(symbol, start_date, end_date)
 
     def fetch_and_store_disclosure_documents(
         self,
@@ -695,6 +919,54 @@ class DataFetchService:
 
         category = _cninfo_report_category(report_type)
         return self.fetch_disclosure_documents(symbol, start_date, end_date, category=category)
+
+    def fetch_stock_financial_records(
+        self,
+        symbol: str,
+        dataset: str,
+        source: str = "akshare",
+        timeout_seconds: float | None = None,
+    ) -> list[dict[str, object]]:
+        """Fetch one raw A-share financial dataset."""
+
+        if source != "akshare":
+            raise ValueError(
+                f"Unsupported stock financial source: {source}"
+            )
+        if timeout_seconds is not None:
+            return run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_stock_financial_records",
+                {
+                    "source": source,
+                    "symbol": symbol,
+                    "dataset": dataset,
+                },
+                timeout_seconds=timeout_seconds,
+            )
+        methods = {
+            "stock_income_statements": (
+                self.akshare.get_stock_profit_sheet
+            ),
+            "stock_balance_sheets": (
+                self.akshare.get_stock_balance_sheet
+            ),
+            "stock_cash_flow_statements": (
+                self.akshare.get_stock_cash_flow_sheet
+            ),
+            "stock_financial_indicators": (
+                self.akshare.get_stock_financial_indicators
+            ),
+        }
+        method = methods.get(dataset)
+        if method is None:
+            raise ValueError(
+                f"Unsupported stock financial dataset: {dataset}"
+            )
+        return [
+            dict(record)
+            for record in method(symbol)
+        ]
 
     def fetch_sse_disclosure_documents(
         self,
@@ -1068,9 +1340,22 @@ class DataFetchService:
         start_date: str,
         end_date: str,
         source: str = "eastmoney",
+        timeout_seconds: float | None = None,
     ) -> list[ResearchReport]:
         """Fetch third-party stock research report metadata."""
 
+        if timeout_seconds is not None:
+            return run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_stock_research_reports",
+                {
+                    "source": source,
+                    "symbol": symbol,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                },
+                timeout_seconds=timeout_seconds,
+            )
         if source == "eastmoney":
             return self.eastmoney_research.search_stock_reports(symbol, start_date, end_date)
         raise ValueError(f"Unsupported research report source: {source}")

@@ -11,6 +11,7 @@ from src.data_src.models import SecurityInfo
 
 from .models import (
     ASSET_TYPE_EXCHANGE_FUND,
+    ASSET_TYPE_INDEX,
     ASSET_TYPE_OPEN_FUND,
     ASSET_TYPE_STOCK,
     ASSET_TYPE_UNKNOWN,
@@ -304,7 +305,9 @@ def normalize_asset_type(asset_type_hint: str | None) -> str:
         return ASSET_TYPE_STOCK
     if "etf" in value or "lof" in value or "封闭" in value or "封基" in value:
         return ASSET_TYPE_EXCHANGE_FUND
-    if "基金" in value or "混合" in value or "债券" in value or "指数" in value:
+    if value in {"index", "指数"}:
+        return ASSET_TYPE_INDEX
+    if "基金" in value or "混合" in value or "债券" in value:
         return ASSET_TYPE_OPEN_FUND
     return ASSET_TYPE_UNKNOWN
 

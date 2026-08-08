@@ -9,6 +9,7 @@ from src.data_src.common import (
     normalize_date_compact,
     normalize_date_dash,
     to_date_string,
+    to_optional_float,
     to_akshare_market_symbol,
     to_akshare_symbol,
     to_baostock_symbol,
@@ -78,6 +79,49 @@ class FakeAkShare:
             ]
         )
 
+    def index_zh_a_hist(self, **kwargs):
+        if kwargs["symbol"] != "000300":
+            raise AssertionError("index symbol should be normalized")
+        return FakeFrame(
+            [
+                {
+                    "日期": "2026-01-05",
+                    "开盘": "4000",
+                    "最高": "4050",
+                    "最低": "3980",
+                    "收盘": "4020",
+                    "成交量": "2000",
+                    "成交额": "8000000",
+                }
+            ]
+        )
+
+    def index_stock_cons_csindex(self, **kwargs):
+        if kwargs["symbol"] != "000300":
+            raise AssertionError("index symbol should be normalized")
+        return FakeFrame(
+            [
+                {
+                    "日期": "2026-07-31",
+                    "指数代码": "000300",
+                    "指数名称": "沪深300",
+                    "成分券代码": "000001",
+                    "成分券名称": "平安银行",
+                    "交易所": "深圳证券交易所",
+                }
+            ]
+        )
+
+    def spot_hist_sge(self, **kwargs):
+        return FakeFrame(
+            [{"date": "2026-07-24", "close": "880"}]
+        )
+
+    def futures_zh_daily_sina(self, **kwargs):
+        return FakeFrame(
+            [{"date": "2026-07-24", "close": "80000"}]
+        )
+
     def fund_open_fund_daily_em(self):
         return FakeFrame([{"基金代码": "000001", "基金简称": "测试基金", "单位净值": "1.0"}])
 
@@ -141,6 +185,102 @@ class FakeAkShare:
 
     def stock_board_concept_cons_em(self, **kwargs):
         return FakeFrame([{"板块名称": kwargs["symbol"], "代码": "000001"}])
+
+    def stock_margin_detail_sse(self, **kwargs):
+        return FakeFrame(
+            [
+                {
+                    "信用交易日期": kwargs["date"],
+                    "标的证券代码": "600519",
+                    "融资余额": "1000",
+                    "融资买入额": "100",
+                    "融资偿还额": "80",
+                    "融券余量": "20",
+                    "融券卖出量": "3",
+                    "融券偿还量": "2",
+                }
+            ]
+        )
+
+    def stock_margin_detail_szse(self, **kwargs):
+        return FakeFrame(
+            [
+                {
+                    "交易日期": kwargs["date"],
+                    "证券代码": "1",
+                    "融资余额": "2000",
+                    "融资买入额": "200",
+                    "融券余额": "10",
+                    "融券余量": "5",
+                    "融券卖出量": "1",
+                    "融资融券余额": "2010",
+                }
+            ]
+        )
+
+    def fund_etf_scale_sse(self, **kwargs):
+        return FakeFrame(
+            [
+                {
+                    "基金代码": "510300",
+                    "统计日期": "2026-08-07",
+                    "基金份额": "1000000",
+                }
+            ]
+        )
+
+    def fund_scale_daily_szse(self, **kwargs):
+        return FakeFrame(
+            [
+                {
+                    "基金代码": "159915",
+                    "日期": "2026-08-07",
+                    "基金份额": "2000000",
+                }
+            ]
+        )
+
+    def fund_etf_fund_daily_em(self):
+        return FakeFrame(
+            [
+                {
+                    "基金代码": "510300",
+                    "2026-08-07-单位净值": "4.2",
+                    "2026-08-06-单位净值": "4.1",
+                }
+            ]
+        )
+
+    def stock_lhb_detail_em(self, **kwargs):
+        return FakeFrame(
+            [
+                {
+                    "代码": "600519",
+                    "上榜日": "2026-08-07",
+                    "龙虎榜净买额": "100",
+                    "市场总成交额": "1000",
+                    "流通市值": "10000",
+                    "上榜原因": "日涨幅偏离",
+                }
+            ]
+        )
+
+    def stock_dzjy_mrmx(self, **kwargs):
+        return FakeFrame(
+            [
+                {
+                    "交易日期": "2026-08-07",
+                    "证券代码": "000001",
+                    "收盘价": "10",
+                    "成交价": "9",
+                    "成交额": "100",
+                    "成交额/流通市值": "1",
+                    "折溢率": "-10",
+                    "买方营业部": "机构专用",
+                    "卖方营业部": "测试营业部",
+                }
+            ]
+        )
 
     def macro_china_gdp(self):
         return FakeFrame([{"季度": "2026Q1", "国内生产总值": "1"}])
@@ -240,6 +380,7 @@ class DataSourceCommonTest(unittest.TestCase):
                 raise ValueError("NaTType does not support strftime")
 
         self.assertEqual(to_date_string(FakeNaT()), "")
+        self.assertIsNone(to_optional_float(float("nan")))
 
 
 class ProviderAdapterTest(unittest.TestCase):
@@ -252,6 +393,37 @@ class ProviderAdapterTest(unittest.TestCase):
         self.assertEqual(bars[0].symbol, "000001")
         self.assertEqual(bars[0].close, 10.3)
         self.assertEqual(bars[0].amount, 1234567.8)
+        index_bars = AkShareDataSource(
+            FakeAkShare()
+        ).get_index_daily_bars(
+            "000300",
+            "2026-01-01",
+            "2026-01-31",
+        )
+        self.assertEqual(index_bars[0].close, 4020.0)
+        self.assertEqual(
+            index_bars[0].source,
+            "akshare:index_zh_a_hist",
+        )
+        constituents = AkShareDataSource(
+            FakeAkShare()
+        ).get_index_constituents("000300.CSI")
+        self.assertEqual(len(constituents), 1)
+        self.assertEqual(
+            constituents[0].constituent_symbol,
+            "000001",
+        )
+        self.assertEqual(constituents[0].exchange, "sz")
+        self.assertEqual(
+            constituents[0].effective_date,
+            "2026-07-31",
+        )
+        self.assertEqual(
+            AkShareDataSource(
+                FakeAkShare()
+            ).get_gold_spot_history()[0]["benchmark_symbol"],
+            "Au99.99",
+        )
 
     def test_akshare_market_and_fund_methods_return_records(self):
         provider = AkShareDataSource(FakeAkShare())
@@ -289,6 +461,47 @@ class ProviderAdapterTest(unittest.TestCase):
         self.assertEqual(provider.get_concept_board_names()[0]["板块名称"], "中特估")
         self.assertEqual(provider.get_concept_board_constituents("中特估")[0]["代码"], "000001")
         self.assertEqual(provider.call_api("macro_china_gdp")[0]["季度"], "2026Q1")
+
+    def test_akshare_a_share_signal_methods_normalize_records(self):
+        provider = AkShareDataSource(FakeAkShare())
+        margin = provider.get_stock_margin_details(
+            exchange="sh",
+            trade_date="2026-08-07",
+        )[0]
+        sz_margin = provider.get_stock_margin_details(
+            exchange="sz",
+            trade_date="2026-08-07",
+        )[0]
+        sh_share = provider.get_exchange_fund_share_records(
+            exchange="sh",
+            start_date="2026-08-07",
+            end_date="2026-08-07",
+        )[0]
+        sz_share = provider.get_exchange_fund_share_records(
+            exchange="sz",
+            start_date="2026-08-07",
+            end_date="2026-08-07",
+        )[0]
+        nav_records = provider.get_exchange_fund_nav_records()
+        lhb = provider.get_lhb_activity_records(
+            start_date="2026-08-07",
+            end_date="2026-08-07",
+        )[0]
+        block = provider.get_block_trade_activity_records(
+            start_date="2026-08-07",
+            end_date="2026-08-07",
+        )[0]
+
+        self.assertEqual(margin["margin_repay_amount"], 80.0)
+        self.assertEqual(sz_margin["symbol"], "000001")
+        self.assertEqual(sh_share["shares"], "1000000")
+        self.assertEqual(sz_share["symbol"], "159915")
+        self.assertEqual(len(nav_records), 2)
+        self.assertEqual(nav_records[0]["symbol"], "510300")
+        self.assertEqual(lhb["net_buy_amount"], 100.0)
+        self.assertFalse(lhb["metadata"]["identity_inference"])
+        self.assertEqual(block["float_market_cap"], 10000.0)
+        self.assertFalse(block["metadata"]["identity_inference"])
 
     def test_baostock_daily_bars_are_normalized(self):
         fake = FakeBaoStock()

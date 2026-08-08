@@ -14,7 +14,15 @@ from ..common import (
     to_date_string,
     to_optional_float,
 )
-from ..models import DailyBar, FundEstimate, FundNav, FundPurchaseStatus, FundReportRecord, SecurityInfo
+from ..models import (
+    DailyBar,
+    FundEstimate,
+    FundNav,
+    FundPurchaseStatus,
+    FundReportRecord,
+    IndexConstituent,
+    SecurityInfo,
+)
 
 
 class AkShareDataSource:
@@ -139,6 +147,106 @@ class AkShareDataSource:
         return [
             self._daily_bar_from_record(record, normalized_symbol, source=f"{self.source}:fund_etf_hist_em")
             for record in dataframe_to_records(frame)
+        ]
+
+    def get_index_daily_bars(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+        period: str = "daily",
+    ) -> list[DailyBar]:
+        """Fetch mainland index historical bars."""
+
+        normalized_symbol = to_akshare_symbol(symbol)
+        frame = self._call_dataframe(
+            "index_zh_a_hist",
+            symbol=normalized_symbol,
+            period=period,
+            start_date=normalize_date_compact(start_date),
+            end_date=normalize_date_compact(end_date),
+        )
+        return [
+            self._daily_bar_from_record(
+                record,
+                normalized_symbol,
+                source=f"{self.source}:index_zh_a_hist",
+            )
+            for record in dataframe_to_records(frame)
+        ]
+
+    def get_index_constituents(
+        self,
+        symbol: str,
+    ) -> list[IndexConstituent]:
+        """Fetch a current CSIndex constituent snapshot."""
+
+        normalized_symbol = _to_akshare_index_symbol(symbol)
+        frame = self._call_dataframe(
+            "index_stock_cons_csindex",
+            symbol=normalized_symbol,
+        )
+        records = dataframe_to_records(frame)
+        return [
+            IndexConstituent(
+                index_symbol=str(
+                    record.get("指数代码")
+                    or normalized_symbol
+                ),
+                index_name=str(record.get("指数名称") or ""),
+                constituent_symbol=to_akshare_symbol(
+                    str(record.get("成分券代码") or "")
+                ),
+                constituent_name=str(
+                    record.get("成分券名称") or ""
+                ),
+                exchange=_constituent_exchange(
+                    str(record.get("交易所") or "")
+                ),
+                effective_date=to_date_string(
+                    record.get("日期")
+                ),
+                source=(
+                    f"{self.source}:"
+                    "index_stock_cons_csindex"
+                ),
+                raw=dict(record),
+            )
+            for record in records
+            if record.get("成分券代码")
+            and to_date_string(record.get("日期"))
+        ]
+
+    def get_gold_spot_history(self) -> list[dict[str, Any]]:
+        records = self._records_from_api(
+            "spot_hist_sge",
+            symbol="Au99.99",
+        )
+        return [
+            {
+                **record,
+                "date": to_date_string(record.get("date")),
+                "source": f"{self.source}:spot_hist_sge",
+                "benchmark_symbol": "Au99.99",
+            }
+            for record in records
+        ]
+
+    def get_copper_continuous_history(
+        self,
+    ) -> list[dict[str, Any]]:
+        records = self._records_from_api(
+            "futures_zh_daily_sina",
+            symbol="CU0",
+        )
+        return [
+            {
+                **record,
+                "date": to_date_string(record.get("date")),
+                "source": f"{self.source}:futures_zh_daily_sina",
+                "benchmark_symbol": "CU0",
+            }
+            for record in records
         ]
 
     def get_open_fund_daily_navs(self) -> list[dict[str, Any]]:
@@ -321,6 +429,248 @@ class AkShareDataSource:
 
         return self._records_from_api("stock_board_concept_cons_em", symbol=board_name)
 
+    def get_stock_margin_details(
+        self,
+        *,
+        exchange: str,
+        trade_date: str,
+    ) -> list[dict[str, Any]]:
+        """Return normalized stock-level margin records in CNY."""
+
+        normalized_exchange = exchange.lower()
+        if normalized_exchange not in {"sh", "sz"}:
+            raise ValueError("exchange must be sh or sz")
+        api_name = (
+            "stock_margin_detail_sse"
+            if normalized_exchange == "sh"
+            else "stock_margin_detail_szse"
+        )
+        records = self._records_from_api(
+            api_name,
+            date=normalize_date_compact(trade_date),
+        )
+        return [
+            {
+                "symbol": _security_code(
+                    record.get("标的证券代码")
+                    or record.get("证券代码")
+                ),
+                "trade_date": to_date_string(
+                    record.get("信用交易日期")
+                    or record.get("交易日期")
+                    or trade_date
+                ),
+                "margin_balance": to_optional_float(
+                    record.get("融资余额")
+                ),
+                "margin_buy_amount": to_optional_float(
+                    record.get("融资买入额")
+                ),
+                "margin_repay_amount": to_optional_float(
+                    record.get("融资偿还额")
+                ),
+                "short_balance": to_optional_float(
+                    record.get("融券余额")
+                    or record.get("融券余量金额")
+                ),
+                "short_volume": to_optional_float(
+                    record.get("融券余量")
+                ),
+                "short_sell_volume": to_optional_float(
+                    record.get("融券卖出量")
+                ),
+                "short_repay_volume": to_optional_float(
+                    record.get("融券偿还量")
+                ),
+                "total_margin_balance": to_optional_float(
+                    record.get("融资融券余额")
+                ),
+                "source": f"{self.source}:{api_name}",
+                "scope": "stock",
+            }
+            for record in records
+            if (
+                record.get("标的证券代码") is not None
+                or record.get("证券代码") is not None
+            )
+        ]
+
+    def get_exchange_fund_share_records(
+        self,
+        *,
+        exchange: str,
+        start_date: str,
+        end_date: str,
+    ) -> list[dict[str, Any]]:
+        """Return official exchange ETF share observations."""
+
+        normalized_exchange = exchange.lower()
+        if normalized_exchange == "sh":
+            api_name = "fund_etf_scale_sse"
+            records = self._records_from_api(
+                api_name,
+                date=normalize_date_compact(end_date),
+            )
+        elif normalized_exchange == "sz":
+            api_name = "fund_scale_daily_szse"
+            records = self._records_from_api(
+                api_name,
+                start_date=normalize_date_compact(start_date),
+                end_date=normalize_date_compact(end_date),
+                symbol="ETF",
+            )
+        else:
+            raise ValueError("exchange must be sh or sz")
+        return [
+            {
+                "symbol": _security_code(record.get("基金代码")),
+                "stat_date": to_date_string(
+                    record.get("统计日期")
+                    or record.get("日期")
+                ),
+                "shares": str(record.get("基金份额")),
+                "source": f"{self.source}:{api_name}",
+                "split_adjusted": False,
+            }
+            for record in records
+            if record.get("基金代码") is not None
+            and record.get("基金份额") is not None
+        ]
+
+    def get_exchange_fund_nav_records(
+        self,
+    ) -> list[dict[str, Any]]:
+        """Return the latest two disclosed ETF unit-NAV observations."""
+
+        api_name = "fund_etf_fund_daily_em"
+        records = self._records_from_api(api_name)
+        result = []
+        for record in records:
+            symbol = record.get("基金代码")
+            if symbol is None:
+                continue
+            for field_name, field_value in record.items():
+                if (
+                    not str(field_name).endswith("-单位净值")
+                    or field_value in (None, "", "-")
+                ):
+                    continue
+                nav_date = str(field_name)[:10]
+                result.append(
+                    {
+                        "symbol": _security_code(symbol),
+                        "nav_date": to_date_string(nav_date),
+                        "unit_nav": str(field_value),
+                        "source": f"{self.source}:{api_name}",
+                        "estimated": True,
+                    }
+                )
+        return result
+
+    def get_lhb_activity_records(
+        self,
+        *,
+        start_date: str,
+        end_date: str,
+    ) -> list[dict[str, Any]]:
+        """Return normalized Dragon-Tiger List activity summaries."""
+
+        api_name = "stock_lhb_detail_em"
+        records = self._records_from_api(
+            api_name,
+            start_date=normalize_date_compact(start_date),
+            end_date=normalize_date_compact(end_date),
+        )
+        return [
+            {
+                "symbol": _security_code(record.get("代码")),
+                "activity_type": "lhb_listing",
+                "trade_date": to_date_string(record.get("上榜日")),
+                "published_date": to_date_string(
+                    record.get("上榜日")
+                ),
+                "source": f"{self.source}:{api_name}",
+                "net_buy_amount": to_optional_float(
+                    record.get("龙虎榜净买额")
+                ),
+                "turnover_amount": to_optional_float(
+                    record.get("市场总成交额")
+                ),
+                "float_market_cap": to_optional_float(
+                    record.get("流通市值")
+                ),
+                "metadata": {
+                    "listing_reason": record.get("上榜原因"),
+                    "interpretation": record.get("解读"),
+                    "identity_inference": False,
+                },
+            }
+            for record in records
+            if record.get("代码") is not None
+        ]
+
+    def get_block_trade_activity_records(
+        self,
+        *,
+        start_date: str,
+        end_date: str,
+    ) -> list[dict[str, Any]]:
+        """Return normalized A-share block-trade activity."""
+
+        api_name = "stock_dzjy_mrmx"
+        records = self._records_from_api(
+            api_name,
+            symbol="A股",
+            start_date=normalize_date_compact(start_date),
+            end_date=normalize_date_compact(end_date),
+        )
+        result = []
+        for record in records:
+            symbol = record.get("证券代码")
+            if symbol is None:
+                continue
+            amount = to_optional_float(record.get("成交额"))
+            cap_ratio_percent = to_optional_float(
+                record.get("成交额/流通市值")
+            )
+            float_market_cap = None
+            if (
+                amount is not None
+                and cap_ratio_percent is not None
+                and cap_ratio_percent > 0
+            ):
+                float_market_cap = amount / (
+                    cap_ratio_percent / 100.0
+                )
+            trade_date = to_date_string(record.get("交易日期"))
+            result.append(
+                {
+                    "symbol": _security_code(symbol),
+                    "activity_type": "block_trade",
+                    "trade_date": trade_date,
+                    "published_date": trade_date,
+                    "source": f"{self.source}:{api_name}",
+                    "amount": amount,
+                    "turnover_amount": amount,
+                    "trade_price": to_optional_float(
+                        record.get("成交价")
+                    ),
+                    "reference_close": to_optional_float(
+                        record.get("收盘价")
+                    ),
+                    "float_market_cap": float_market_cap,
+                    "metadata": {
+                        "buyer_branch": record.get("买方营业部"),
+                        "seller_branch": record.get("卖方营业部"),
+                        "reported_premium_discount_percent": (
+                            record.get("折溢率")
+                        ),
+                        "identity_inference": False,
+                    },
+                }
+            )
+        return result
+
     def call_api(self, api_name: str, **kwargs: Any) -> list[dict[str, Any]]:
         """Call an AkShare API by name and return DataFrame records.
 
@@ -475,7 +825,51 @@ def _normalize_minute_datetime(value: str) -> str:
     return normalize_date_compact(text)
 
 
+def _security_code(value: Any) -> str:
+    text = str(value or "").strip()
+    if text.endswith(".0") and text[:-2].isdigit():
+        text = text[:-2]
+    return text.zfill(6)
+
+
 def _to_akshare_prefixed_symbol(symbol: str) -> str:
     market_symbol = to_akshare_market_symbol(symbol)
     code, suffix = market_symbol.split(".")
     return f"{suffix}{code}"
+
+
+def _to_akshare_index_symbol(symbol: str) -> str:
+    value = str(symbol).strip().upper()
+    if "." in value:
+        value = value.split(".", 1)[0]
+    if len(value) != 6 or not value.isdigit():
+        raise ValueError(
+            f"Unsupported mainland index symbol format: {symbol}"
+        )
+    return value
+
+
+def _constituent_exchange(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in {
+        "上海证券交易所",
+        "shanghai stock exchange",
+        "sse",
+        "sh",
+    }:
+        return "sh"
+    if normalized in {
+        "深圳证券交易所",
+        "shenzhen stock exchange",
+        "szse",
+        "sz",
+    }:
+        return "sz"
+    if normalized in {
+        "北京证券交易所",
+        "beijing stock exchange",
+        "bse",
+        "bj",
+    }:
+        return "bj"
+    return normalized

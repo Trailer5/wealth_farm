@@ -2,5 +2,10 @@
 
 from .provider import EastmoneyExchangeFundDataSource
 from .research import EastmoneyResearchReportDataSource
+from .industry import EastmoneyStockIndustryDataSource
 
-__all__ = ["EastmoneyExchangeFundDataSource", "EastmoneyResearchReportDataSource"]
+__all__ = [
+    "EastmoneyExchangeFundDataSource",
+    "EastmoneyResearchReportDataSource",
+    "EastmoneyStockIndustryDataSource",
+]

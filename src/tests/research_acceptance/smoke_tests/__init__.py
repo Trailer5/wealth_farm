@@ -1,0 +1,1 @@
+"""Research acceptance smoke tests."""

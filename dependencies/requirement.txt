@@ -2,6 +2,7 @@ PyMuPDF
 akshare
 baostock
 fastapi
+matplotlib
 mootdx
 pikepdf
 pdfplumber

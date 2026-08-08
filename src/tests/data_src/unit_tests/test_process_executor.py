@@ -21,6 +21,16 @@ class ProviderProcessExecutorTest(unittest.TestCase):
 
         self.assertEqual(result, {"count": 3})
 
+    def test_large_result_does_not_deadlock_queue(self):
+        result = run_provider_task(
+            FIXTURE_MODULE,
+            "large_payload",
+            {"size": 5_000_000},
+            timeout_seconds=5,
+        )
+
+        self.assertEqual(len(result["payload"]), 5_000_000)
+
     def test_timeout_terminates_child(self):
         with self.assertRaises(ProviderProcessTimeoutError):
             run_provider_task(

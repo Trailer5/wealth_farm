@@ -20,7 +20,9 @@ from .models import (
     DownloadedFile,
     FundEstimate,
     FundNav,
+    IndexConstituent,
     SecurityInfo,
+    StockIndustryInfo,
 )
 from .sina import SinaExchangeFundDataSource
 from .sse import SseDisclosureDataSource
@@ -48,5 +50,7 @@ __all__ = [
     "DownloadedFile",
     "FundEstimate",
     "FundNav",
+    "IndexConstituent",
     "SecurityInfo",
+    "StockIndustryInfo",
 ]

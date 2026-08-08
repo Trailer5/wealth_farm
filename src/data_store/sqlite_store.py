@@ -77,6 +77,21 @@ class SQLiteDataStore:
                     PRIMARY KEY (symbol, trade_date, source)
                 );
 
+                CREATE TABLE IF NOT EXISTS index_daily_bars (
+                    symbol TEXT NOT NULL,
+                    trade_date TEXT NOT NULL,
+                    open REAL,
+                    high REAL,
+                    low REAL,
+                    close REAL,
+                    volume REAL,
+                    amount REAL,
+                    source TEXT NOT NULL,
+                    raw_json TEXT,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (symbol, trade_date, source)
+                );
+
                 CREATE TABLE IF NOT EXISTS fund_nav_daily (
                     symbol TEXT NOT NULL,
                     nav_date TEXT NOT NULL,
@@ -309,6 +324,14 @@ class SQLiteDataStore:
 
         return self._upsert_daily_bars("fund_exchange_daily_bars", bars)
 
+    def upsert_index_daily_bars(
+        self,
+        bars: Iterable[DailyBar],
+    ) -> int:
+        """Insert or update index daily bars."""
+
+        return self._upsert_daily_bars("index_daily_bars", bars)
+
     def upsert_fund_nav_daily(self, navs: Iterable[FundNav]) -> int:
         """Insert or update open-end fund NAV records."""
 
@@ -321,7 +344,12 @@ class SQLiteDataStore:
                 "daily_growth_rate": nav.daily_growth_rate,
                 "source": nav.source,
                 "estimated": 1 if nav.estimated else 0,
-                "raw_json": json.dumps(nav.raw, ensure_ascii=False, sort_keys=True),
+                "raw_json": json.dumps(
+                    nav.raw,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    default=str,
+                ),
             }
             for nav in navs
         ]
@@ -360,7 +388,12 @@ class SQLiteDataStore:
                 "estimated_nav": estimate.estimated_nav,
                 "estimated_growth_rate": estimate.estimated_growth_rate,
                 "source": estimate.source,
-                "raw_json": json.dumps(estimate.raw, ensure_ascii=False, sort_keys=True),
+                "raw_json": json.dumps(
+                    estimate.raw,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    default=str,
+                ),
             }
             for estimate in estimates
             if estimate.symbol and estimate.estimate_date
@@ -403,7 +436,12 @@ class SQLiteDataStore:
                 "daily_limit_amount": status.daily_limit_amount,
                 "fee_rate": status.fee_rate,
                 "source": status.source,
-                "raw_json": json.dumps(status.raw, ensure_ascii=False, sort_keys=True),
+                "raw_json": json.dumps(
+                    status.raw,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    default=str,
+                ),
             }
             for status in statuses
             if status.symbol
@@ -450,7 +488,12 @@ class SQLiteDataStore:
                 "item_value": record.item_value,
                 "ratio": record.ratio,
                 "source": record.source,
-                "raw_json": json.dumps(record.raw, ensure_ascii=False, sort_keys=True),
+                "raw_json": json.dumps(
+                    record.raw,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    default=str,
+                ),
             }
             for record in records
             if record.symbol and record.report_date and record.item_name
@@ -498,6 +541,23 @@ class SQLiteDataStore:
         """Read exchange-traded fund daily bars from SQLite."""
 
         return self._get_daily_bars("fund_exchange_daily_bars", symbol, start_date, end_date, source)
+
+    def get_index_daily_bars(
+        self,
+        symbol: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        source: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Read normalized index daily bars."""
+
+        return self._get_daily_bars(
+            "index_daily_bars",
+            symbol,
+            start_date,
+            end_date,
+            source,
+        )
 
     def get_fund_nav_daily(
         self,
@@ -567,19 +627,28 @@ class SQLiteDataStore:
             rows = conn.execute(sql, params).fetchall()
         return [dict(row) for row in rows]
 
-    def get_fund_purchase_status(self, symbol: str) -> list[dict[str, Any]]:
+    def get_fund_purchase_status(
+        self,
+        symbol: str,
+        as_of_date: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Read fund purchase/redemption status records from SQLite."""
 
+        conditions = ["symbol = ?"]
+        params: list[Any] = [symbol]
+        if as_of_date is not None:
+            conditions.append("DATE(updated_at) <= ?")
+            params.append(as_of_date)
         sql = """
             SELECT symbol, name, fund_type, purchase_status, redemption_status,
                    next_open_date, min_purchase_amount, daily_limit_amount,
-                   fee_rate, source, raw_json
+                   fee_rate, source, raw_json, updated_at AS observed_at
             FROM fund_purchase_status
-            WHERE symbol = ?
+            WHERE %s
             ORDER BY source ASC
-        """
+        """ % " AND ".join(conditions)
         with self._connect() as conn:
-            rows = conn.execute(sql, [symbol]).fetchall()
+            rows = conn.execute(sql, params).fetchall()
         return [dict(row) for row in rows]
 
     def get_fund_report_records(
@@ -1109,6 +1178,31 @@ class SQLiteDataStore:
         with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
         return [dict(row) for row in rows]
+
+    def get_document_file(
+        self,
+        document_id: str,
+    ) -> dict[str, Any] | None:
+        """Read one downloaded document file state."""
+
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT
+                    document_id,
+                    file_path,
+                    file_url,
+                    sha256,
+                    size_bytes,
+                    source,
+                    status,
+                    error
+                FROM document_files
+                WHERE document_id = ?
+                """,
+                [document_id],
+            ).fetchone()
+        return dict(row) if row else None
 
     def get_document_text(self, document_id: str) -> dict[str, Any] | None:
         """Read extracted text for one disclosure document."""

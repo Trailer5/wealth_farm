@@ -9,6 +9,7 @@ from typing import Any
 ASSET_TYPE_STOCK = "stock"
 ASSET_TYPE_EXCHANGE_FUND = "exchange_fund"
 ASSET_TYPE_OPEN_FUND = "open_fund"
+ASSET_TYPE_INDEX = "index"
 ASSET_TYPE_UNKNOWN = "unknown"
 
 RESOLUTION_MATCHED = "matched"

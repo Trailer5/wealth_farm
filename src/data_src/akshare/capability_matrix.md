@@ -19,6 +19,10 @@ AkShare 数据来自公开网页和公开数据源。项目不得把 AkShare 数
 | A 股分钟线 | `stock_zh_a_hist_min_em` | `get_a_share_minute_bars` | 分钟级补充数据 |
 | ETF 实时行情 | `fund_etf_spot_em` | `get_etf_spot` | 场内基金实时快照 |
 | ETF 历史行情 | `fund_etf_hist_em` | `get_etf_daily_bars` | 场内基金日线 |
+| ETF 交易所份额 | `fund_etf_scale_sse`、`fund_scale_daily_szse` | `get_exchange_fund_share_records` | 沪深 ETF 份额观察 |
+| ETF 最新净值 | `fund_etf_fund_daily_em` | `get_exchange_fund_nav_records` | 估算净申购参考值，非官方资金流 |
+| 沪深指数历史行情 | `index_zh_a_hist` | `get_index_daily_bars` | 指数基准日线；当前保留为腾讯、新浪后的 fallback |
+| 中证指数当前成分 | `index_stock_cons_csindex` | `get_index_constituents` | 带有效日期的当前成分快照；不得当作历史成分 |
 | 开放式基金净值列表 | `fund_open_fund_daily_em` | `get_open_fund_daily_navs` | 场外基金最新净值 |
 | 开放式基金净值历史 | `fund_open_fund_info_em` | `get_open_fund_nav_history` | 场外基金历史净值 |
 | 货币基金净值列表 | `fund_money_fund_daily_em` | `get_money_fund_daily_navs` | 货币基金净值 |
@@ -31,6 +35,9 @@ AkShare 数据来自公开网页和公开数据源。项目不得把 AkShare 数
 | 行业板块成分 | `stock_board_industry_cons_em` | `get_industry_board_constituents` | 行业成分股 |
 | 概念板块列表 | `stock_board_concept_name_em` | `get_concept_board_names` | 概念分类 |
 | 概念板块成分 | `stock_board_concept_cons_em` | `get_concept_board_constituents` | 概念成分股 |
+| 融资融券明细 | `stock_margin_detail_sse`、`stock_margin_detail_szse` | `get_stock_margin_details` | 个股两融记录，金额统一为元 |
+| 龙虎榜汇总 | `stock_lhb_detail_em` | `get_lhb_activity_records` | 事件窗口因子，不确认游资身份 |
+| 大宗交易明细 | `stock_dzjy_mrmx` | `get_block_trade_activity_records` | 折溢价和成交强度 |
 
 ## 通过 `call_api()` 调用
 
@@ -39,16 +46,15 @@ AkShare 数据来自公开网页和公开数据源。项目不得把 AkShare 数
 | 能力 | 典型接口 | 备注 |
 | --- | --- | --- |
 | 资金流 | `stock_hsgt_*`、`stock_fund_flow_*` | 接口多且口径复杂，先按研究任务使用 |
-| 龙虎榜 | `stock_lhb_*` | 适合事件研究，不是短期数据底座主线 |
 | 涨跌停 | `stock_zt_pool_*` | 适合市场情绪和短线研究 |
-| 融资融券 | `stock_margin_*` | 后续可作为风险和资金面指标 |
+| 龙虎榜席位明细 | `stock_lhb_stock_detail_em`、`stock_lhb_jgstatistic_em` | 需验证席位字段，汇总接口不提供完整机构/营业部分拆 |
+| 融资融券市场汇总 | `stock_margin_*`、`macro_china_market_margin_*` | 个股明细已封装，市场汇总待双源校验 |
 | 股东数据 | `stock_*_holder*` | 需要和官方报告交叉验证 |
 | 基金持股 | `stock_report_fund_hold*` | 适合组合穿透和机构持仓研究 |
 | 基金排行 | `fund_*_rank*` | 适合筛选，不作为净值主表 |
 | 基金规模 | `fund_*_aum*`、`fund_scale_*` | 后续进入基金档案模块 |
 | 基金资产配置 | `fund_report_asset_allocation_*` | 后续进入基金披露模块 |
 | 基金行业配置 | `fund_report_industry_allocation_*` | 后续进入基金披露模块 |
-| 指数数据 | `index_*` | 后续作为基准和组合归因模块 |
 | 债券和利率 | `bond_*`、`interest_rate_*` | 后续作为估值折现率来源 |
 | 宏观数据 | `macro_*` | 后续作为宏观背景和周期判断 |
 | 港股、美股、期货、期权、外汇、加密货币 | 多模块接口 | 当前项目短期聚焦 A 股与基金 |

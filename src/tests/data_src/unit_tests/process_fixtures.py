@@ -16,3 +16,7 @@ def sleep_then_return(*, seconds):
 
 def raise_error():
     raise RuntimeError("fixture failure")
+
+
+def large_payload(*, size):
+    return {"payload": "x" * size}

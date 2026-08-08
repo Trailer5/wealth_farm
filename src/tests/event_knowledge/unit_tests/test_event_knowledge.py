@@ -6,6 +6,8 @@ from src.data_src.models import DisclosureDocument
 from src.event_knowledge import (
     EVENT_DIVIDEND,
     EVENT_FINANCIAL_REPORT,
+    EVENT_HOLDING_CHANGE,
+    EVENT_LOCK_UP_RELEASE,
     EVENT_MANAGEMENT_CHANGE,
     EVENT_OTHER,
     DisclosureEventExtractor,
@@ -56,6 +58,25 @@ class DisclosureEventExtractorTest(unittest.TestCase):
                 include_other=True,
             )[0].event_type,
             EVENT_OTHER,
+        )
+
+    def test_holder_change_and_lockup_titles_are_classified(self):
+        holder_change = self.extractor.extract(
+            "asset:test",
+            _document("关于持股5%以上股东权益变动的公告"),
+        )
+        lockup = self.extractor.extract(
+            "asset:test",
+            _document("首次公开发行限售股份上市流通公告"),
+        )
+
+        self.assertEqual(
+            holder_change[0].event_type,
+            EVENT_HOLDING_CHANGE,
+        )
+        self.assertEqual(
+            lockup[0].event_type,
+            EVENT_LOCK_UP_RELEASE,
         )
 
 

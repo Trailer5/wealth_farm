@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 from .models import FactorValue
@@ -103,6 +103,7 @@ def _normalized_closes(
         close_value = record.get("close")
         if not trade_date or close_value in (None, ""):
             continue
+        date.fromisoformat(trade_date)
         close = float(close_value)
         if close <= 0:
             raise ValueError(f"close must be positive on {trade_date}")

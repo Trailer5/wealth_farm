@@ -5,11 +5,34 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from src.financial_data import (
+    DATASET_STOCK_BALANCE_SHEETS,
+    DATASET_STOCK_CASH_FLOW_STATEMENTS,
+    DATASET_STOCK_FINANCIAL_INDICATORS,
+    DATASET_STOCK_INCOME_STATEMENTS,
+)
 from src.master_data import Asset
 
 
 DATASET_STOCK_DAILY_BARS = "stock_daily_bars"
 DATASET_EXCHANGE_FUND_DAILY_BARS = "fund_exchange_daily_bars"
+DATASET_INDEX_DAILY_BARS = "index_daily_bars"
+DATASET_DISCLOSURES = "disclosures"
+DATASET_RESEARCH_REPORTS = "research_reports"
+DATASET_OPEN_FUND_NAV = "open_fund_nav"
+DATASET_FUND_ESTIMATES = "fund_estimates"
+DATASET_FUND_STATUS = "fund_status"
+DATASET_FUND_SCALE = "fund_scale"
+DATASET_FUND_ALLOCATION = "fund_allocation"
+FUND_DATASETS = frozenset(
+    {
+        DATASET_OPEN_FUND_NAV,
+        DATASET_FUND_ESTIMATES,
+        DATASET_FUND_STATUS,
+        DATASET_FUND_SCALE,
+        DATASET_FUND_ALLOCATION,
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -33,10 +56,12 @@ class DataAccessRequest:
     dataset: str
     start_date: str
     end_date: str
+    as_of_date: str | None = None
     max_age_seconds: int | None = 86400
     allow_remote: bool = True
     allow_stale_on_error: bool = False
     remote_sources: tuple[str, ...] = ()
+    parameters: dict[str, Any] = field(default_factory=dict)
     provider_timeout_seconds: float = 30.0
 
 

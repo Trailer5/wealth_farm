@@ -12,6 +12,7 @@ from .models import (
     EVENT_EARNINGS_FORECAST,
     EVENT_FINANCIAL_REPORT,
     EVENT_HOLDING_CHANGE,
+    EVENT_LOCK_UP_RELEASE,
     EVENT_LITIGATION,
     EVENT_MANAGEMENT_CHANGE,
     EVENT_OTHER,
@@ -32,7 +33,18 @@ KEYWORDS_BY_EVENT = {
     EVENT_EARNINGS_FORECAST: ("业绩预告",),
     EVENT_DIVIDEND: ("分红", "派息", "权益分派", "利润分配"),
     EVENT_BUYBACK: ("回购",),
-    EVENT_HOLDING_CHANGE: ("增持", "减持", "持股变动"),
+    EVENT_HOLDING_CHANGE: (
+        "增持",
+        "减持",
+        "持股变动",
+        "权益变动",
+    ),
+    EVENT_LOCK_UP_RELEASE: (
+        "解除限售",
+        "限售股上市流通",
+        "限售股份上市流通",
+        "解禁",
+    ),
     EVENT_REGULATORY: ("处罚", "问询函", "监管函", "警示函"),
     EVENT_LITIGATION: ("诉讼", "仲裁"),
 }
