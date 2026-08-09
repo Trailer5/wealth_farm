@@ -163,7 +163,7 @@ class ResearchExecutionServiceTest(unittest.TestCase):
         self.assertEqual(len(result.chart_artifacts), 6)
         self.assertEqual(
             {item.chart_type for item in result.chart_artifacts},
-            set(ChartType),
+            set(ChartType) - {ChartType.CATEGORICAL_BAR},
         )
         self.assertEqual(
             result.strategy_result.strategy_id,

@@ -20,6 +20,7 @@ class ChartType(str, Enum):
     ROLLING_RISK = "rolling_risk"
     VALUATION_HISTORY = "valuation_history"
     FINANCIAL_TRENDS = "financial_trends"
+    CATEGORICAL_BAR = "categorical_bar"
 
 
 @dataclass(frozen=True)

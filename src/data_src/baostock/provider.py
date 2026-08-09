@@ -46,6 +46,20 @@ class BaoStockDataSource:
     )
 
     _MINUTE_FIELDS = ",".join(["date", "time", "code", "open", "high", "low", "close", "volume", "amount", "adjustflag"])
+    _INDEX_DAILY_FIELDS = ",".join(
+        [
+            "date",
+            "code",
+            "open",
+            "high",
+            "low",
+            "close",
+            "preclose",
+            "volume",
+            "amount",
+            "pctChg",
+        ]
+    )
 
     def __init__(self, baostock_module: Any | None = None) -> None:
         self._baostock = baostock_module
@@ -93,6 +107,33 @@ class BaoStockDataSource:
             fields=self._DAILY_FIELDS,
         )
         return [self._daily_bar_from_record(record) for record in records]
+
+    def get_index_daily_bars(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+        exchange: str,
+    ) -> list[DailyBar]:
+        """Fetch index bars with an explicit exchange to avoid code ambiguity."""
+
+        normalized_exchange = exchange.strip().lower()
+        if normalized_exchange not in {"sh", "sz"}:
+            raise ValueError("index exchange must be sh or sz")
+        code = normalize_a_share_code(symbol)
+        result = self._query(
+            "query_history_k_data_plus",
+            f"{normalized_exchange}.{code}",
+            self._INDEX_DAILY_FIELDS,
+            start_date=normalize_date_dash(start_date),
+            end_date=normalize_date_dash(end_date),
+            frequency="d",
+            adjustflag="3",
+        )
+        return [
+            self._daily_bar_from_record(record)
+            for record in baostock_result_to_records(result)
+        ]
 
     def get_history_records(
         self,

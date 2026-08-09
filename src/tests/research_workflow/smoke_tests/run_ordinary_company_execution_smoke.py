@@ -53,7 +53,15 @@ def main() -> int:
     from src.research_acceptance import (
         ResearchReportAssemblyService,
     )
-    from src.research_visualization import ChartRenderer
+    from src.research_orchestration import (
+        ResearchExecutionDispatcher,
+        ResearchOrchestrationPipeline,
+        ResearchRunRequest,
+    )
+    from src.research_visualization import (
+        ChartRenderer,
+        ReportArtifactService,
+    )
     from src.research_workflow import (
         PROFILE_ORDINARY_COMPANY,
         ResearchExecutionOptions,
@@ -151,12 +159,24 @@ def main() -> int:
         )
         if task.benchmark_asset_id != csi300.asset_id:
             raise AssertionError("Broad-market benchmark not resolved")
-        result = service.execute(
-            task,
-            options=ResearchExecutionOptions(
+        orchestration = ResearchOrchestrationPipeline(
+            dispatcher=ResearchExecutionDispatcher(
+                {PROFILE_ORDINARY_COMPANY: service}
+            ),
+            report_assembly=ResearchReportAssemblyService(
+                master_data=master
+            ),
+            publisher=ReportArtifactService(root / "report"),
+        )
+        run = orchestration.run(
+            ResearchRunRequest(
+                task=task,
+                execution_options=ResearchExecutionOptions(
                 provider_timeout_seconds=120,
+                ),
             ),
         )
+        result = run.execution
         if result.status.value == "blocked":
             raise AssertionError(
                 f"Formal execution blocked: {result.gaps}"
@@ -173,9 +193,11 @@ def main() -> int:
             raise AssertionError(
                 "Formal execution strategy input is incomplete"
             )
-        report = ResearchReportAssemblyService(
-            master_data=master
-        ).assemble(result)
+        report = run.report
+        if report is None or run.report_path is None:
+            raise AssertionError(
+                "Orchestration did not publish the user report"
+            )
         if report.overall_status.value != "complete":
             raise AssertionError(
                 f"Formal narrative report incomplete: {report.gaps}"
@@ -206,9 +228,6 @@ def main() -> int:
                         "status": report.overall_status.value,
                         "scenario_count": len(report.scenarios),
                         "replay_verified": report.replay_verified,
-                        "is_investment_advice": (
-                            report.is_investment_advice
-                        ),
                     },
                 },
                 ensure_ascii=True,

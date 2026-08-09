@@ -16,7 +16,6 @@ EXCHANGE_FUND_FLOW_VERSION = "exchange_fund_flow_v1"
 _SUPPORTED_FACTORS = frozenset(
     {"etf_share_change", "estimated_net_subscription"}
 )
-_DISCLAIMER = "estimated_not_official_net_subscription"
 
 
 @dataclass(frozen=True)
@@ -145,7 +144,6 @@ class ExchangeFundFlowService:
             "nav_ref_date": nav.nav_date if nav is not None else None,
             "nav_ref_source": nav.source if nav is not None else None,
             "split_adjusted": current.split_adjusted,
-            "disclaimer": _DISCLAIMER,
         }
         share_sources = _source_dataset(prior.source, current.source)
         values = [

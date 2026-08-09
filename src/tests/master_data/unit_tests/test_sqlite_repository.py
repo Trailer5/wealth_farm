@@ -14,6 +14,7 @@ from src.master_data import (
     RESOLUTION_UNRESOLVED,
     Asset,
     AssetIdentifier,
+    AssetNameRecord,
     AssetResolution,
     AssetSourceObservation,
     IdentityMappingConflictError,
@@ -135,6 +136,64 @@ class SQLiteMasterDataRepositoryTest(unittest.TestCase):
         self.assertEqual(
             service.get_asset(resolution.asset.asset_id),
             resolution.asset,
+        )
+
+    def test_asset_name_history_is_point_in_time(self):
+        service = MasterDataService(self.repository)
+        asset = service.ingest_security_info(
+            SecurityInfo(
+                symbol="002253",
+                name="川大智胜",
+                security_type="stock",
+                exchange="sz",
+                source="unit-test",
+            )
+        ).asset
+        service.register_asset_name(
+            AssetNameRecord(
+                asset_id=asset.asset_id,
+                name="旧简称",
+                name_type="official",
+                effective_from="2020-01-01",
+                effective_to="2023-12-31",
+                source="exchange:announcement",
+            )
+        )
+        service.register_asset_name(
+            AssetNameRecord(
+                asset_id=asset.asset_id,
+                name="川大智胜",
+                name_type="official",
+                effective_from="2024-01-01",
+                effective_to=None,
+                source="exchange:announcement",
+            )
+        )
+        service.register_asset_name(
+            AssetNameRecord(
+                asset_id=asset.asset_id,
+                name="川普概念",
+                name_type="reviewed_alias",
+                effective_from="2024-11-01",
+                effective_to="2024-11-30",
+                source="manual:review",
+                confidence=0.8,
+            )
+        )
+
+        old = service.list_asset_names(
+            asset_id=asset.asset_id,
+            as_of_date="2023-06-01",
+        )
+        current = service.list_asset_names(
+            asset_id=asset.asset_id,
+            as_of_date="2024-11-06",
+        )
+
+        self.assertEqual([item.name for item in old], ["旧简称"])
+        self.assertEqual(
+            {item.name for item in current},
+            {"川大智胜", "川普概念"},
         )
 
     def test_ambiguous_observation_can_be_confirmed(self):

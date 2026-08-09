@@ -15,6 +15,11 @@ from .models import (
     ChartType,
 )
 from .renderer import ChartRenderer
+from .reporting import (
+    PublishedReport,
+    ReportArtifactService,
+    ReportChartArtifact,
+)
 
 __all__ = [
     "CHART_VERSION",
@@ -23,6 +28,9 @@ __all__ = [
     "ChartRenderer",
     "ChartSpec",
     "ChartType",
+    "PublishedReport",
+    "ReportArtifactService",
+    "ReportChartArtifact",
     "build_factor_series_spec",
     "build_financial_trends_spec",
     "build_price_volume_spec",

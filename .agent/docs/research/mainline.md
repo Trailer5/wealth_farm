@@ -1,67 +1,53 @@
 # Research 唯一主线
 
-## 入口
+## Agent 只做什么
 
-所有真实研究先进入本文件。标的发现只负责生成候选任务，最终仍回到本主线。
+先读 `agent_charter.md`。Agent 负责澄清问题、解释证据、推演情景、寻找反方、确认研究方向和协助用户决策。
 
-## 主线
+## 确定性流程
+
+身份解析、任务创建、profile 分发、第一阶段数据获取、质量检查、基础指标、基础图表、规则计算和基础研究包落盘必须由 `src/research_orchestration/` 的公共入口完成。
+
+Agent 不得在对话中手工拼装这些服务，不得复制 smoke test 的依赖注入，不得逐项执行固定 checklist，也不得自行决定报告文件位置。
+
+## 研究策略选择
+
+在调用入口前读取 `research_strategy_playbook.md`，按事实理解、比较、中长期投资、短期择时、事件投机、发现探索、市场指数或报告复核选择不同研究策略。任务类型改变时必须重新路由，不能沿用上一任务的假设和证据门槛。
+
+## 单标的研究
+
+1. 从用户话语中确认标的、问题、时间尺度、截止日期和输出深度。
+2. 有实质歧义时只询问影响结论的最小问题。
+3. 调用统一研究编排入口。CLI 形式：
 
 ```text
-确认身份与问题
-  → 创建 ResearchTaskSpec
-  → 按 profile 运行正式执行服务
-  → 可选同行比较
-  → ResearchReportAssemblyService
-  → 报告复查与用户决策
+python -m src.research_orchestration.cli run-single
+  --symbol <代码>
+  --asset-type <资产类型>
+  --exchange <交易所>
+  --profile <profile_id>
+  --question <question>
+  --horizon <horizon>
+  --as-of-date <YYYY-MM-DD>
 ```
 
-## 1. 任务
+数据库、Provider、四类执行服务、基础复查和 `report/` 发布由默认生产容器统一装配。该命令只生成基础研究包，不生成最终报告。
+4. 基础收集为 `blocked` 时，先修复底层数据或确认用户选择；不得用推测填补。
+5. 创建 `ResearchExplorationSession`，记录核心假设、关键问题和阻塞问题。
+6. Agent进行多轮探索，每轮必须包含：
+   - 本轮要验证或证伪的目标；
+   - 针对性查询、联网研究或项目数据调用；
+   - 新发现及其证据；
+   - 对原假设的支持、削弱或否定；
+   - 下一轮问题。
+7. 遇到会改变研究范围、时间成本或决策目标的分歧时与用户交互；例行查询不逐项请示。
+8. 当关键阻塞问题已回答、反方已建立、主要情景可解释时，将探索会话标记为可出报告。
+9. Agent根据全部探索轮次撰写最终结论，发布服务只负责图表、路径和落盘。
 
-1. 使用 `MasterDataService` 得到唯一 `asset_id`。
-2. 明确 `profile_id`、`question_type`、`horizon` 和 `as_of_date`。
-3. 使用 `ResearchTaskFactory.create()`。
-4. benchmark 只有在唯一可靠身份时自动绑定；否则人工指定。
+## 标的发现
 
-## 2. Profile 执行
+发现流程由 discovery 编排入口运行。Agent只接收带入选、淘汰、数据缺口和理由的候选结果，按 `discovery_handoff.md` 做优先级判断。
 
-- 普通公司中长期：`ResearchExecutionService`
-- ETF 中长期或长期：`ETFResearchExecutionService`
-- 金融机构中长期：`FinancialInstitutionResearchExecutionService`
-- 周期资源长期：`CyclicalResourceResearchExecutionService`
+## 禁止回退
 
-执行结果必须包含固定阶段、来源、指标版本、图表、策略和 gap。`blocked` 时停止报告结论。
-
-## 3. 比较
-
-- 基准比较由 profile 执行服务完成。
-- 普通公司同行使用 `PeerMetricExecutionService`，统一 cutoff 和共同报告期。
-- 没有审阅 PeerSet 时报告缺口，不自动猜 peers。
-
-## 4. 报告
-
-使用 `ResearchReportAssemblyService.assemble()` 生成七步结构、三情景、最强反方、失效条件和缺口。
-
-报告规则：
-
-1. fact 必须有 evidence ref。
-2. assumption 和 inference 不得伪装成事实。
-3. `insufficient_data` 不得写成指标不合格。
-4. 策略 pass 不等于买入建议。
-5. 最终明确 `is_investment_advice=false`。
-
-## 5. 复查
-
-按 `research_report_review.md` 检查身份、截止日期、profile、单位、版本、证据、时间尺度和来源失败。
-
-## Discovery 前置入口
-
-Universe 请求进入 `asset_discovery.md`。只把 `research_task_draft` 交回本主线；不得直接从候选生成投资结论。
-
-## 停止条件
-
-- 身份不唯一。
-- 必需数据、指标或证据缺失。
-- 执行状态 blocked。
-- 策略 `insufficient_data`。
-- 事实晚于 `as_of_date`。
-- profile 或时间尺度不匹配。
+统一入口缺失或失败时，应把它作为工程阻塞修复；不得退回旧式手工 service-by-service 流程。

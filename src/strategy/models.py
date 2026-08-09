@@ -347,7 +347,6 @@ class StrategyResult:
     input_effective_dates: dict[str, str] = field(
         default_factory=dict
     )
-    is_trade_instruction: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -387,7 +386,6 @@ class StrategyResult:
             "input_effective_dates": self.input_effective_dates,
             "counterevidence": list(self.counterevidence),
             "limitations": list(self.limitations),
-            "is_trade_instruction": self.is_trade_instruction,
         }
 
 

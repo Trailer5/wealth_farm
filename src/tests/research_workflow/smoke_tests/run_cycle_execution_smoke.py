@@ -50,7 +50,16 @@ def main() -> int:
         SQLiteMasterDataRepository,
     )
     from src.research_evidence import ResearchEvidenceService
-    from src.research_visualization import ChartRenderer
+    from src.research_acceptance import ResearchReportAssemblyService
+    from src.research_orchestration import (
+        ResearchExecutionDispatcher,
+        ResearchOrchestrationPipeline,
+        ResearchRunRequest,
+    )
+    from src.research_visualization import (
+        ChartRenderer,
+        ReportArtifactService,
+    )
     from src.research_workflow import (
         PROFILE_CYCLICAL_RESOURCE,
         CycleResearchExecutionOptions,
@@ -143,16 +152,28 @@ def main() -> int:
             as_of_date="2026-08-03",
             benchmark_asset_id=index.asset_id,
         )
-        result = service.execute(
-            task,
-            options=CycleResearchExecutionOptions(
-                provider_timeout_seconds=120,
-                commodity_weights=(
-                    ("sina:CU0", 0.7),
-                    ("sge:Au99.99", 0.3),
+        orchestration = ResearchOrchestrationPipeline(
+            dispatcher=ResearchExecutionDispatcher(
+                {PROFILE_CYCLICAL_RESOURCE: service}
+            ),
+            report_assembly=ResearchReportAssemblyService(
+                master_data=master
+            ),
+            publisher=ReportArtifactService(root / "report"),
+        )
+        run = orchestration.run(
+            ResearchRunRequest(
+                task=task,
+                execution_options=CycleResearchExecutionOptions(
+                    provider_timeout_seconds=120,
+                    commodity_weights=(
+                        ("sina:CU0", 0.7),
+                        ("sge:Au99.99", 0.3),
+                    ),
                 ),
             ),
         )
+        result = run.execution
         if result.status.value != "complete":
             raise AssertionError(
                 f"Cycle execution incomplete: {result.gaps}"
@@ -165,6 +186,8 @@ def main() -> int:
             is StrategyRunStatus.INSUFFICIENT_DATA
         ):
             raise AssertionError("Cycle strategy input incomplete")
+        if run.report is None or run.report_path is None:
+            raise AssertionError("Cycle report was not published")
         sensitivity = next(
             item
             for item in result.factor_values

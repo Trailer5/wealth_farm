@@ -5,6 +5,6 @@
 - 新任务、路由不清、上下文丢失时，读 `.agent/SKILL.md`。
 - 所有任务遵守 `.agent/docs/common/working_principles.md`。
 - 开发任务读取 `.agent/docs/develop/`；研究任务从 `.agent/docs/research/mainline.md` 开始。
-- IDE 单标的投研核心和 Agent 分层指引均已完成。当前没有 active 开发计划；Discovery pending 仅按用户指令续跑。
+- Research 第一阶段基础收集必须走 `src/research_orchestration/`；此后由 Agent 进行多轮探索、查询、交互、推演和方向确认，最后撰写报告。不得把基础研究包当成最终报告，也不得回退到手工串服务。
 - Agent 必须保护用户已有改动，不得回滚无关内容。
 - 不确定事项必须标注为不确定；影响后续行为的歧义必须先向用户确认。

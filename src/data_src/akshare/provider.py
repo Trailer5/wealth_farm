@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from ..common import (
@@ -149,6 +151,197 @@ class AkShareDataSource:
             for record in dataframe_to_records(frame)
         ]
 
+    def get_etf_nav_history_records(
+        self,
+        *,
+        asset_id: str,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+    ):
+        """Return ETF historical NAVs disclosed by Eastmoney through AkShare.
+
+        AkShare's verified interface is `fund_etf_fund_info_em`. NAV values are
+        conservatively available on the next calendar date because the free
+        response has no publication timestamp.
+        """
+
+        from src.fund_research.total_return import ETFNavPoint
+
+        normalized_symbol = to_akshare_symbol(symbol)
+        api_name = "fund_etf_fund_info_em"
+        try:
+            records = self._records_from_api(
+                api_name,
+                fund=normalized_symbol,
+                start_date=normalize_date_compact(start_date),
+                end_date=normalize_date_compact(end_date),
+            )
+        except DataSourceError as exc:
+            raise DataSourceError(
+                "AkShare ETF NAV history is unavailable; do not substitute "
+                "adjusted ETF market prices for NAV. The installed AkShare "
+                "parser may be incompatible with the current upstream schema."
+            ) from exc
+        result = []
+        for record in records:
+            nav_date = to_date_string(record.get("净值日期"))
+            unit_nav = _positive_decimal(record.get("单位净值"))
+            if not nav_date or unit_nav is None:
+                continue
+            accumulated_nav = _positive_decimal(
+                record.get("累计净值")
+            )
+            result.append(
+                ETFNavPoint(
+                    asset_id=asset_id,
+                    date=nav_date,
+                    unit_nav=unit_nav,
+                    accumulated_nav=accumulated_nav,
+                    available_at=(
+                        date.fromisoformat(nav_date)
+                        + timedelta(days=1)
+                    ).isoformat(),
+                    source=f"{self.source}:{api_name}",
+                )
+            )
+        return sorted(result, key=lambda item: item.date)
+
+    def get_etf_distribution_events(
+        self,
+        *,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+    ):
+        """Return cash distributions in the explicitly requested year range.
+
+        `fund_fh_em` is an annual all-fund table. It has no announcement date,
+        so `available_at` is conservatively set to the ex-date and callers must
+        not claim coverage outside the requested years.
+        """
+
+        normalized_symbol = to_akshare_symbol(symbol)
+        return self.get_etf_distribution_events_batch(
+            symbols=(normalized_symbol,),
+            start_date=start_date,
+            end_date=end_date,
+        )[normalized_symbol]
+
+    def get_etf_distribution_events_batch(
+        self,
+        *,
+        symbols: tuple[str, ...],
+        start_date: str,
+        end_date: str,
+    ):
+        """Fetch annual all-fund tables once for several ETF symbols."""
+
+        from src.fund_research.total_return import ETFDistributionEvent
+
+        normalized_symbols = {
+            to_akshare_symbol(symbol) for symbol in symbols
+        }
+        result = {symbol: [] for symbol in normalized_symbols}
+        api_name = "fund_fh_em"
+        for year in _inclusive_years(start_date, end_date):
+            records = self._records_from_api(api_name, year=str(year))
+            for record in records:
+                code = _security_code(record.get("基金代码"))
+                if code not in normalized_symbols:
+                    continue
+                ex_date = to_date_string(record.get("除息日期"))
+                cash = _positive_decimal(record.get("分红"))
+                if (
+                    not ex_date
+                    or cash is None
+                    or ex_date < to_date_string(start_date)
+                    or ex_date > to_date_string(end_date)
+                ):
+                    continue
+                result[code].append(
+                    ETFDistributionEvent(
+                        ex_date=ex_date,
+                        cash_per_share=cash,
+                        available_at=ex_date,
+                        source=f"{self.source}:{api_name}",
+                    )
+                )
+        return {
+            symbol: sorted(events, key=lambda item: item.ex_date)
+            for symbol, events in result.items()
+        }
+
+    def get_etf_split_events(
+        self,
+        *,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+    ):
+        """Return split/conversion events in the requested annual tables.
+
+        AkShare exposes these through `fund_cf_em`; the free response has no
+        announcement timestamp, so availability is conservatively the
+        effective date.
+        """
+
+        normalized_symbol = to_akshare_symbol(symbol)
+        return self.get_etf_split_events_batch(
+            symbols=(normalized_symbol,),
+            start_date=start_date,
+            end_date=end_date,
+        )[normalized_symbol]
+
+    def get_etf_split_events_batch(
+        self,
+        *,
+        symbols: tuple[str, ...],
+        start_date: str,
+        end_date: str,
+    ):
+        """Fetch annual split tables once for several ETF symbols."""
+
+        from src.fund_research.total_return import ETFSplitEvent
+
+        normalized_symbols = {
+            to_akshare_symbol(symbol) for symbol in symbols
+        }
+        result = {symbol: [] for symbol in normalized_symbols}
+        api_name = "fund_cf_em"
+        for year in _inclusive_years(start_date, end_date):
+            records = self._records_from_api(api_name, year=str(year))
+            for record in records:
+                code = _security_code(record.get("基金代码"))
+                if code not in normalized_symbols:
+                    continue
+                effective_date = to_date_string(
+                    record.get("拆分折算日")
+                )
+                ratio = _positive_decimal(record.get("拆分折算"))
+                if (
+                    not effective_date
+                    or ratio is None
+                    or effective_date < to_date_string(start_date)
+                    or effective_date > to_date_string(end_date)
+                ):
+                    continue
+                result[code].append(
+                    ETFSplitEvent(
+                        effective_date=effective_date,
+                        ratio=ratio,
+                        available_at=effective_date,
+                        source=f"{self.source}:{api_name}",
+                    )
+                )
+        return {
+            symbol: sorted(
+                events,
+                key=lambda item: item.effective_date,
+            )
+            for symbol, events in result.items()
+        }
+
     def get_index_daily_bars(
         self,
         symbol: str,
@@ -216,6 +409,434 @@ class AkShareDataSource:
             if record.get("成分券代码")
             and to_date_string(record.get("日期"))
         ]
+
+    def get_shenzhen_a_share_catalog(
+        self,
+    ) -> list[dict[str, object]]:
+        """Return current and terminated SZSE A-share identities."""
+
+        current_api = "stock_info_sz_name_code"
+        delisted_api = "stock_info_sz_delist"
+        records: dict[str, dict[str, object]] = {}
+        for record in self._records_from_api(
+            current_api,
+            symbol="A股列表",
+        ):
+            code = _security_code(record.get("A股代码"))
+            name = str(record.get("A股简称") or "").strip()
+            listed_at = to_date_string(record.get("A股上市日期"))
+            if not code or not name or not listed_at:
+                continue
+            records[code] = {
+                "symbol": code,
+                "name": name,
+                "listed_at": listed_at,
+                "delisted_at": None,
+                "status": "active",
+                "source": f"{self.source}:{current_api}",
+            }
+        for record in self._records_from_api(
+            delisted_api,
+            symbol="终止上市公司",
+        ):
+            code = _security_code(record.get("证券代码"))
+            name = str(record.get("证券简称") or "").strip()
+            listed_at = to_date_string(record.get("上市日期"))
+            delisted_at = to_date_string(record.get("终止上市日期"))
+            if not code or not name or not listed_at or not delisted_at:
+                continue
+            records[code] = {
+                "symbol": code,
+                "name": name,
+                "listed_at": listed_at,
+                "delisted_at": delisted_at,
+                "status": "delisted",
+                "source": f"{self.source}:{delisted_api}",
+            }
+        return [records[code] for code in sorted(records)]
+
+    def get_shenzhen_name_change_history(
+        self,
+    ) -> list[dict[str, object]]:
+        """Return official SZSE historical short-name changes."""
+
+        api_name = "stock_info_sz_change_name"
+        rows = []
+        for record in self._records_from_api(
+            api_name,
+            symbol="简称变更",
+        ):
+            change_date = to_date_string(record.get("变更日期"))
+            code = _security_code(record.get("证券代码"))
+            old_name = str(record.get("变更前简称") or "").strip()
+            new_name = str(record.get("变更后简称") or "").strip()
+            if not change_date or not code or not old_name or not new_name:
+                continue
+            rows.append(
+                {
+                    "change_date": change_date,
+                    "symbol": code,
+                    "old_name": old_name,
+                    "new_name": new_name,
+                    "source": f"{self.source}:{api_name}",
+                }
+            )
+        return sorted(
+            rows,
+            key=lambda item: (
+                str(item["symbol"]),
+                str(item["change_date"]),
+            ),
+        )
+
+    def get_shanghai_market_pe_history(
+        self,
+    ) -> list[dict[str, object]]:
+        """Return normalized third-party Shanghai market PE observations."""
+
+        api_name = "stock_market_pe_lg"
+        frame = self._call_dataframe(api_name, symbol="上证")
+        observations: dict[str, dict[str, object]] = {}
+        for record in dataframe_to_records(frame):
+            trade_date = to_date_string(record.get("日期"))
+            market_pe = to_optional_float(record.get("平均市盈率"))
+            if not trade_date or market_pe is None or market_pe <= 0:
+                continue
+            index_close = to_optional_float(record.get("指数"))
+            if index_close is not None and index_close <= 0:
+                index_close = None
+            observations[trade_date] = {
+                "trade_date": trade_date,
+                "market_pe": market_pe,
+                "index_close": index_close,
+                "source": f"{self.source}:{api_name}",
+            }
+        return [observations[trade_date] for trade_date in sorted(observations)]
+
+    def get_shanghai_market_pb_history(
+        self,
+    ) -> list[dict[str, object]]:
+        """Return normalized third-party Shanghai market PB observations."""
+
+        api_name = "stock_market_pb_lg"
+        frame = self._call_dataframe(api_name, symbol="上证")
+        observations: dict[str, dict[str, object]] = {}
+        for record in dataframe_to_records(frame):
+            trade_date = to_date_string(record.get("日期"))
+            market_pb = to_optional_float(record.get("市净率"))
+            if not trade_date or market_pb is None or market_pb <= 0:
+                continue
+            observations[trade_date] = {
+                "trade_date": trade_date,
+                "index_close": to_optional_float(record.get("指数")),
+                "market_pb": market_pb,
+                "equal_weight_pb": to_optional_float(
+                    record.get("等权市净率")
+                ),
+                "median_pb": to_optional_float(
+                    record.get("市净率中位数")
+                ),
+                "source": f"{self.source}:{api_name}",
+            }
+        return [
+            observations[trade_date]
+            for trade_date in sorted(observations)
+        ]
+
+    def get_index_valuation_history(
+        self,
+        symbol: str,
+    ) -> list[dict[str, object]]:
+        """Return separate PE/PB methodologies for one supported index."""
+
+        if not isinstance(symbol, str) or not symbol.strip():
+            raise ValueError("symbol must not be blank")
+        pe_frame = self._call_dataframe(
+            "stock_index_pe_lg",
+            symbol=symbol,
+        )
+        pb_frame = self._call_dataframe(
+            "stock_index_pb_lg",
+            symbol=symbol,
+        )
+        observations: dict[str, dict[str, object]] = {}
+        for record in dataframe_to_records(pe_frame):
+            trade_date = to_date_string(record.get("日期"))
+            if not trade_date:
+                continue
+            observations[trade_date] = {
+                "trade_date": trade_date,
+                "index_name": symbol,
+                "index_close": to_optional_float(
+                    record.get("指数")
+                ),
+                "static_pe": to_optional_float(
+                    record.get("静态市盈率")
+                ),
+                "ttm_pe": to_optional_float(
+                    record.get("滚动市盈率")
+                ),
+                "equal_weight_static_pe": to_optional_float(
+                    record.get("等权静态市盈率")
+                ),
+                "equal_weight_ttm_pe": to_optional_float(
+                    record.get("等权滚动市盈率")
+                ),
+                "median_static_pe": to_optional_float(
+                    record.get("静态市盈率中位数")
+                ),
+                "median_ttm_pe": to_optional_float(
+                    record.get("滚动市盈率中位数")
+                ),
+                "pb": None,
+                "equal_weight_pb": None,
+                "median_pb": None,
+                "source": "akshare:stock_index_pe_lg|stock_index_pb_lg",
+            }
+        for record in dataframe_to_records(pb_frame):
+            trade_date = to_date_string(record.get("日期"))
+            if not trade_date:
+                continue
+            item = observations.setdefault(
+                trade_date,
+                {
+                    "trade_date": trade_date,
+                    "index_name": symbol,
+                    "index_close": to_optional_float(
+                        record.get("指数")
+                    ),
+                    "static_pe": None,
+                    "ttm_pe": None,
+                    "equal_weight_static_pe": None,
+                    "equal_weight_ttm_pe": None,
+                    "median_static_pe": None,
+                    "median_ttm_pe": None,
+                    "source": (
+                        "akshare:stock_index_pe_lg|"
+                        "stock_index_pb_lg"
+                    ),
+                },
+            )
+            item.update(
+                {
+                    "pb": to_optional_float(record.get("市净率")),
+                    "equal_weight_pb": to_optional_float(
+                        record.get("等权市净率")
+                    ),
+                    "median_pb": to_optional_float(
+                        record.get("市净率中位数")
+                    ),
+                }
+            )
+        return [
+            observations[trade_date]
+            for trade_date in sorted(observations)
+        ]
+
+    def get_csindex_official_valuation(
+        self,
+        symbol: str,
+    ) -> list[dict[str, object]]:
+        """Return recent official CSI PE and dividend-yield methodologies."""
+
+        code = to_akshare_symbol(symbol)
+        frame = self._call_dataframe(
+            "stock_zh_index_value_csindex",
+            symbol=code,
+        )
+        observations = []
+        for record in dataframe_to_records(frame):
+            trade_date = to_date_string(record.get("日期"))
+            if not trade_date:
+                continue
+            observations.append(
+                {
+                    "trade_date": trade_date,
+                    "index_code": str(
+                        record.get("指数代码") or code
+                    ).zfill(6),
+                    "index_name": str(
+                        record.get("指数中文简称") or ""
+                    ),
+                    "pe1": to_optional_float(
+                        record.get("市盈率1")
+                    ),
+                    "pe2": to_optional_float(
+                        record.get("市盈率2")
+                    ),
+                    "dividend_yield1_percent": to_optional_float(
+                        record.get("股息率1")
+                    ),
+                    "dividend_yield2_percent": to_optional_float(
+                        record.get("股息率2")
+                    ),
+                    "source": (
+                        f"{self.source}:"
+                        "stock_zh_index_value_csindex"
+                    ),
+                }
+            )
+        return sorted(
+            observations,
+            key=lambda item: str(item["trade_date"]),
+        )
+
+    def get_market_activity_snapshot(
+        self,
+    ) -> dict[str, object]:
+        """Return one current A-share breadth snapshot."""
+
+        api_name = "stock_market_activity_legu"
+        frame = self._call_dataframe(api_name)
+        values = {
+            str(record.get("item") or ""): record.get("value")
+            for record in dataframe_to_records(frame)
+        }
+        trade_date = str(values.get("统计日期") or "")[:10]
+        if not trade_date:
+            raise DataSourceError(
+                "Market activity snapshot has no statistics date"
+            )
+        activity_text = str(values.get("活跃度") or "").strip()
+        activity_ratio = (
+            float(activity_text.rstrip("%")) / 100
+            if activity_text.endswith("%")
+            else to_optional_float(activity_text)
+        )
+        return {
+            "trade_date": trade_date,
+            "advance_count": int(values.get("上涨") or 0),
+            "decline_count": int(values.get("下跌") or 0),
+            "flat_count": int(values.get("平盘") or 0),
+            "suspended_count": int(values.get("停牌") or 0),
+            "limit_up_count": int(values.get("涨停") or 0),
+            "limit_down_count": int(values.get("跌停") or 0),
+            "activity_ratio": activity_ratio,
+            "source": f"{self.source}:{api_name}",
+        }
+
+    def get_sw_market_daily_metrics(
+        self,
+        start_date: str,
+        end_date: str,
+        *,
+        category: str = "市场表征",
+    ) -> list[dict[str, object]]:
+        """Return normalized Shenwan index-analysis daily metrics."""
+
+        if category not in {"市场表征", "一级行业"}:
+            raise ValueError("category must be 市场表征 or 一级行业")
+
+        api_name = "index_analysis_daily_sw"
+        frame = self._call_dataframe(
+            api_name,
+            symbol=category,
+            start_date=normalize_date_compact(start_date),
+            end_date=normalize_date_compact(end_date),
+        )
+        records = []
+        for record in dataframe_to_records(frame):
+            trade_date = to_date_string(record.get("发布日期"))
+            code = str(record.get("指数代码") or "").strip()
+            if not trade_date or not code:
+                continue
+            records.append(
+                {
+                    "trade_date": trade_date,
+                    "index_code": code,
+                    "index_name": str(
+                        record.get("指数名称") or ""
+                    ),
+                    "return_percent": to_optional_float(
+                        record.get("涨跌幅")
+                    ),
+                    "turnover_rate_percent": to_optional_float(
+                        record.get("换手率")
+                    ),
+                    "pe": to_optional_float(record.get("市盈率")),
+                    "pb": to_optional_float(record.get("市净率")),
+                    "dividend_yield_percent": to_optional_float(
+                        record.get("股息率")
+                    ),
+                    "amount_share_percent": to_optional_float(
+                        record.get("成交额占比")
+                    ),
+                    "float_market_cap": to_optional_float(
+                        record.get("流通市值")
+                    ),
+                    "source": f"{self.source}:{api_name}",
+                }
+            )
+        return sorted(
+            records,
+            key=lambda item: (
+                str(item["trade_date"]),
+                str(item["index_code"]),
+            ),
+        )
+
+    def get_sw_industry_daily_metrics(
+        self,
+        start_date: str,
+        end_date: str,
+    ) -> list[dict[str, object]]:
+        """Return Shenwan level-one industry valuation and return metrics."""
+
+        return self.get_sw_market_daily_metrics(
+            start_date,
+            end_date,
+            category="一级行业",
+        )
+
+    def get_china_ten_year_yield_history(
+        self,
+        start_date: str,
+    ) -> list[dict[str, object]]:
+        """Return normalized third-party China ten-year yield observations."""
+
+        api_name = "bond_zh_us_rate"
+        frame = self._call_dataframe(
+            api_name,
+            start_date=normalize_date_compact(start_date),
+        )
+        observations: dict[str, dict[str, object]] = {}
+        for record in dataframe_to_records(frame):
+            trade_date = to_date_string(record.get("日期"))
+            ten_year_yield = to_optional_float(
+                record.get("中国国债收益率10年")
+            )
+            if (
+                not trade_date
+                or ten_year_yield is None
+                or ten_year_yield < 0
+            ):
+                continue
+            observations[trade_date] = {
+                "trade_date": trade_date,
+                "ten_year_yield_percent": ten_year_yield,
+                "source": f"{self.source}:{api_name}",
+            }
+        return [observations[trade_date] for trade_date in sorted(observations)]
+
+    def get_50etf_qvix_history(
+        self,
+    ) -> list[dict[str, object]]:
+        """Return normalized third-party 50ETF QVIX observations."""
+
+        api_name = "index_option_50etf_qvix"
+        frame = self._call_dataframe(api_name)
+        observations: dict[str, dict[str, object]] = {}
+        for record in dataframe_to_records(frame):
+            trade_date = to_date_string(record.get("date"))
+            qvix_close = to_optional_float(record.get("close"))
+            if not trade_date or qvix_close is None or qvix_close <= 0:
+                continue
+            observations[trade_date] = {
+                "trade_date": trade_date,
+                "qvix_close": qvix_close,
+                "source": f"{self.source}:{api_name}",
+            }
+        return [observations[trade_date] for trade_date in sorted(observations)]
 
     def get_gold_spot_history(self) -> list[dict[str, Any]]:
         records = self._records_from_api(
@@ -873,3 +1494,25 @@ def _constituent_exchange(value: str) -> str:
     }:
         return "bj"
     return normalized
+
+
+def _inclusive_years(start_date: str, end_date: str) -> range:
+    start = date.fromisoformat(to_date_string(start_date))
+    end = date.fromisoformat(to_date_string(end_date))
+    if start > end:
+        raise ValueError("start_date must not exceed end_date")
+    return range(start.year, end.year + 1)
+
+
+def _positive_decimal(value: Any) -> Decimal | None:
+    if value in (None, "", "-"):
+        return None
+    try:
+        result = Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise DataSourceError(
+            f"AkShare returned a non-numeric fund value: {value}"
+        ) from exc
+    if not result.is_finite() or result <= 0:
+        return None
+    return result

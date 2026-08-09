@@ -7,6 +7,7 @@ from .models import (
     MarketCrossSectionRow,
     MarketFactorParameters,
     MarketFactorSnapshot,
+    MarketSeriesObservation,
 )
 from .sqlite_repository import SQLiteMarketFactorRepository
 
@@ -30,3 +31,9 @@ class MarketAnalysisService:
         snapshot = self.calculator.calculate(rows, parameters)
         self.repository.upsert_values(list(snapshot.values))
         return snapshot
+
+    def store_series_observations(
+        self,
+        observations: list[MarketSeriesObservation],
+    ) -> int:
+        return self.repository.upsert_series_observations(observations)

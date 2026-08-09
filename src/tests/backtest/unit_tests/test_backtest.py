@@ -334,7 +334,6 @@ def _result(trade_date, status):
         counterevidence=(),
         limitations=("Not backtested",),
         input_effective_dates={"signal_metric": trade_date},
-        is_trade_instruction=False,
     )
 
 

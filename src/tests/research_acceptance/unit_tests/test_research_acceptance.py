@@ -121,7 +121,6 @@ class ResearchAcceptanceTest(unittest.TestCase):
             report.overall_status,
             AcceptanceStatus.PARTIAL,
         )
-        self.assertFalse(report.is_investment_advice)
 
     def test_blocking_gap_is_blocked(self):
         report = self._report(

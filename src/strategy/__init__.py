@@ -5,6 +5,11 @@ from .engine import (
     StrategyExecutor,
     evaluate_condition,
 )
+from .evidence import (
+    StrategyEvidenceAssessment,
+    StrategyEvidenceGate,
+    StrategyEvidenceRecord,
+)
 from .catalog import (
     HorizonStrategyReport,
     cycle_strategy_specs,
@@ -15,6 +20,17 @@ from .catalog import (
     financial_institution_strategy_specs,
 )
 from .input_builder import StrategyInputBuilder
+from .etf_rotation import (
+    ETF_DUAL_MOMENTUM_LIMITATIONS,
+    ETF_DUAL_MOMENTUM_MATURITY,
+    ETF_DUAL_MOMENTUM_STRATEGY_ID,
+    ETF_DUAL_MOMENTUM_VERSION,
+    ETFDualMomentumTrendStrategy,
+    ETFPriceSeries,
+    ETFRotationParameters,
+    ETFRotationSignal,
+    ETFTrendMetrics,
+)
 from .models import (
     ConditionGroup,
     ConditionLogic,
@@ -32,6 +48,21 @@ from .models import (
     condition_to_dict,
 )
 from .registry import StrategyRegistry
+from .sse_market_timing import (
+    SSE_MARKET_TIMING_LIMITATIONS,
+    SSE_MARKET_TIMING_MATURITY,
+    SSE_MARKET_TIMING_STRATEGY_ID,
+    SSE_MARKET_TIMING_VERSION,
+    HorizonTimingSignal,
+    SSEIndexBar,
+    SSEIndexSeries,
+    SSEMarketAuxPoint,
+    SSEMarketAuxSeries,
+    SSEMarketTimingParameters,
+    SSEMarketTimingResult,
+    SSEMarketTimingStrategy,
+    evaluate_sse_market_timing,
+)
 
 __all__ = [
     "ConditionEvaluation",
@@ -39,9 +70,22 @@ __all__ = [
     "ConditionLogic",
     "ConditionOperator",
     "ConditionOutcome",
+    "ETF_DUAL_MOMENTUM_LIMITATIONS",
+    "ETF_DUAL_MOMENTUM_MATURITY",
+    "ETF_DUAL_MOMENTUM_STRATEGY_ID",
+    "ETF_DUAL_MOMENTUM_VERSION",
+    "ETFDualMomentumTrendStrategy",
+    "ETFPriceSeries",
+    "ETFRotationParameters",
+    "ETFRotationSignal",
+    "ETFTrendMetrics",
     "HorizonStrategyReport",
+    "HorizonTimingSignal",
     "MetricCondition",
     "StrategyExecutor",
+    "StrategyEvidenceAssessment",
+    "StrategyEvidenceGate",
+    "StrategyEvidenceRecord",
     "StrategyInput",
     "StrategyInputBuilder",
     "StrategyMaturity",
@@ -50,6 +94,17 @@ __all__ = [
     "StrategyResult",
     "StrategyRunStatus",
     "StrategySpec",
+    "SSE_MARKET_TIMING_LIMITATIONS",
+    "SSE_MARKET_TIMING_MATURITY",
+    "SSE_MARKET_TIMING_STRATEGY_ID",
+    "SSE_MARKET_TIMING_VERSION",
+    "SSEIndexBar",
+    "SSEIndexSeries",
+    "SSEMarketAuxPoint",
+    "SSEMarketAuxSeries",
+    "SSEMarketTimingParameters",
+    "SSEMarketTimingResult",
+    "SSEMarketTimingStrategy",
     "WeightedCondition",
     "condition_from_dict",
     "condition_to_dict",
@@ -60,4 +115,5 @@ __all__ = [
     "financial_institution_strategy_specs",
     "execute_horizon_catalog",
     "evaluate_condition",
+    "evaluate_sse_market_timing",
 ]

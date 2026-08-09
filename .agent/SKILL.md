@@ -21,6 +21,9 @@ Use this file to choose the smallest relevant project guidance. Do not read ever
 - `docs/modules/README.md`: 当前模块顺序和当前短期开发计划入口。
 - `docs/当前阶段-IDE投研核心.md`: 当前阶段的短期计划顺序、依赖和唯一 active 计划。
 - `.agent/docs/research/mainline.md`: 所有真实研究的唯一主线。
+- `.agent/docs/research/agent_charter.md`: Research Agent 的分析职责与禁止事项。
+- `.agent/docs/research/research_strategy_playbook.md`: 不同研究任务的假设、证据、探索和停止策略。
+- `.agent/docs/research/discovery_handoff.md`: 发现结果交给 Agent 后的判断边界。
 
 ## Quick Routing
 
@@ -31,12 +34,12 @@ Use this file to choose the smallest relevant project guidance. Do not read ever
 | Data source or database work | `docs/modules/README.md` and the owning module doc | Inspect `src/data_src/`, `src/data_store/`, and the owning module under `src/tests/`. |
 | Unit tests or CI | `.agent/docs/develop/development_rule.md` | Inspect `src/tests/run_all_unit_tests.py`, `src/tests/<module>/`, and `.github/workflows/`. |
 | Agent rule changes | `.agent/SKILL.md` | Inspect `.agent/AGENT_README.md` and the owning `.agent/docs/` file. |
-| 单标的完整研究 | `.agent/docs/research/mainline.md` | 再读 routing、execution 和 report 文档。 |
-| 数据、公告或研报 | `.agent/docs/research/research_data_manual.md` | 数据不足时停止结论并报告来源失败。 |
-| 指标或图表 | `.agent/docs/research/research_metrics_charts.md` | 同时检查 profile、单位、版本和截止日期。 |
-| 策略或时间尺度 | `.agent/docs/research/strategy_horizon_selection.md` | 必须同时匹配 horizon 和 profile。 |
-| 标的发现 | `.agent/docs/research/asset_discovery.md` | 候选最终回到 research mainline。 |
-| 研究报告复核 | `.agent/docs/research/research_report_review.md` | 事实必须有证据引用。 |
+| 单标的完整研究 | `.agent/docs/research/mainline.md` | 调用统一编排入口；禁止手工串服务。 |
+| 研究数据、指标、图表或策略 | `.agent/docs/research/mainline.md` | 由编排器执行；Agent只解释结果与缺口。 |
+| 新策略或策略扩展 | `docs/evidence/strategy_sources/README.md` | 先审阅机制、实现和反证；复用代码时再核验许可证。 |
+| 标的发现 | `.agent/docs/research/discovery_handoff.md` | 只分析编排器返回的候选和理由。 |
+| 研究推演与用户结论 | `.agent/docs/research/agent_charter.md` | 区分事实、推断、情景、反方和行动。 |
+| 研究任务类型选择 | `.agent/docs/research/research_strategy_playbook.md` | 任务在理解、比较、投资、择时、事件、发现、市场或复核间切换时重新路由。 |
 
 ## Working Rules
 
@@ -44,6 +47,7 @@ Use this file to choose the smallest relevant project guidance. Do not read ever
 - Read source when implementing behavior, docs are stale, or tests define the real contract.
 - If a choice changes future project behavior, ask before changing rules, schema, provider semantics, dependencies, CI, or persistent data layout.
 - Prefer the smallest useful change. Do not add speculative providers, compatibility layers, placeholder credentials, or unrelated schema fields.
+- Research 的确定流程必须通过公共编排服务或 CLI；缺入口时修复入口，不允许 Agent 临时手工拼装。
 
 ## Common Development Request
 

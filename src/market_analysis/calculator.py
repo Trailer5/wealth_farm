@@ -25,13 +25,17 @@ class AShareMarketFactorCalculator:
         parameters: MarketFactorParameters,
     ) -> MarketFactorSnapshot:
         input_rows = tuple(rows)
-        tradable_rows = tuple(row for row in input_rows if row.tradable)
-        excluded_non_tradable = len(input_rows) - len(tradable_rows)
-        dated_rows = tuple(
+        as_of_rows = tuple(
             row
-            for row in tradable_rows
+            for row in input_rows
             if row.trade_date == parameters.as_of_date
         )
+        dated_rows = tuple(
+            row
+            for row in as_of_rows
+            if row.tradable
+        )
+        excluded_non_tradable = len(as_of_rows) - len(dated_rows)
         computed_at = datetime.now(timezone.utc).isoformat()
         values: list[MarketFactorValue] = []
 
@@ -51,7 +55,7 @@ class AShareMarketFactorCalculator:
                     parameters,
                     sample_count=len(return_rows),
                     excluded_non_tradable=excluded_non_tradable,
-                    excluded_missing=len(tradable_rows)
+                    excluded_missing=len(dated_rows)
                     - len(return_rows),
                     computed_at=computed_at,
                 )
@@ -69,7 +73,7 @@ class AShareMarketFactorCalculator:
                     parameters,
                     sample_count=len(return_rows),
                     excluded_non_tradable=excluded_non_tradable,
-                    excluded_missing=len(tradable_rows)
+                    excluded_missing=len(dated_rows)
                     - len(return_rows),
                     computed_at=computed_at,
                 )
@@ -81,7 +85,7 @@ class AShareMarketFactorCalculator:
                     parameters,
                     sample_count=len(return_rows),
                     excluded_non_tradable=excluded_non_tradable,
-                    excluded_missing=len(tradable_rows)
+                    excluded_missing=len(dated_rows)
                     - len(return_rows),
                     computed_at=computed_at,
                 )
@@ -106,7 +110,7 @@ class AShareMarketFactorCalculator:
                     parameters,
                     sample_count=len(ma20_rows),
                     excluded_non_tradable=excluded_non_tradable,
-                    excluded_missing=len(tradable_rows)
+                    excluded_missing=len(dated_rows)
                     - len(ma20_rows),
                     computed_at=computed_at,
                     extra_parameters={
@@ -115,7 +119,7 @@ class AShareMarketFactorCalculator:
                             row.trade_date == parameters.as_of_date
                             and row.current_close is not None
                             and len(row.history_closes) < 20
-                            for row in tradable_rows
+                            for row in dated_rows
                         ),
                     },
                 )
@@ -145,7 +149,7 @@ class AShareMarketFactorCalculator:
                         excluded_non_tradable=(
                             excluded_non_tradable
                         ),
-                        excluded_missing=len(tradable_rows)
+                        excluded_missing=len(dated_rows)
                         - len(turnover_rows),
                         computed_at=computed_at,
                         extra_parameters={
@@ -180,7 +184,7 @@ class AShareMarketFactorCalculator:
                     parameters,
                     sample_count=len(sized_rows),
                     excluded_non_tradable=excluded_non_tradable,
-                    excluded_missing=len(tradable_rows)
+                    excluded_missing=len(dated_rows)
                     - len(sized_rows),
                     computed_at=computed_at,
                     extra_parameters={

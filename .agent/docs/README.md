@@ -13,18 +13,14 @@
 
 ## research
 
-- `research/mainline.md`：唯一 research 主线。
-- `research/research_routing.md`：任务、profile、身份和 benchmark 路由。
-- `research/single_asset_research.md`：四类正式执行入口和同行。
-- `research/research_data_manual.md`：数据、截止日期、质量和证据。
-- `research/research_metrics_charts.md`：指标和图表。
-- `research/strategy_horizon_selection.md`：策略与时间尺度。
-- `research/asset_discovery.md`：主线前置的候选发现入口。
-- `research/research_report_review.md`：正式报告与复查。
+- `research/mainline.md`：统一研究编排入口和停止条件。
+- `research/agent_charter.md`：Agent 的分析、推演和用户决策职责。
+- `research/research_strategy_playbook.md`：按事实、比较、投资、择时、事件、发现、市场和复核任务选择不同研究策略。
+- `research/discovery_handoff.md`：发现候选交给 Agent 后的判断边界。
 
 ## 读取原则
 
 1. 先读最小相关目录。
 2. 开发任务不加载 research 全套。
 3. 研究任务从 `research/mainline.md` 开始。
-4. 标的发现最终回到 research 主线，不构成第二条主线。
+4. 确定流程由代码编排，Agent 不手工串联服务。

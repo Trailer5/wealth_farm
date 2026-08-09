@@ -218,7 +218,6 @@ class StrategyExecutor:
         limitations = (
             *spec.limitations,
             "confidence reflects required-input completeness only",
-            "result is not a trade instruction",
         )
         return StrategyResult(
             strategy_id=spec.strategy_id,
@@ -247,7 +246,6 @@ class StrategyExecutor:
                 name: metric.as_of_date
                 for name, metric in strategy_input.metrics.items()
             },
-            is_trade_instruction=False,
         )
 
 

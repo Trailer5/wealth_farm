@@ -199,7 +199,6 @@ class ResearchAcceptanceReport:
     overall_status: AcceptanceStatus
     structure_digest: str
     replay_verified: bool
-    is_investment_advice: bool = False
 
     def __post_init__(self) -> None:
         for value, name in (
@@ -225,10 +224,6 @@ class ResearchAcceptanceReport:
             )
         if not self.conclusions:
             raise ValueError("Report requires conclusions")
-        if self.is_investment_advice:
-            raise ValueError(
-                "Acceptance report cannot be investment advice"
-            )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -255,7 +250,6 @@ class ResearchAcceptanceReport:
             "overall_status": self.overall_status.value,
             "structure_digest": self.structure_digest,
             "replay_verified": self.replay_verified,
-            "is_investment_advice": False,
         }
 
     @classmethod

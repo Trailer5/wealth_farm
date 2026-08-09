@@ -6,8 +6,12 @@ from .akshare import AkShareDataSource
 from .baostock import BaoStockDataSource
 from .bse import BseDisclosureDataSource
 from .cninfo import CninfoDataSource
-from .eastmoney import EastmoneyResearchReportDataSource
+from .eastmoney import (
+    EastmoneyExchangeFundDataSource,
+    EastmoneyResearchReportDataSource,
+)
 from .mootdx import MootdxDataSource
+from .nbs import NBSMacroDataSource
 from .sina import SinaExchangeFundDataSource
 from .sse import SseDisclosureDataSource
 from .szse import SzseDisclosureDataSource
@@ -96,6 +100,65 @@ def fetch_etf_daily_bars(
     raise ValueError(f"Unsupported ETF daily source: {source}")
 
 
+def fetch_etf_nav_history(
+    *,
+    source: str,
+    asset_id: str,
+    symbol: str,
+    start_date: str,
+    end_date: str,
+):
+    if source == "akshare":
+        return AkShareDataSource().get_etf_nav_history_records(
+            asset_id=asset_id,
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date,
+        )
+    if source == "eastmoney":
+        return EastmoneyExchangeFundDataSource().get_etf_nav_history_records(
+            asset_id=asset_id,
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date,
+        )
+    raise ValueError(f"Unsupported ETF NAV source: {source}")
+
+
+def fetch_etf_distribution_events(
+    *,
+    source: str,
+    symbol: str,
+    start_date: str,
+    end_date: str,
+):
+    if source == "akshare":
+        return AkShareDataSource().get_etf_distribution_events(
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date,
+        )
+    raise ValueError(
+        f"Unsupported ETF distribution source: {source}"
+    )
+
+
+def fetch_etf_split_events(
+    *,
+    source: str,
+    symbol: str,
+    start_date: str,
+    end_date: str,
+):
+    if source == "akshare":
+        return AkShareDataSource().get_etf_split_events(
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date,
+        )
+    raise ValueError(f"Unsupported ETF split source: {source}")
+
+
 def fetch_index_daily_bars(
     *,
     source: str,
@@ -104,6 +167,21 @@ def fetch_index_daily_bars(
     end_date: str,
     exchange: str,
 ):
+    if source == "eastmoney":
+        return EastmoneyExchangeFundDataSource().get_index_daily_bars(
+            symbol,
+            start_date,
+            end_date,
+            exchange,
+        )
+    if source == "baostock":
+        with BaoStockDataSource() as provider:
+            return provider.get_index_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+                exchange,
+            )
     if source == "tencent":
         return TencentExchangeFundDataSource().get_index_daily_bars(
             symbol,
@@ -137,6 +215,68 @@ def fetch_index_constituents(
     raise ValueError(
         f"Unsupported index constituent source: {source}"
     )
+
+
+def fetch_shenzhen_a_share_catalog():
+    return AkShareDataSource().get_shenzhen_a_share_catalog()
+
+
+def fetch_shenzhen_name_change_history():
+    return AkShareDataSource().get_shenzhen_name_change_history()
+
+
+def fetch_shanghai_market_pe_history():
+    return AkShareDataSource().get_shanghai_market_pe_history()
+
+
+def fetch_shanghai_market_pb_history():
+    return AkShareDataSource().get_shanghai_market_pb_history()
+
+
+def fetch_index_valuation_history(*, symbol: str):
+    return AkShareDataSource().get_index_valuation_history(symbol)
+
+
+def fetch_csindex_official_valuation(*, symbol: str):
+    return AkShareDataSource().get_csindex_official_valuation(symbol)
+
+
+def fetch_market_activity_snapshot():
+    return AkShareDataSource().get_market_activity_snapshot()
+
+
+def fetch_sw_market_daily_metrics(
+    *,
+    start_date: str,
+    end_date: str,
+):
+    return AkShareDataSource().get_sw_market_daily_metrics(
+        start_date,
+        end_date,
+    )
+
+
+def fetch_sw_industry_daily_metrics(
+    *,
+    start_date: str,
+    end_date: str,
+):
+    return AkShareDataSource().get_sw_industry_daily_metrics(
+        start_date,
+        end_date,
+    )
+
+
+def fetch_latest_china_cpi_yoy():
+    return NBSMacroDataSource().get_latest_cpi_yoy()
+
+
+def fetch_china_ten_year_yield_history(*, start_date: str):
+    return AkShareDataSource().get_china_ten_year_yield_history(start_date)
+
+
+def fetch_50etf_qvix_history():
+    return AkShareDataSource().get_50etf_qvix_history()
 
 
 def fetch_trade_calendar(

@@ -10,6 +10,7 @@ from .models import (
     Asset,
     AssetIdentifier,
     AssetIdentifierRebinding,
+    AssetNameRecord,
     AssetResolution,
     AssetSourceObservation,
     StoredAssetObservation,
@@ -151,6 +152,32 @@ class MasterDataService:
             raw_symbol=raw_symbol,
             name=name,
             asset_type=asset_type,
+        )
+
+    def list_assets(self, *, asset_type: str | None = None) -> list[Asset]:
+        """Return canonical assets through the public service boundary."""
+
+        return self.repository.find_assets(asset_type=asset_type)
+
+    def register_asset_name(
+        self,
+        record: AssetNameRecord,
+    ) -> AssetNameRecord:
+        """Register an official historical name or reviewed alias."""
+
+        if self.get_asset(record.asset_id) is None:
+            raise KeyError(f"Unknown asset_id: {record.asset_id}")
+        return self.repository.upsert_asset_name(record)
+
+    def list_asset_names(
+        self,
+        *,
+        asset_id: str | None = None,
+        as_of_date: str | None = None,
+    ) -> list[AssetNameRecord]:
+        return self.repository.list_asset_names(
+            asset_id=asset_id,
+            as_of_date=as_of_date,
         )
 
     def list_unresolved_observations(self) -> list[StoredAssetObservation]:

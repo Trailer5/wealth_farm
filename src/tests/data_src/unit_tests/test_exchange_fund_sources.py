@@ -1,5 +1,6 @@
 import unittest
 import tempfile
+from decimal import Decimal
 from pathlib import Path
 
 from src.data_src.eastmoney import EastmoneyExchangeFundDataSource
@@ -18,6 +19,34 @@ from src.data_store import SQLiteDataStore
 
 class FakeEastmoneyHttp:
     def get_json(self, url, params=None):
+        if "lsjz" in url:
+            if params["fundCode"] != "510300":
+                raise AssertionError("NAV fund code must be normalized")
+            return {
+                "TotalCount": 1,
+                "Data": {
+                    "LSJZList": [
+                        {
+                            "FSRQ": "2026-07-24",
+                            "DWJZ": "4.701",
+                            "LJJZ": "2.061",
+                        }
+                    ]
+                },
+            }
+        if "kline" in url:
+            if params["secid"] not in {"1.000001", "2.H00300"}:
+                raise AssertionError("index must retain explicit SSE identity")
+            return {
+                "data": {
+                    "klines": [
+                        (
+                            "2026-07-24,3600,3610,3620,3590,"
+                            "100,360000,0.8,0.2,10,1"
+                        )
+                    ]
+                }
+            }
         return {
             "data": {
                 "diff": [
@@ -114,6 +143,47 @@ class ExchangeFundProviderTest(unittest.TestCase):
         self.assertEqual(rows[0]["fund_type"], EXCHANGE_FUND_ETF)
         self.assertEqual(rows[0]["latest"], 4.0)
         self.assertEqual(rows[0]["volume"], 10000.0)
+
+    def test_eastmoney_index_history_uses_explicit_exchange(self):
+        bars = EastmoneyExchangeFundDataSource(
+            FakeEastmoneyHttp()
+        ).get_index_daily_bars(
+            "000001",
+            "2026-07-01",
+            "2026-07-24",
+            "sh",
+        )
+
+        self.assertEqual(len(bars), 1)
+        self.assertEqual(bars[0].symbol, "000001")
+        self.assertEqual(bars[0].close, 3610.0)
+        self.assertEqual(bars[0].raw["secid"], "1.000001")
+        self.assertEqual(bars[0].source, "eastmoney:stock_kline")
+        total_return = EastmoneyExchangeFundDataSource(
+            FakeEastmoneyHttp()
+        ).get_index_daily_bars(
+            "H00300",
+            "2026-07-01",
+            "2026-07-24",
+            "csi",
+        )
+        self.assertEqual(total_return[0].raw["secid"], "2.H00300")
+
+    def test_eastmoney_etf_nav_uses_unadjusted_fund_nav_endpoint(self):
+        navs = EastmoneyExchangeFundDataSource(
+            FakeEastmoneyHttp()
+        ).get_etf_nav_history_records(
+            asset_id="asset:etf:510300",
+            symbol="510300.SH",
+            start_date="2026-07-01",
+            end_date="2026-07-24",
+        )
+
+        self.assertEqual(len(navs), 1)
+        self.assertEqual(navs[0].unit_nav, Decimal("4.701"))
+        self.assertEqual(navs[0].accumulated_nav, Decimal("2.061"))
+        self.assertEqual(navs[0].available_at, "2026-07-25")
+        self.assertEqual(navs[0].source, "eastmoney:f10_lsjz")
 
     def test_tencent_provider_spot_records(self):
         rows = TencentExchangeFundDataSource(FakeTencentHttp()).get_exchange_fund_spot(["510300"])

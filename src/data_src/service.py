@@ -484,6 +484,20 @@ class DataFetchService:
                 },
                 timeout_seconds=timeout_seconds,
             )
+        if source == "baostock":
+            return self.baostock.get_index_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+                exchange,
+            )
+        if source == "eastmoney":
+            return self.eastmoney.get_index_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+                exchange,
+            )
         if source == "tencent":
             return self.tencent.get_index_daily_bars(
                 symbol,

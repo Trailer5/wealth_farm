@@ -178,10 +178,6 @@ class ExchangeFundShareFlowTest(unittest.TestCase):
                 "official-nav",
             )
             self.assertTrue(value.parameters["split_adjusted"])
-            self.assertEqual(
-                value.parameters["disclaimer"],
-                "estimated_not_official_net_subscription",
-            )
 
     def test_aggregates_broad_basket_with_complete_weights(self):
         result = self.service.aggregate_broad_basket(

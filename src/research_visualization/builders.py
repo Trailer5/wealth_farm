@@ -26,7 +26,14 @@ def chart_types_for_profile(
     profile_id: str,
 ) -> tuple[ChartType, ...]:
     if profile_id == PROFILE_ORDINARY_COMPANY:
-        return tuple(ChartType)
+        return (
+            ChartType.PRICE_VOLUME,
+            ChartType.CUMULATIVE_RETURN,
+            ChartType.DRAWDOWN,
+            ChartType.ROLLING_RISK,
+            ChartType.VALUATION_HISTORY,
+            ChartType.FINANCIAL_TRENDS,
+        )
     if profile_id == PROFILE_EXCHANGE_FUND:
         return (
             ChartType.PRICE_VOLUME,

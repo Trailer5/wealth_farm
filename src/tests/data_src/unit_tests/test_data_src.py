@@ -1,4 +1,5 @@
 import unittest
+from decimal import Decimal
 
 from src.data_src.akshare import AkShareDataSource
 from src.data_src.baostock import BaoStockDataSource
@@ -79,6 +80,60 @@ class FakeAkShare:
             ]
         )
 
+    def fund_etf_fund_info_em(self, **kwargs):
+        if kwargs != {
+            "fund": "510300",
+            "start_date": "20250617",
+            "end_date": "20250620",
+        }:
+            raise AssertionError(
+                "ETF NAV should use the verified AkShare contract"
+            )
+        return FakeFrame(
+            [
+                {
+                    "净值日期": "2025-06-18",
+                    "单位净值": "4.2",
+                    "累计净值": "5.1",
+                }
+            ]
+        )
+
+    def fund_fh_em(self, **kwargs):
+        if kwargs != {"year": "2025"}:
+            raise AssertionError(
+                "fund dividends should query one explicit year"
+            )
+        return FakeFrame(
+            [
+                {
+                    "基金代码": "510300",
+                    "除息日期": "2025-06-18",
+                    "分红": "0.088",
+                },
+                {
+                    "基金代码": "000001",
+                    "除息日期": "2025-06-18",
+                    "分红": "0.1",
+                },
+            ]
+        )
+
+    def fund_cf_em(self, **kwargs):
+        if kwargs != {"year": "2025"}:
+            raise AssertionError(
+                "fund splits should query one explicit year"
+            )
+        return FakeFrame(
+            [
+                {
+                    "基金代码": "510300",
+                    "拆分折算日": "2025-06-19",
+                    "拆分折算": "5",
+                }
+            ]
+        )
+
     def index_zh_a_hist(self, **kwargs):
         if kwargs["symbol"] != "000300":
             raise AssertionError("index symbol should be normalized")
@@ -109,6 +164,154 @@ class FakeAkShare:
                     "成分券名称": "平安银行",
                     "交易所": "深圳证券交易所",
                 }
+            ]
+        )
+
+    def stock_market_pe_lg(self, **kwargs):
+        if kwargs != {"symbol": "上证"}:
+            raise AssertionError("Shanghai market PE should request the 上证 series")
+        return FakeFrame(
+            [
+                {"日期": "2026-01-03", "指数": "", "平均市盈率": "15.0"},
+                {"日期": "20260101", "指数": "3200", "平均市盈率": "14.5"},
+                {"日期": "2026-01-01", "指数": "3210", "平均市盈率": "14.8"},
+                {"日期": "2026-01-02", "指数": "3190", "平均市盈率": "0"},
+            ]
+        )
+
+    def stock_market_pb_lg(self, **kwargs):
+        if kwargs != {"symbol": "上证"}:
+            raise AssertionError("Shanghai market PB should request 上证")
+        return FakeFrame(
+            [
+                {
+                    "日期": "2026-01-01",
+                    "指数": "3210",
+                    "市净率": "1.5",
+                    "等权市净率": "4.2",
+                    "市净率中位数": "2.4",
+                },
+                {
+                    "日期": "2026-01-02",
+                    "指数": "3200",
+                    "市净率": "0",
+                    "等权市净率": "4.1",
+                    "市净率中位数": "2.3",
+                },
+            ]
+        )
+
+    def stock_index_pe_lg(self, **kwargs):
+        if kwargs != {"symbol": "沪深300"}:
+            raise AssertionError("index PE symbol should be preserved")
+        return FakeFrame(
+            [
+                {
+                    "日期": "2026-08-07",
+                    "指数": "4694.44",
+                    "静态市盈率": "13.99",
+                    "滚动市盈率": "13.71",
+                    "等权静态市盈率": "40.23",
+                    "等权滚动市盈率": "35.75",
+                    "静态市盈率中位数": "21.33",
+                    "滚动市盈率中位数": "20.69",
+                }
+            ]
+        )
+
+    def stock_index_pb_lg(self, **kwargs):
+        if kwargs != {"symbol": "沪深300"}:
+            raise AssertionError("index PB symbol should be preserved")
+        return FakeFrame(
+            [
+                {
+                    "日期": "2026-08-07",
+                    "指数": "4694.44",
+                    "市净率": "1.44",
+                    "等权市净率": "4.47",
+                    "市净率中位数": "2.30",
+                }
+            ]
+        )
+
+    def stock_zh_index_value_csindex(self, **kwargs):
+        if kwargs != {"symbol": "000300"}:
+            raise AssertionError("CSI valuation symbol should normalize")
+        return FakeFrame(
+            [
+                {
+                    "日期": "2026-07-14",
+                    "指数代码": "300",
+                    "指数中文简称": "沪深300",
+                    "市盈率1": "14.89",
+                    "市盈率2": "17.77",
+                    "股息率1": "2.63",
+                    "股息率2": "2.19",
+                }
+            ]
+        )
+
+    def stock_market_activity_legu(self):
+        return FakeFrame(
+            [
+                {"item": "上涨", "value": 2670},
+                {"item": "下跌", "value": 2399},
+                {"item": "平盘", "value": 133},
+                {"item": "停牌", "value": 4},
+                {"item": "涨停", "value": 75},
+                {"item": "跌停", "value": 4},
+                {"item": "活跃度", "value": "51.29%"},
+                {
+                    "item": "统计日期",
+                    "value": "2026-08-07 15:00:00",
+                },
+            ]
+        )
+
+    def index_analysis_daily_sw(self, **kwargs):
+        if (
+            kwargs.get("symbol") not in {"市场表征", "一级行业"}
+            or kwargs.get("start_date") != "20260803"
+            or kwargs.get("end_date") != "20260807"
+        ):
+            raise AssertionError("SW dates should use compact format")
+        industry = kwargs["symbol"] == "一级行业"
+        return FakeFrame(
+            [
+                {
+                    "指数代码": "801010" if industry else "801001",
+                    "指数名称": "农林牧渔" if industry else "申万50",
+                    "发布日期": "2026-08-07",
+                    "涨跌幅": "1.56",
+                    "换手率": "3.53",
+                    "市盈率": "25.29",
+                    "市净率": "3.5",
+                    "股息率": "1.57",
+                    "成交额占比": "18.31",
+                    "流通市值": "114914.46",
+                }
+            ]
+        )
+
+    def bond_zh_us_rate(self, **kwargs):
+        if kwargs != {"start_date": "20260101"}:
+            raise AssertionError("bond yield start date should use compact format")
+        return FakeFrame(
+            [
+                {"日期": "2026-01-03", "中国国债收益率10年": "2.0"},
+                {"日期": "20260101", "中国国债收益率10年": "1.8"},
+                {"日期": "2026-01-01", "中国国债收益率10年": "1.9"},
+                {"日期": "2026-01-02", "中国国债收益率10年": None},
+            ]
+        )
+
+    def index_option_50etf_qvix(self):
+        return FakeFrame(
+            [
+                {"date": "2026-01-03", "close": "20.0"},
+                {"date": "20260101", "close": "18.0"},
+                {"date": "2026-01-01", "close": "19.0"},
+                {"date": "2026-01-02", "close": ""},
             ]
         )
 
@@ -320,7 +523,7 @@ class FakeBaoStock:
         self.logged_out = True
 
     def query_history_k_data_plus(self, code, fields, start_date, end_date, frequency, adjustflag):
-        if code != "sz.000001":
+        if code not in {"sz.000001", "sh.000001"}:
             raise AssertionError("symbol should be normalized for BaoStock")
         if start_date != "2026-01-01" or end_date != "2026-01-31":
             raise AssertionError("dates should be dashed for BaoStock")
@@ -328,7 +531,20 @@ class FakeBaoStock:
             raise AssertionError("unexpected BaoStock query options")
         if "open" not in fields or "close" not in fields:
             raise AssertionError("daily fields should include OHLC")
-        return FakeBaoStockResult()
+        return FakeBaoStockResult(
+            rows=[
+                [
+                    "2026-01-05",
+                    code,
+                    "10.1",
+                    "10.5",
+                    "10.0",
+                    "10.3",
+                    "123456",
+                    "1234567.8",
+                ]
+            ]
+        )
 
     def query_trade_dates(self, start_date, end_date):
         if start_date != "2026-01-01" or end_date != "2026-01-31":
@@ -441,6 +657,80 @@ class ProviderAdapterTest(unittest.TestCase):
         self.assertEqual(provider.get_fund_bond_holdings("000001", "2026")[0].item_name, "测试债")
         self.assertEqual(provider.get_fund_industry_allocation("000001", "2026")[0].ratio, 3.4)
 
+    def test_akshare_etf_nav_distribution_and_split_contracts(self):
+        provider = AkShareDataSource(FakeAkShare())
+        navs = provider.get_etf_nav_history_records(
+            asset_id="asset:etf:510300",
+            symbol="510300.SH",
+            start_date="2025-06-17",
+            end_date="2025-06-20",
+        )
+        distributions = provider.get_etf_distribution_events(
+            symbol="510300",
+            start_date="2025-06-17",
+            end_date="2025-06-20",
+        )
+        splits = provider.get_etf_split_events(
+            symbol="510300",
+            start_date="2025-06-17",
+            end_date="2025-06-20",
+        )
+        distributions_batch = provider.get_etf_distribution_events_batch(
+            symbols=("510300", "510210"),
+            start_date="2025-06-17",
+            end_date="2025-06-20",
+        )
+        splits_batch = provider.get_etf_split_events_batch(
+            symbols=("510300", "510210"),
+            start_date="2025-06-17",
+            end_date="2025-06-20",
+        )
+
+        self.assertEqual(len(navs), 1)
+        self.assertEqual(navs[0].date, "2025-06-18")
+        self.assertEqual(navs[0].available_at, "2025-06-19")
+        self.assertEqual(
+            navs[0].source,
+            "akshare:fund_etf_fund_info_em",
+        )
+        self.assertEqual(len(distributions), 1)
+        self.assertEqual(
+            distributions[0].cash_per_share,
+            Decimal("0.088"),
+        )
+        self.assertEqual(
+            distributions[0].available_at,
+            distributions[0].ex_date,
+        )
+        self.assertEqual(len(splits), 1)
+        self.assertEqual(splits[0].ratio, Decimal("5"))
+        self.assertEqual(
+            splits[0].source,
+            "akshare:fund_cf_em",
+        )
+        self.assertEqual(len(distributions_batch["510300"]), 1)
+        self.assertEqual(distributions_batch["510210"], [])
+        self.assertEqual(len(splits_batch["510300"]), 1)
+        self.assertEqual(splits_batch["510210"], [])
+
+    def test_akshare_etf_nav_failure_never_falls_back_to_prices(self):
+        class BrokenETFNavAkShare:
+            def fund_etf_fund_info_em(self, **kwargs):
+                raise ValueError("upstream schema changed")
+
+        with self.assertRaisesRegex(
+            DataSourceError,
+            "do not substitute adjusted ETF market prices for NAV",
+        ):
+            AkShareDataSource(
+                BrokenETFNavAkShare()
+            ).get_etf_nav_history_records(
+                asset_id="asset:etf:510300",
+                symbol="510300",
+                start_date="2025-06-17",
+                end_date="2025-06-20",
+            )
+
     def test_disabled_akshare_non_baseline_methods_raise_clear_errors(self):
         provider = AkShareDataSource(FakeAkShare())
         with self.assertRaises(DataSourceError):
@@ -503,15 +793,116 @@ class ProviderAdapterTest(unittest.TestCase):
         self.assertEqual(block["float_market_cap"], 10000.0)
         self.assertFalse(block["metadata"]["identity_inference"])
 
+    def test_akshare_market_timing_histories_are_normalized(self):
+        provider = AkShareDataSource(FakeAkShare())
+
+        self.assertEqual(
+            provider.get_shanghai_market_pe_history(),
+            [
+                {
+                    "trade_date": "2026-01-01",
+                    "market_pe": 14.8,
+                    "index_close": 3210.0,
+                    "source": "akshare:stock_market_pe_lg",
+                },
+                {
+                    "trade_date": "2026-01-03",
+                    "market_pe": 15.0,
+                    "index_close": None,
+                    "source": "akshare:stock_market_pe_lg",
+                },
+            ],
+        )
+        self.assertEqual(
+            provider.get_china_ten_year_yield_history("2026-01-01"),
+            [
+                {
+                    "trade_date": "2026-01-01",
+                    "ten_year_yield_percent": 1.9,
+                    "source": "akshare:bond_zh_us_rate",
+                },
+                {
+                    "trade_date": "2026-01-03",
+                    "ten_year_yield_percent": 2.0,
+                    "source": "akshare:bond_zh_us_rate",
+                },
+            ],
+        )
+        self.assertEqual(
+            provider.get_50etf_qvix_history(),
+            [
+                {
+                    "trade_date": "2026-01-01",
+                    "qvix_close": 19.0,
+                    "source": "akshare:index_option_50etf_qvix",
+                },
+                {
+                    "trade_date": "2026-01-03",
+                    "qvix_close": 20.0,
+                    "source": "akshare:index_option_50etf_qvix",
+                },
+            ],
+        )
+        self.assertEqual(
+            provider.get_shanghai_market_pb_history()[0],
+            {
+                "trade_date": "2026-01-01",
+                "index_close": 3210.0,
+                "market_pb": 1.5,
+                "equal_weight_pb": 4.2,
+                "median_pb": 2.4,
+                "source": "akshare:stock_market_pb_lg",
+            },
+        )
+        activity = provider.get_market_activity_snapshot()
+        self.assertEqual(activity["trade_date"], "2026-08-07")
+        self.assertEqual(activity["advance_count"], 2670)
+        self.assertEqual(activity["decline_count"], 2399)
+        self.assertEqual(activity["activity_ratio"], 0.5129)
+        industry = provider.get_sw_market_daily_metrics(
+            "2026-08-03",
+            "2026-08-07",
+        )[0]
+        self.assertEqual(industry["index_code"], "801001")
+        self.assertEqual(industry["pe"], 25.29)
+        self.assertEqual(industry["dividend_yield_percent"], 1.57)
+        level_one = provider.get_sw_industry_daily_metrics(
+            "2026-08-03",
+            "2026-08-07",
+        )[0]
+        self.assertEqual(level_one["index_code"], "801010")
+        self.assertEqual(level_one["index_name"], "农林牧渔")
+        valuation = provider.get_index_valuation_history(
+            "沪深300"
+        )[0]
+        self.assertEqual(valuation["trade_date"], "2026-08-07")
+        self.assertEqual(valuation["ttm_pe"], 13.71)
+        self.assertEqual(valuation["static_pe"], 13.99)
+        self.assertEqual(valuation["pb"], 1.44)
+        self.assertEqual(valuation["equal_weight_pb"], 4.47)
+        official = provider.get_csindex_official_valuation(
+            "000300"
+        )[0]
+        self.assertEqual(official["index_code"], "000300")
+        self.assertEqual(official["pe1"], 14.89)
+        self.assertEqual(official["dividend_yield1_percent"], 2.63)
+
     def test_baostock_daily_bars_are_normalized(self):
         fake = FakeBaoStock()
         provider = BaoStockDataSource(fake)
         bars = provider.get_a_share_daily_bars("000001.SZ", "20260101", "20260131")
+        index_bars = provider.get_index_daily_bars(
+            "000001",
+            "20260101",
+            "20260131",
+            "sh",
+        )
         provider.logout()
         self.assertEqual(len(bars), 1)
         self.assertEqual(bars[0].source, "baostock:query_history_k_data_plus")
         self.assertEqual(bars[0].symbol, "000001")
         self.assertEqual(bars[0].close, 10.3)
+        self.assertEqual(index_bars[0].raw["code"], "sh.000001")
         self.assertTrue(fake.logged_out)
 
     def test_baostock_reference_and_financial_methods_return_records(self):

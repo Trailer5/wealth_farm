@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 
@@ -48,6 +49,42 @@ class AssetIdentifier:
     identifier_type: str = "source_symbol"
     confidence: float = 1.0
     active: bool = True
+
+
+@dataclass(frozen=True)
+class AssetNameRecord:
+    """Point-in-time official name or reviewed alias for one asset."""
+
+    asset_id: str
+    name: str
+    name_type: str
+    effective_from: str
+    effective_to: str | None
+    source: str
+    confidence: float = 1.0
+
+    def __post_init__(self) -> None:
+        if not all(
+            isinstance(value, str) and value.strip()
+            for value in (
+                self.asset_id,
+                self.name,
+                self.name_type,
+                self.source,
+            )
+        ):
+            raise ValueError(
+                "asset name identity fields must not be blank"
+            )
+        start = date.fromisoformat(self.effective_from)
+        if self.effective_to is not None:
+            end = date.fromisoformat(self.effective_to)
+            if end < start:
+                raise ValueError(
+                    "effective_to must not precede effective_from"
+                )
+        if not 0 <= self.confidence <= 1:
+            raise ValueError("confidence must be in [0, 1]")
 
 
 @dataclass(frozen=True)

@@ -17,6 +17,7 @@ from src.research_visualization import (
     ChartRenderer,
     ChartSpec,
     ChartType,
+    ReportArtifactService,
     build_factor_series_spec,
     build_financial_trends_spec,
     build_price_volume_spec,
@@ -90,7 +91,57 @@ class ResearchVisualizationTest(unittest.TestCase):
         self.assertEqual(metadata["price_adjustment"], "none")
         self.assertEqual(metadata["point_count"], 10)
 
-    def test_all_six_chart_types_render(self):
+    def test_report_service_publishes_markdown_and_auditable_charts(self):
+        service = ReportArtifactService(
+            self.output_root / "report"
+        )
+        spec = build_price_volume_spec(
+            task=self.task,
+            asset=self.asset,
+            records=_price_records(11),
+            source_dataset="stock_daily_bars",
+            price_adjustment="none",
+            moving_averages=(3, 5),
+        )
+
+        charts = service.render_charts(
+            "maotai-report",
+            {"price": spec},
+        )
+        alias_path = service.publish_chart_alias(
+            charts[0],
+            filename="茅台价格图.png",
+        )
+        published = service.publish_markdown(
+            filename="茅台报告.md",
+            content=(
+                "# 茅台报告\n\n"
+                f"![价格图]({charts[0].markdown_path})"
+            ),
+            charts=charts,
+        )
+
+        self.assertEqual(
+            published.report_path.parent,
+            self.output_root / "report",
+        )
+        self.assertTrue(published.report_path.exists())
+        self.assertTrue(charts[0].artifact.png_path.exists())
+        self.assertTrue(charts[0].artifact.metadata_path.exists())
+        self.assertEqual(
+            alias_path.parent,
+            self.output_root / "report",
+        )
+        self.assertEqual(
+            alias_path.read_bytes(),
+            charts[0].artifact.png_path.read_bytes(),
+        )
+        self.assertIn(
+            charts[0].markdown_path,
+            published.report_path.read_text(encoding="utf-8"),
+        )
+
+    def test_all_chart_types_render(self):
         factor_values = _factor_values()
         specs = [
             build_factor_series_spec(
@@ -141,6 +192,33 @@ class ResearchVisualizationTest(unittest.TestCase):
                 source_dataset="stock_daily_bars",
                 price_adjustment="none",
             ),
+        )
+        specs.append(
+            ChartSpec(
+                task_id=self.task.task_id,
+                asset_id=self.asset.asset_id,
+                asset_name=self.asset.display_name,
+                chart_type=ChartType.CATEGORICAL_BAR,
+                title="Scenario returns",
+                as_of_date=self.task.as_of_date,
+                x_label="Scenario",
+                y_label="Return",
+                points=(
+                    ChartDataPoint(
+                        "2026-01-01",
+                        {"Strategy": 0.1, "Benchmark": 0.2},
+                    ),
+                    ChartDataPoint(
+                        "2026-01-02",
+                        {"Strategy": -0.1, "Benchmark": 0.0},
+                    ),
+                ),
+                source_datasets=("unit-test",),
+                unit="ratio",
+                parameters={
+                    "category_labels": ["Risk-on", "Risk-off"],
+                },
+            )
         )
         artifacts = [self.renderer.render(spec) for spec in specs]
         valuation_spec = next(
@@ -217,7 +295,10 @@ class ResearchVisualizationTest(unittest.TestCase):
         etf = chart_types_for_profile(PROFILE_EXCHANGE_FUND)
         open_fund = chart_types_for_profile(PROFILE_OPEN_FUND)
 
-        self.assertEqual(set(ordinary), set(ChartType))
+        self.assertEqual(
+            set(ordinary),
+            set(ChartType) - {ChartType.CATEGORICAL_BAR},
+        )
         self.assertNotIn(ChartType.FINANCIAL_TRENDS, etf)
         self.assertNotIn(ChartType.PRICE_VOLUME, open_fund)
 

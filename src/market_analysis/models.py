@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 
@@ -175,6 +176,48 @@ class MarketFactorSnapshot:
                     "snapshot values must match parameter identity"
                 )
         object.__setattr__(self, "values", values)
+
+
+@dataclass(frozen=True)
+class MarketSeriesObservation:
+    scope_asset_id: str
+    series_name: str
+    observation_date: str
+    available_at: str
+    value: Decimal
+    unit: str
+    methodology: str
+    source: str
+    acquired_at: str
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for value, field_name in (
+            (self.scope_asset_id, "scope_asset_id"),
+            (self.series_name, "series_name"),
+            (self.unit, "unit"),
+            (self.methodology, "methodology"),
+            (self.source, "source"),
+        ):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{field_name} must not be blank")
+        observation_date = _parse_date(
+            self.observation_date,
+            "observation_date",
+        )
+        available_at = _parse_date(
+            self.available_at,
+            "available_at",
+        )
+        if available_at < observation_date:
+            raise ValueError(
+                "available_at must not precede observation_date"
+            )
+        if not isinstance(self.value, Decimal) or not self.value.is_finite():
+            raise ValueError("value must be a finite Decimal")
+        datetime.fromisoformat(
+            self.acquired_at.replace("Z", "+00:00")
+        )
 
 
 def _parse_date(value: str, field_name: str) -> date:

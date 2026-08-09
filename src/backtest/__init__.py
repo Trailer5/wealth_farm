@@ -1,6 +1,29 @@
 """Reproducible daily long-only backtesting."""
 
 from .engine import BacktestEngine, bars_from_records
+from .etf_rotation import (
+    ETF_ROTATION_BACKTEST_VERSION,
+    ETFRotationBacktestBar,
+    ETFRotationBacktestEngine,
+    ETFRotationBacktestRun,
+    ETFRotationBacktestSpec,
+    ETFRotationEquityPoint,
+    ETFRotationSkippedOrder,
+    ETFRotationTrade,
+    PortfolioTargetSignal,
+)
+from .fractional_exposure import (
+    FractionalExposureBacktestEngine,
+    FractionalExposureSignal,
+)
+from .event_name_event_study import (
+    EventNameEventStudyEngine,
+    EventNameEventStudyResult,
+    EventNameEventStudySpec,
+    EventNameStudyCase,
+    EventNameStudySummary,
+    discovery_rule_digest,
+)
 from .models import (
     BACKTEST_VERSION,
     BacktestBar,
@@ -11,6 +34,37 @@ from .models import (
     EquityPoint,
     SkippedOrder,
     TradeSide,
+)
+from .market_timing_event_study import (
+    MARKET_TIMING_EVENT_STUDY_VERSION,
+    MarketTimingEvent,
+    MarketTimingEventStudyEngine,
+    MarketTimingEventStudyParameters,
+    MarketTimingEventStudyRun,
+    MarketTimingSkippedEvent,
+)
+from .market_timing_oos import (
+    MARKET_TIMING_OOS_SEED,
+    MARKET_TIMING_OOS_VERSION,
+    MarketTimingOOSEngine,
+    MarketTimingOOSParameters,
+    OOSFold,
+    OOSQuantileMetrics,
+    OOSRun,
+    evaluate_market_timing_oos,
+)
+from .market_timing_validation import (
+    MARKET_TIMING_VALIDATION_SEED,
+    MARKET_TIMING_VALIDATION_VERSION,
+    MarketTimingHorizonValidation,
+    MarketTimingObservation,
+    MarketTimingQuantileMetrics,
+    MarketTimingValidationEngine,
+    MarketTimingValidationParameters,
+    MarketTimingValidationRun,
+    MarketTimingValidationSkipped,
+    MarketTimingWalkForwardFold,
+    validate_market_timing,
 )
 from .sqlite_repository import SQLiteBacktestRepository
 
@@ -23,8 +77,50 @@ __all__ = [
     "BacktestSpec",
     "BacktestTrade",
     "EquityPoint",
+    "ETF_ROTATION_BACKTEST_VERSION",
+    "ETFRotationBacktestBar",
+    "ETFRotationBacktestEngine",
+    "ETFRotationBacktestRun",
+    "ETFRotationBacktestSpec",
+    "ETFRotationEquityPoint",
+    "ETFRotationSkippedOrder",
+    "ETFRotationTrade",
+    "PortfolioTargetSignal",
+    "FractionalExposureBacktestEngine",
+    "FractionalExposureSignal",
+    "EventNameEventStudyEngine",
+    "EventNameEventStudyResult",
+    "EventNameEventStudySpec",
+    "EventNameStudyCase",
+    "EventNameStudySummary",
+    "discovery_rule_digest",
+    "MARKET_TIMING_EVENT_STUDY_VERSION",
+    "MARKET_TIMING_OOS_SEED",
+    "MARKET_TIMING_OOS_VERSION",
+    "MARKET_TIMING_VALIDATION_SEED",
+    "MARKET_TIMING_VALIDATION_VERSION",
+    "MarketTimingEvent",
+    "MarketTimingEventStudyEngine",
+    "MarketTimingEventStudyParameters",
+    "MarketTimingEventStudyRun",
+    "MarketTimingHorizonValidation",
+    "MarketTimingObservation",
+    "MarketTimingOOSEngine",
+    "MarketTimingOOSParameters",
+    "MarketTimingQuantileMetrics",
+    "MarketTimingSkippedEvent",
+    "MarketTimingValidationEngine",
+    "MarketTimingValidationParameters",
+    "MarketTimingValidationRun",
+    "MarketTimingValidationSkipped",
+    "MarketTimingWalkForwardFold",
+    "OOSFold",
+    "OOSQuantileMetrics",
+    "OOSRun",
     "SQLiteBacktestRepository",
     "SkippedOrder",
     "TradeSide",
     "bars_from_records",
+    "evaluate_market_timing_oos",
+    "validate_market_timing",
 ]

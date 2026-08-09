@@ -7,15 +7,19 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from decimal import Decimal
 
-from .models import MarketFactorValue
+from .models import (
+    MarketFactorValue,
+    MarketSeriesObservation,
+)
 
 
 class SQLiteMarketFactorRepository:
     """Persist market factors without an assets-table relationship."""
 
-    SCHEMA_VERSION = 25
-    SCHEMA_DESCRIPTION = "A-share market factor values"
+    SCHEMA_VERSION = 27
+    SCHEMA_DESCRIPTION = "A-share factors and market series"
 
     def __init__(
         self,
@@ -60,6 +64,26 @@ class SQLiteMarketFactorRepository:
                     scope_id,
                     as_of_date,
                     factor_name
+                );
+
+                CREATE TABLE IF NOT EXISTS market_series_observations (
+                    scope_asset_id TEXT NOT NULL,
+                    series_name TEXT NOT NULL,
+                    observation_date TEXT NOT NULL,
+                    methodology TEXT NOT NULL,
+                    available_at TEXT NOT NULL,
+                    value_text TEXT NOT NULL,
+                    unit TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    acquired_at TEXT NOT NULL,
+                    raw_json TEXT NOT NULL,
+                    PRIMARY KEY (
+                        scope_asset_id,
+                        series_name,
+                        observation_date,
+                        methodology,
+                        source
+                    )
                 );
                 """
             )
@@ -154,6 +178,94 @@ class SQLiteMarketFactorRepository:
                 query_parameters,
             ).fetchall()
         return [_value_from_row(row) for row in rows]
+
+    def upsert_series_observations(
+        self,
+        observations: list[MarketSeriesObservation],
+    ) -> int:
+        if not observations:
+            return 0
+        with self._connect() as conn:
+            conn.executemany(
+                """
+                INSERT INTO market_series_observations (
+                    scope_asset_id, series_name, observation_date,
+                    methodology, available_at, value_text, unit,
+                    source, acquired_at, raw_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (
+                    scope_asset_id, series_name, observation_date,
+                    methodology, source
+                ) DO UPDATE SET
+                    available_at = excluded.available_at,
+                    value_text = excluded.value_text,
+                    unit = excluded.unit,
+                    acquired_at = excluded.acquired_at,
+                    raw_json = excluded.raw_json
+                """,
+                [
+                    [
+                        item.scope_asset_id,
+                        item.series_name,
+                        item.observation_date,
+                        item.methodology,
+                        item.available_at,
+                        format(item.value, "f"),
+                        item.unit,
+                        item.source,
+                        item.acquired_at,
+                        json.dumps(
+                            item.raw,
+                            ensure_ascii=False,
+                            sort_keys=True,
+                            default=str,
+                        ),
+                    ]
+                    for item in observations
+                ],
+            )
+        return len(observations)
+
+    def list_series_observations(
+        self,
+        scope_asset_id: str,
+        series_name: str,
+        *,
+        available_through: str | None = None,
+    ) -> list[MarketSeriesObservation]:
+        conditions = [
+            "scope_asset_id = ?",
+            "series_name = ?",
+        ]
+        parameters = [scope_asset_id, series_name]
+        if available_through is not None:
+            conditions.append("available_at <= ?")
+            parameters.append(available_through)
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT *
+                FROM market_series_observations
+                WHERE {" AND ".join(conditions)}
+                ORDER BY observation_date, methodology, source
+                """,
+                parameters,
+            ).fetchall()
+        return [
+            MarketSeriesObservation(
+                scope_asset_id=str(row["scope_asset_id"]),
+                series_name=str(row["series_name"]),
+                observation_date=str(row["observation_date"]),
+                methodology=str(row["methodology"]),
+                available_at=str(row["available_at"]),
+                value=Decimal(str(row["value_text"])),
+                unit=str(row["unit"]),
+                source=str(row["source"]),
+                acquired_at=str(row["acquired_at"]),
+                raw=json.loads(row["raw_json"]),
+            )
+            for row in rows
+        ]
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:

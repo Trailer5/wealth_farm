@@ -30,9 +30,7 @@ class StrategyContractTest(unittest.TestCase):
         self.spec = _strategy_spec()
         self.executor = StrategyExecutor()
 
-    def test_passing_strategy_is_explainable_and_not_trade_instruction(
-        self,
-    ):
+    def test_passing_strategy_is_explainable(self):
         result = self.executor.execute(
             self.spec,
             _input(),
@@ -42,7 +40,6 @@ class StrategyContractTest(unittest.TestCase):
         self.assertEqual(result.score, Decimal("1"))
         self.assertEqual(result.confidence, Decimal("1"))
         self.assertEqual(result.valid_until, "2026-04-30")
-        self.assertFalse(result.is_trade_instruction)
         self.assertIn("quality_gate", result.matched_conditions)
         self.assertNotIn(
             "veto_leverage",
@@ -51,10 +48,6 @@ class StrategyContractTest(unittest.TestCase):
         self.assertEqual(
             result.metric_versions["roe"],
             "fundamental_v1",
-        )
-        self.assertIn(
-            "result is not a trade instruction",
-            result.limitations,
         )
 
     def test_veto_overrides_high_score(self):

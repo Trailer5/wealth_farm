@@ -49,7 +49,16 @@ def main() -> int:
         SQLiteMasterDataRepository,
     )
     from src.research_evidence import ResearchEvidenceService
-    from src.research_visualization import ChartRenderer
+    from src.research_acceptance import ResearchReportAssemblyService
+    from src.research_orchestration import (
+        ResearchExecutionDispatcher,
+        ResearchOrchestrationPipeline,
+        ResearchRunRequest,
+    )
+    from src.research_visualization import (
+        ChartRenderer,
+        ReportArtifactService,
+    )
     from src.research_workflow import (
         FinancialInstitutionResearchExecutionService,
         PROFILE_FINANCIAL_INSTITUTION,
@@ -140,12 +149,24 @@ def main() -> int:
             as_of_date="2026-08-03",
             benchmark_asset_id=index.asset_id,
         )
-        result = service.execute(
-            task,
-            options=ResearchExecutionOptions(
-                provider_timeout_seconds=120,
+        orchestration = ResearchOrchestrationPipeline(
+            dispatcher=ResearchExecutionDispatcher(
+                {PROFILE_FINANCIAL_INSTITUTION: service}
+            ),
+            report_assembly=ResearchReportAssemblyService(
+                master_data=master
+            ),
+            publisher=ReportArtifactService(root / "report"),
+        )
+        run = orchestration.run(
+            ResearchRunRequest(
+                task=task,
+                execution_options=ResearchExecutionOptions(
+                    provider_timeout_seconds=120,
+                ),
             ),
         )
+        result = run.execution
         if result.status.value != "complete":
             raise AssertionError(
                 f"Financial execution incomplete: {result.gaps}"
@@ -160,6 +181,8 @@ def main() -> int:
             is StrategyRunStatus.INSUFFICIENT_DATA
         ):
             raise AssertionError("Bank strategy input incomplete")
+        if run.report is None or run.report_path is None:
+            raise AssertionError("Bank report was not published")
         print(
             json.dumps(
                 {

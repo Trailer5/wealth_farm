@@ -140,6 +140,7 @@ class ChartRenderer:
             ChartType.FINANCIAL_TRENDS: (
                 _financial_trends_figure
             ),
+            ChartType.CATEGORICAL_BAR: _categorical_bar_figure,
         }
         return renderers[spec.chart_type](spec)
 
@@ -202,7 +203,9 @@ def _price_volume_figure(spec: ChartSpec):
         )
     price_axis.legend(loc="best")
     price_axis.set_ylabel(_axis_label(spec.y_label, spec.unit))
-    volume_axis.set_ylabel("Volume")
+    volume_axis.set_ylabel(
+        str(spec.parameters.get("volume_label", "Volume"))
+    )
     _apply_dates(volume_axis, spec)
     _apply_title(fig, spec)
     fig.tight_layout()
@@ -326,12 +329,67 @@ def _financial_trends_figure(spec: ChartSpec):
     return fig
 
 
+def _categorical_bar_figure(spec: ChartSpec):
+    fields = sorted(
+        {
+            field_name
+            for point in spec.points
+            for field_name, value in point.values.items()
+            if value is not None
+        }
+    )
+    if not fields:
+        raise ValueError("Categorical chart has no numeric series")
+    labels = tuple(
+        str(value)
+        for value in spec.parameters.get(
+            "category_labels",
+            [point.date for point in spec.points],
+        )
+    )
+    if len(labels) != len(spec.points):
+        raise ValueError(
+            "category_labels must match the point count"
+        )
+    fig, axis = plt.subplots(figsize=(12, 6))
+    x_values = list(range(len(spec.points)))
+    width = 0.8 / len(fields)
+    start_offset = -0.4 + width / 2
+    for field_index, field_name in enumerate(fields):
+        axis.bar(
+            [
+                value
+                + start_offset
+                + field_index * width
+                for value in x_values
+            ],
+            [
+                _optional_value(point.values.get(field_name))
+                for point in spec.points
+            ],
+            width=width,
+            label=field_name,
+        )
+    axis.axhline(0, color="#777777", linewidth=0.8)
+    axis.set_xticks(x_values)
+    axis.set_xticklabels(labels)
+    axis.set_xlabel(spec.x_label)
+    axis.set_ylabel(_axis_label(spec.y_label, spec.unit))
+    axis.legend(loc="best")
+    axis.grid(axis="y", alpha=0.2)
+    _apply_title(fig, spec)
+    fig.tight_layout()
+    return fig
+
+
 def _apply_title(fig, spec: ChartSpec) -> None:
     sources = ", ".join(spec.source_datasets)
+    as_of_label = str(spec.parameters.get("as_of_label", "As of"))
+    source_label = str(spec.parameters.get("source_label", "Source"))
     fig.suptitle(
         f"{spec.title}\n"
-        f"{spec.asset_name} · As of {spec.as_of_date} · "
-        f"Source: {sources}",
+        f"{spec.asset_name} · {as_of_label} {spec.as_of_date} · "
+        f"{source_label}: {sources}",
         fontsize=12,
     )
 
@@ -341,7 +399,10 @@ def _apply_dates(axis, spec: ChartSpec) -> None:
     step = max(1, count // 8)
     ticks = list(range(0, count, step))
     if ticks[-1] != count - 1:
-        ticks.append(count - 1)
+        if count - 1 - ticks[-1] < max(1, step // 2):
+            ticks[-1] = count - 1
+        else:
+            ticks.append(count - 1)
     axis.set_xticks(ticks)
     axis.set_xticklabels(
         [spec.points[index].date for index in ticks],

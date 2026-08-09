@@ -41,7 +41,16 @@ def main() -> int:
         MasterDataService,
         SQLiteMasterDataRepository,
     )
-    from src.research_visualization import ChartRenderer
+    from src.research_acceptance import ResearchReportAssemblyService
+    from src.research_orchestration import (
+        ResearchExecutionDispatcher,
+        ResearchOrchestrationPipeline,
+        ResearchRunRequest,
+    )
+    from src.research_visualization import (
+        ChartRenderer,
+        ReportArtifactService,
+    )
     from src.research_workflow import (
         ETFResearchExecutionService,
         PROFILE_EXCHANGE_FUND,
@@ -140,14 +149,26 @@ def main() -> int:
                 benchmark_asset_id=index.asset_id,
             ),
         }
+        orchestration = ResearchOrchestrationPipeline(
+            dispatcher=ResearchExecutionDispatcher(
+                {PROFILE_EXCHANGE_FUND: service}
+            ),
+            report_assembly=ResearchReportAssemblyService(
+                master_data=master
+            ),
+            publisher=ReportArtifactService(root / "report"),
+        )
         output = {}
         for name, task in tasks.items():
-            result = service.execute(
-                task,
-                options=ResearchExecutionOptions(
-                    provider_timeout_seconds=120,
+            run = orchestration.run(
+                ResearchRunRequest(
+                    task=task,
+                    execution_options=ResearchExecutionOptions(
+                        provider_timeout_seconds=120,
+                    ),
                 ),
             )
+            result = run.execution
             if result.status.value != "complete":
                 raise AssertionError(
                     f"ETF execution incomplete: {result.gaps}"
@@ -160,6 +181,8 @@ def main() -> int:
                 is StrategyRunStatus.INSUFFICIENT_DATA
             ):
                 raise AssertionError("ETF strategy input incomplete")
+            if run.report is None or run.report_path is None:
+                raise AssertionError("ETF report was not published")
             output[name] = {
                 "status": result.status.value,
                 "window_days": (

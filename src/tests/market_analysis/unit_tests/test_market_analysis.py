@@ -2,14 +2,20 @@ import math
 import sqlite3
 import tempfile
 import unittest
+from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 
 from src.market_analysis import (
     A_SHARE_MARKET_CALCULATION_VERSION,
     AShareMarketFactorCalculator,
+    IndustryContributionCalculator,
+    IndustryMarketMetric,
+    IndexValuationSeriesService,
     MarketAnalysisService,
     MarketCrossSectionRow,
     MarketFactorParameters,
+    MarketSeriesObservation,
     SQLiteMarketFactorRepository,
 )
 
@@ -124,6 +130,59 @@ class AShareMarketFactorCalculatorTest(unittest.TestCase):
             {value.factor_name for value in result.values},
         )
 
+    def test_other_trade_dates_do_not_pollute_exclusion_counts(self):
+        baseline = AShareMarketFactorCalculator().calculate(
+            _sample_rows(),
+            _parameters(),
+        )
+        with_previous_day = AShareMarketFactorCalculator().calculate(
+            (
+                *_sample_rows(),
+                replace(
+                    _sample_rows()[0],
+                    trade_date="2026-01-29",
+                ),
+            ),
+            _parameters(),
+        )
+
+        self.assertEqual(
+            [
+                item.parameters["excluded_missing"]
+                for item in baseline.values
+            ],
+            [
+                item.parameters["excluded_missing"]
+                for item in with_previous_day.values
+            ],
+        )
+
+    def test_industry_contribution_uses_prior_day_weights(self):
+        prior = (
+            _industry("A", "行业A", "2026-08-06", "0", "60"),
+            _industry("B", "行业B", "2026-08-06", "0", "40"),
+        )
+        current = (
+            _industry("A", "行业A", "2026-08-07", "0.10", "70"),
+            _industry("B", "行业B", "2026-08-07", "-0.05", "30"),
+        )
+
+        result = IndustryContributionCalculator().calculate(
+            prior,
+            current,
+        )
+
+        self.assertEqual(result[0].prior_weight, Decimal("0.6"))
+        self.assertEqual(result[0].contribution, Decimal("0.060"))
+        self.assertEqual(result[1].contribution, Decimal("-0.020"))
+        self.assertEqual(
+            sum(
+                (item.contribution for item in result),
+                Decimal("0"),
+            ),
+            Decimal("0.040"),
+        )
+
 
 class SQLiteMarketFactorRepositoryTest(unittest.TestCase):
     def test_compute_and_store_is_idempotent_without_asset_fk(self):
@@ -161,7 +220,96 @@ class SQLiteMarketFactorRepositoryTest(unittest.TestCase):
                 {value.factor_name for value in stored},
                 {value.factor_name for value in first.values},
             )
-
+            observation = MarketSeriesObservation(
+                scope_asset_id="index:cn_a:sh:000300",
+                series_name="ttm_pe",
+                observation_date="2026-08-07",
+                available_at="2026-08-08",
+                value=Decimal("13.71"),
+                unit="multiple",
+                methodology="market_cap_weighted_ttm",
+                source="akshare:stock_index_pe_lg",
+                acquired_at="2026-08-09T00:00:00+00:00",
+                raw={"index_name": "沪深300"},
+            )
+            self.assertEqual(
+                service.store_series_observations(
+                    [observation, observation]
+                ),
+                2,
+            )
+            self.assertEqual(
+                repository.list_series_observations(
+                    observation.scope_asset_id,
+                    observation.series_name,
+                    available_through="2026-08-07",
+                ),
+                [],
+            )
+            self.assertEqual(
+                repository.list_series_observations(
+                    observation.scope_asset_id,
+                    observation.series_name,
+                    available_through="2026-08-08",
+                ),
+                [observation],
+            )
+            valuation_service = IndexValuationSeriesService(
+                repository
+            )
+            stored_valuations = valuation_service.store(
+                scope_asset_id="index:cn_a:sh:000300",
+                records=[
+                    {
+                        "trade_date": "2026-08-07",
+                        "index_name": "沪深300",
+                        "ttm_pe": 13.71,
+                        "static_pe": 13.99,
+                        "pb": 1.44,
+                        "source": "akshare:index_valuation",
+                    }
+                ],
+                acquired_at="2026-08-09T00:00:00+00:00",
+            )
+            self.assertEqual(len(stored_valuations), 5)
+            pe_methods = {
+                item.methodology
+                for item in repository.list_series_observations(
+                    "index:cn_a:sh:000300",
+                    "pe",
+                )
+            }
+            self.assertEqual(
+                pe_methods,
+                {
+                    "market_cap_weighted_static",
+                    "market_cap_weighted_ttm",
+                },
+            )
+            official = valuation_service.store(
+                scope_asset_id="index:cn_a:sh:000300",
+                records=[
+                    {
+                        "trade_date": "2026-07-14",
+                        "index_name": "沪深300",
+                        "pe1": 14.89,
+                        "pe2": 17.77,
+                        "dividend_yield1_percent": 2.63,
+                        "dividend_yield2_percent": 2.19,
+                        "source": "akshare:csindex",
+                    }
+                ],
+                acquired_at="2026-08-09T00:00:00+00:00",
+            )
+            self.assertEqual(len(official), 6)
+            dividend_values = repository.list_series_observations(
+                "index:cn_a:sh:000300",
+                "dividend_yield",
+            )
+            self.assertEqual(
+                {item.value for item in dividend_values},
+                {Decimal("0.0263"), Decimal("0.0219")},
+            )
 
 def _parameters():
     return MarketFactorParameters(
@@ -172,6 +320,16 @@ def _parameters():
         as_of_date="2026-01-30",
         benchmark_return=0.02,
         historical_turnover_amounts=(400, 600, 800),
+    )
+
+
+def _industry(code, name, trade_date, return_ratio, market_cap):
+    return IndustryMarketMetric(
+        industry_code=code,
+        industry_name=name,
+        trade_date=trade_date,
+        return_ratio=Decimal(return_ratio),
+        float_market_cap=Decimal(market_cap),
     )
 
 

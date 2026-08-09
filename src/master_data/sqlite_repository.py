@@ -12,6 +12,7 @@ from .models import (
     AssetIdentifier,
     AssetIdentifierRebinding,
     AssetMatchCandidate,
+    AssetNameRecord,
     AssetResolution,
     AssetSourceObservation,
     RESOLUTION_CONFIRMED,
@@ -27,8 +28,10 @@ class IdentityMappingConflictError(ValueError):
 class SQLiteMasterDataRepository:
     """Persist master assets, identifiers, and source observations."""
 
-    SCHEMA_VERSION = 3
-    SCHEMA_DESCRIPTION = "master data identity review and explicit source identifier rebinding"
+    SCHEMA_VERSION = 4
+    SCHEMA_DESCRIPTION = (
+        "master identity review, explicit rebinding, and asset name history"
+    )
 
     def __init__(self, db_path: str | Path = "data/database/wealth_farm.sqlite3") -> None:
         self.db_path = Path(db_path)
@@ -94,6 +97,28 @@ class SQLiteMasterDataRepository:
 
                 CREATE INDEX IF NOT EXISTS idx_asset_identifiers_name
                 ON asset_identifiers (name);
+
+                CREATE TABLE IF NOT EXISTS asset_name_history (
+                    asset_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    name_type TEXT NOT NULL,
+                    effective_from TEXT NOT NULL,
+                    effective_to TEXT,
+                    source TEXT NOT NULL,
+                    confidence REAL NOT NULL DEFAULT 1.0
+                        CHECK (confidence >= 0.0 AND confidence <= 1.0),
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (
+                        asset_id, name, name_type, effective_from, source
+                    ),
+                    FOREIGN KEY (asset_id)
+                        REFERENCES assets (asset_id) ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_asset_name_history_lookup
+                ON asset_name_history (
+                    asset_id, effective_from, effective_to
+                );
 
                 CREATE TABLE IF NOT EXISTS asset_source_observations (
                     observation_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -498,6 +523,91 @@ class SQLiteMasterDataRepository:
                 """
             ).fetchall()
         return [_identifier_from_row(row) for row in rows]
+
+    def upsert_asset_name(
+        self,
+        record: AssetNameRecord,
+    ) -> AssetNameRecord:
+        """Store one point-in-time official name or reviewed alias."""
+
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO asset_name_history (
+                    asset_id, name, name_type, effective_from,
+                    effective_to, source, confidence
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (
+                    asset_id, name, name_type, effective_from, source
+                ) DO UPDATE SET
+                    effective_to = excluded.effective_to,
+                    confidence = excluded.confidence
+                """,
+                (
+                    record.asset_id,
+                    record.name,
+                    record.name_type,
+                    record.effective_from,
+                    record.effective_to,
+                    record.source,
+                    record.confidence,
+                ),
+            )
+        return record
+
+    def list_asset_names(
+        self,
+        *,
+        asset_id: str | None = None,
+        as_of_date: str | None = None,
+    ) -> list[AssetNameRecord]:
+        """Return name records, optionally point-in-time filtered."""
+
+        conditions = []
+        parameters: list[object] = []
+        if asset_id is not None:
+            conditions.append("asset_id = ?")
+            parameters.append(asset_id)
+        if as_of_date is not None:
+            conditions.extend(
+                [
+                    "effective_from <= ?",
+                    "(effective_to IS NULL OR effective_to >= ?)",
+                ]
+            )
+            parameters.extend((as_of_date, as_of_date))
+        where = (
+            f"WHERE {' AND '.join(conditions)}"
+            if conditions
+            else ""
+        )
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT asset_id, name, name_type, effective_from,
+                       effective_to, source, confidence
+                FROM asset_name_history
+                {where}
+                ORDER BY asset_id, effective_from, name_type, name
+                """,
+                parameters,
+            ).fetchall()
+        return [
+            AssetNameRecord(
+                asset_id=str(row["asset_id"]),
+                name=str(row["name"]),
+                name_type=str(row["name_type"]),
+                effective_from=str(row["effective_from"]),
+                effective_to=(
+                    str(row["effective_to"])
+                    if row["effective_to"] is not None
+                    else None
+                ),
+                source=str(row["source"]),
+                confidence=float(row["confidence"]),
+            )
+            for row in rows
+        ]
 
     def list_unresolved_observations(self) -> list[StoredAssetObservation]:
         """Return observations that still require review."""

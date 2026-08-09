@@ -79,7 +79,6 @@ class ResearchReportAssemblyTest(unittest.TestCase):
             {item.kind for item in report.scenarios},
             set(ScenarioKind),
         )
-        self.assertFalse(report.is_investment_advice)
 
     def test_blocking_execution_gap_blocks_report(self):
         execution = _execution(self.task)
