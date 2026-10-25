@@ -1,10 +1,12 @@
 import tempfile
 import unittest
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
 from src.data_access import (
+    DATASET_DISCLOSURES,
     DATASET_FUND_STATUS,
     DATASET_OPEN_FUND_NAV,
     AssetInput,
@@ -14,6 +16,7 @@ from src.data_access import (
 )
 from src.data_src.models import (
     DailyBar,
+    DisclosureDocument,
     FundEstimate,
     FundNav,
     FundPurchaseStatus,
@@ -22,12 +25,21 @@ from src.data_src.models import (
 from src.data_store import SQLiteDataStore
 from src.factor_engineering import SQLiteFactorRepository
 from src.fund_research import (
+    DisclosureExtractionStatus,
     ETFExpenseSchedule,
     ETFMarketSnapshot,
     ETF_METRIC_VERSION,
     ExchangeFundMetricService,
     FundRelationType,
     FundResearchService,
+    OpenFundAssetAllocation,
+    OpenFundHolding,
+    OpenFundIndustryAllocation,
+    OpenFundManagerTenure,
+    OpenFundPeriodicSnapshot,
+    OpenFundProfileSnapshot,
+    OpenFundShareClassSnapshot,
+    OpenFundShareFlow,
     SQLiteFundResearchRepository,
     percent_to_ratio,
     official_etf_expense_schedule,
@@ -269,6 +281,87 @@ class FundResearchTest(unittest.TestCase):
             FundRelationType.MANAGER,
         )
 
+    def test_official_snapshots_are_idempotent_historical_and_bundled(
+        self,
+    ):
+        profile = _profile_snapshot(self.open_fund.asset_id)
+        periodic = _periodic_snapshot(self.open_fund.asset_id)
+
+        self.relation_repository.save_profile_snapshot(profile)
+        self.relation_repository.save_profile_snapshot(profile)
+        failed_profile = replace(
+            profile,
+            effective_date="2026-06-12",
+            extraction_status=(
+                DisclosureExtractionStatus.EXTRACTION_FAILED
+            ),
+            extraction_errors=("broken PDF",),
+        )
+        self.relation_repository.save_profile_snapshot(failed_profile)
+        self.relation_repository.save_profile_snapshot(profile)
+        self.relation_repository.save_periodic_snapshot(periodic)
+        self.relation_repository.save_periodic_snapshot(periodic)
+        q3_periodic = replace(
+            periodic,
+            report_period_start="2026-07-01",
+            report_period_end="2026-09-30",
+            announcement_date="2026-10-21",
+            source_document_id="periodic-q3-doc",
+            source_title="测试基金2026年第3季度报告",
+        )
+        self.relation_repository.save_periodic_snapshot(q3_periodic)
+
+        self.assertEqual(
+            len(
+                self.relation_repository.list_profile_snapshots(
+                    self.open_fund.asset_id,
+                    as_of_date="2026-12-31",
+                )
+            ),
+            1,
+        )
+        self.assertEqual(
+            len(
+                self.relation_repository.list_periodic_snapshots(
+                    self.open_fund.asset_id,
+                    as_of_date="2026-12-31",
+                )
+            ),
+            2,
+        )
+        self.assertIsNone(
+            self.relation_repository.get_latest_periodic_snapshot(
+                self.open_fund.asset_id,
+                as_of_date="2026-07-20",
+            )
+        )
+        stored_periodic = (
+            self.relation_repository.get_latest_periodic_snapshot(
+                self.open_fund.asset_id,
+                as_of_date="2026-07-21",
+            )
+        )
+        self.assertEqual(
+            stored_periodic.top_holdings[0].security_name,
+            "测试股票",
+        )
+        bundle = self.service.get_open_fund_bundle(
+            asset_id=self.open_fund.asset_id,
+            start_date="2026-01-01",
+            end_date="2026-08-22",
+            as_of_date="2026-08-22",
+            allocation_year="2026",
+        )
+        self.assertEqual(
+            bundle.profile_snapshot.source_document_id,
+            "profile-doc",
+        )
+        self.assertEqual(
+            bundle.periodic_snapshot.report_period_end,
+            "2026-06-30",
+        )
+        self.assertIn("official-unit-test", bundle.sources)
+
     def test_fund_data_uses_cache_after_first_fetch(self):
         request = DataAccessRequest(
             asset=AssetInput(asset_id=self.open_fund.asset_id),
@@ -287,6 +380,34 @@ class FundResearchTest(unittest.TestCase):
             self.fetch_service.calls.count(("nav", "000001")),
             1,
         )
+
+    def test_open_fund_can_read_cached_official_disclosures(self):
+        self.store.upsert_disclosure_documents(
+            [
+                DisclosureDocument(
+                    document_id="fund-report",
+                    symbol="000001",
+                    title="测试基金2026年第2季度报告",
+                    announcement_date="2026-07-21",
+                    category="q2",
+                    source="cs_fund_disclosure",
+                    file_url="https://example.test/report.pdf",
+                )
+            ]
+        )
+
+        response = self.data_access.get(
+            DataAccessRequest(
+                asset=AssetInput(asset_id=self.open_fund.asset_id),
+                dataset=DATASET_DISCLOSURES,
+                start_date="2026-01-01",
+                end_date="2026-12-31",
+                as_of_date="2026-12-31",
+                allow_remote=False,
+            )
+        )
+
+        self.assertEqual(response.records[0]["document_id"], "fund-report")
 
     def test_status_has_observation_date_and_source(self):
         response = self.data_access.get(
@@ -491,6 +612,103 @@ class FundResearchTest(unittest.TestCase):
             "fund_nav_daily",
             open_profile.required_datasets,
         )
+
+
+def _profile_snapshot(asset_id):
+    return OpenFundProfileSnapshot(
+        fund_asset_id=asset_id,
+        effective_date="2026-06-11",
+        announcement_date="2026-06-12",
+        fund_name="测试基金",
+        share_class_name="测试基金A",
+        share_class_code="000001",
+        manager_name="测试基金公司",
+        custodian_name="测试银行",
+        fund_managers=(
+            OpenFundManagerTenure(
+                name="测试经理",
+                start_date="2020-01-01",
+                page_number=1,
+            ),
+        ),
+        benchmark_text="测试指数×100%",
+        management_fee_rate=Decimal("0.01"),
+        custody_fee_rate=Decimal("0.002"),
+        sales_service_fee_rate=None,
+        source_document_id="profile-doc",
+        source_title="测试基金产品资料概要",
+        source_url="https://example.test/profile.pdf",
+        source="official-unit-test",
+        parser_version="unit-test-v1",
+        extraction_status=DisclosureExtractionStatus.EXTRACTED,
+        page_numbers={"benchmark_text": 2},
+    )
+
+
+def _periodic_snapshot(asset_id):
+    return OpenFundPeriodicSnapshot(
+        fund_asset_id=asset_id,
+        report_period_start="2026-04-01",
+        report_period_end="2026-06-30",
+        announcement_date="2026-07-21",
+        share_classes=(
+            OpenFundShareClassSnapshot(
+                share_class_name="测试基金A",
+                share_class_code="000001",
+                ending_shares=Decimal("1000"),
+                unit_nav=Decimal("1.2"),
+                net_asset_value=Decimal("1200"),
+                page_number=2,
+            ),
+        ),
+        share_flows=(
+            OpenFundShareFlow(
+                share_class_name="测试基金A",
+                share_class_code="000001",
+                opening_shares=Decimal("900"),
+                subscriptions=Decimal("200"),
+                redemptions=Decimal("100"),
+                ending_shares=Decimal("1000"),
+                page_number=12,
+            ),
+        ),
+        asset_allocations=(
+            OpenFundAssetAllocation(
+                category="权益投资",
+                amount=Decimal("900"),
+                ratio=Decimal("0.75"),
+                basis="total_assets",
+                page_number=8,
+            ),
+        ),
+        industry_allocations=(
+            OpenFundIndustryAllocation(
+                category="制造业",
+                fair_value=Decimal("600"),
+                net_asset_ratio=Decimal("0.5"),
+                market_scope="domestic",
+                portfolio_scope="all",
+                page_number=9,
+            ),
+        ),
+        top_holdings=(
+            OpenFundHolding(
+                rank=1,
+                security_code="000001",
+                security_name="测试股票",
+                quantity=Decimal("10"),
+                fair_value=Decimal("100"),
+                net_asset_ratio=Decimal("0.08"),
+                page_number=10,
+            ),
+        ),
+        source_document_id="periodic-doc",
+        source_title="测试基金2026年第2季度报告",
+        source_url="https://example.test/periodic.pdf",
+        source="official-unit-test",
+        parser_version="unit-test-v1",
+        extraction_status=DisclosureExtractionStatus.EXTRACTED,
+    )
 
 
 if __name__ == "__main__":

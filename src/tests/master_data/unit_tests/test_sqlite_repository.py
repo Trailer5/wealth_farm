@@ -5,6 +5,7 @@ from pathlib import Path
 from src.data_src.models import SecurityInfo
 from src.master_data import (
     ASSET_TYPE_EXCHANGE_FUND,
+    ASSET_TYPE_OPEN_FUND,
     ASSET_TYPE_STOCK,
     RESOLUTION_AMBIGUOUS,
     RESOLUTION_CONFIRMED,
@@ -64,6 +65,29 @@ class SQLiteMasterDataRepositoryTest(unittest.TestCase):
                 raw_symbol="600519.SH",
             ),
             [created.asset],
+        )
+
+    def test_service_promotes_persisted_unknown_provider_identity(self):
+        service = MasterDataService(self.repository)
+        unknown = service.resolve_identifier(
+            source="akshare:fund_name_em",
+            raw_symbol="002236",
+            name="大成360互联网+大数据100A",
+            asset_type_hint="指数股票",
+        )
+
+        promoted = service.resolve_identifier(
+            source="akshare:fund_name_em",
+            raw_symbol="002236",
+            name="大成360互联网+大数据100A",
+            asset_type_hint="指数型-股票",
+        )
+
+        self.assertEqual(promoted.status, RESOLUTION_MATCHED)
+        self.assertEqual(promoted.asset.asset_id, unknown.asset.asset_id)
+        self.assertEqual(
+            self.repository.get_asset(unknown.asset.asset_id).asset_type,
+            ASSET_TYPE_OPEN_FUND,
         )
 
     def test_unresolved_observation_is_persisted_for_review(self):

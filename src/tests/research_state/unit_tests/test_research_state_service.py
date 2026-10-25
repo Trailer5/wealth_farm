@@ -4,6 +4,14 @@ from pathlib import Path
 
 from src.master_data import MasterDataService, SQLiteMasterDataRepository
 from src.research_state import ResearchStateService, SQLiteResearchStateRepository
+from src.research_workflow import (
+    DecisionContextRequirement,
+    DecisionContextStatus,
+    DecisionIntent,
+    DecisionLane,
+    PositionState,
+    ResearchHorizon,
+)
 from src.user_space import SQLiteUserSpaceRepository, UserSpaceService
 
 
@@ -110,6 +118,124 @@ class ResearchStateServiceTest(unittest.TestCase):
         )
         self.assertEqual(second.status, "final")
 
+    def test_understanding_brief_needs_no_private_decision_context(self):
+        brief = self.service.save_decision_brief(
+            self.context,
+            asset_id=self.asset.asset_id,
+            decision_intent=DecisionIntent.UNDERSTANDING,
+            decision_lanes=(),
+            horizon=ResearchHorizon.MEDIUM_LONG,
+            as_of_date="2026-08-23",
+        )
+
+        self.assertEqual(
+            brief.position_state,
+            PositionState.NOT_HELD,
+        )
+        self.assertEqual(brief.missing_user_context, ())
+        self.assertEqual(
+            brief.position_context_status,
+            DecisionContextStatus.NOT_APPLICABLE,
+        )
+
+    def test_purchase_brief_reports_missing_portfolio_role(self):
+        brief = self.service.save_decision_brief(
+            self.context,
+            asset_id=self.asset.asset_id,
+            decision_intent=DecisionIntent.EVALUATE_PURCHASE,
+            decision_lanes=(DecisionLane.SUITABILITY,),
+            horizon=ResearchHorizon.MEDIUM_LONG,
+            as_of_date="2026-08-23",
+        )
+
+        self.assertEqual(
+            brief.missing_user_context,
+            (DecisionContextRequirement.PORTFOLIO_ROLE,),
+        )
+
+    def test_holding_review_uses_current_position_details(self):
+        self.service.upsert_holding(
+            self.context,
+            asset_id=self.asset.asset_id,
+            quantity=100,
+            average_cost=8.1,
+        )
+
+        brief = self.service.save_decision_brief(
+            self.context,
+            asset_id=self.asset.asset_id,
+            decision_intent=DecisionIntent.REVIEW_HOLDING,
+            decision_lanes=(DecisionLane.SUITABILITY,),
+            horizon=ResearchHorizon.MEDIUM_LONG,
+            as_of_date="2026-08-23",
+            portfolio_role="对冲",
+        )
+
+        self.assertEqual(brief.position_state, PositionState.HELD)
+        self.assertEqual(brief.missing_user_context, ())
+
+    def test_position_context_updates_and_survives_restart(self):
+        initial = self.service.save_decision_brief(
+            self.context,
+            asset_id=self.asset.asset_id,
+            decision_intent=DecisionIntent.EVALUATE_PURCHASE,
+            decision_lanes=(
+                DecisionLane.SUITABILITY,
+                DecisionLane.POSITION_SIZING,
+            ),
+            horizon=ResearchHorizon.MEDIUM_LONG,
+            as_of_date="2026-08-23",
+            portfolio_role="核心配置",
+        )
+
+        self.assertEqual(
+            initial.missing_user_context,
+            (
+                DecisionContextRequirement.INVESTMENT_MANDATE,
+                DecisionContextRequirement.PORTFOLIO_CONSTRAINT_SNAPSHOT,
+            ),
+        )
+        self.assertEqual(
+            initial.position_context_status,
+            DecisionContextStatus.USER_CONTEXT_REQUIRED,
+        )
+
+        updated = self.service.save_decision_brief(
+            self.context,
+            asset_id=self.asset.asset_id,
+            decision_intent=DecisionIntent.EVALUATE_PURCHASE,
+            decision_lanes=(
+                DecisionLane.SUITABILITY,
+                DecisionLane.POSITION_SIZING,
+            ),
+            horizon=ResearchHorizon.MEDIUM_LONG,
+            as_of_date="2026-08-23",
+            portfolio_role="核心配置",
+            mandate_id="mandate:core",
+            portfolio_constraint_snapshot_id=(
+                "portfolio-snapshot:2026-08-23"
+            ),
+            constraints=("不使用杠杆",),
+        )
+
+        self.assertEqual(updated.brief_id, initial.brief_id)
+        self.assertEqual(updated.missing_user_context, ())
+        self.assertEqual(
+            updated.position_context_status,
+            DecisionContextStatus.READY,
+        )
+
+        restarted = ResearchStateService(
+            SQLiteResearchStateRepository(self.db_path),
+            self.user_space,
+            self.master_data,
+        )
+        restored = restarted.get_decision_brief(
+            self.context,
+            asset_id=self.asset.asset_id,
+        )
+        self.assertEqual(restored, updated)
+
     def test_two_users_are_separated_by_normal_queries(self):
         other_user = self.user_space.create_user("Other")
         other_context = self.user_space.context_for_user(other_user.user_id)
@@ -125,6 +251,14 @@ class ResearchStateServiceTest(unittest.TestCase):
             summary="",
             content_markdown="仅用于普通查询隔离测试。",
         )
+        self.service.save_decision_brief(
+            self.context,
+            asset_id=self.asset.asset_id,
+            decision_intent=DecisionIntent.UNDERSTANDING,
+            decision_lanes=(),
+            horizon=ResearchHorizon.MEDIUM_LONG,
+            as_of_date="2026-08-23",
+        )
 
         self.assertEqual(
             self.service.list_watchlist_items(other_context),
@@ -133,6 +267,12 @@ class ResearchStateServiceTest(unittest.TestCase):
         self.assertEqual(self.service.list_reports(other_context), [])
         self.assertIsNone(
             self.service.get_report(other_context, report.report_id)
+        )
+        self.assertIsNone(
+            self.service.get_decision_brief(
+                other_context,
+                asset_id=self.asset.asset_id,
+            )
         )
 
 

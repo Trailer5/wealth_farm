@@ -289,6 +289,24 @@ class DataFetchServiceTest(unittest.TestCase):
             self.assertEqual(fund_assets[0].display_name, "测试基金")
             self.assertEqual(store.get_fund_estimates("000001")[0]["estimated_nav"], 1.1)
 
+    def test_fund_basic_info_can_be_filtered_by_provider_symbol(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = DataFetchService(
+                store=SQLiteDataStore(Path(temp_dir) / "test.sqlite3"),
+                akshare_source=FakeDailySource("akshare"),
+                baostock_source=FakeDailySource("baostock"),
+            )
+
+            records = service.fetch_fund_basic_info(symbol="000001")
+
+            self.assertEqual(len(records), 1)
+            self.assertEqual(records[0].name, "测试基金")
+            with self.assertRaisesRegex(
+                ValueError,
+                "provider identity",
+            ):
+                service.fetch_fund_basic_info(symbol="999999")
+
     def test_fetch_and_store_fund_status_scale_and_portfolio(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = SQLiteDataStore(Path(temp_dir) / "test.sqlite3")

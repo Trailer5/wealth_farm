@@ -130,6 +130,30 @@ class AlertServiceTest(unittest.TestCase):
         self.assertEqual(len(alerts), 1)
         self.assertEqual(alerts[0].payload["max_weight"], 1.0)
 
+    def test_review_date_rule_waits_until_date_and_deduplicates(self):
+        self.service.create_review_date_rule(
+            self.context,
+            asset_id=self.asset.asset_id,
+            review_date="2026-09-30",
+        )
+
+        before = self.service.evaluate_review_date(
+            self.context,
+            observed_on="2026-09-29",
+        )
+        first = self.service.evaluate_review_date(
+            self.context,
+            observed_on="2026-09-30",
+        )
+        repeated = self.service.evaluate_review_date(
+            self.context,
+            observed_on="2026-10-01",
+        )
+
+        self.assertEqual(before, [])
+        self.assertEqual(len(first), 1)
+        self.assertEqual(repeated, [])
+
     def test_users_only_query_their_own_alerts(self):
         other = self.users.create_user("Other")
         other_context = self.users.context_for_user(other.user_id)

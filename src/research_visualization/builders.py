@@ -144,23 +144,36 @@ def build_factor_series_spec(
         ChartType.DRAWDOWN: "Drawdown",
         ChartType.ROLLING_RISK: "Rolling Risk Metrics",
     }
+    ordered_dates = sorted(by_date)
+    if not ordered_dates:
+        raise ValueError("Factor chart has no matching observations")
+    input_start_date = ordered_dates[0]
+    input_end_date = ordered_dates[-1]
+    title = (
+        f"{title_by_type[chart_type]} "
+        f"({input_start_date} to {input_end_date})"
+    )
     return ChartSpec(
         task_id=task.task_id,
         asset_id=asset.asset_id,
         asset_name=asset.display_name or asset.standard_symbol,
         chart_type=chart_type,
-        title=title_by_type[chart_type],
+        title=title,
         as_of_date=task.as_of_date,
         x_label="Date",
         y_label=title_by_type[chart_type],
         points=tuple(
             ChartDataPoint(date=trade_date, values=by_date[trade_date])
-            for trade_date in sorted(by_date)
+            for trade_date in ordered_dates
         ),
         source_datasets=(source_dataset,),
         unit=unit,
         benchmark_asset_id=benchmark_asset_id,
-        parameters={"factor_names": list(factor_names)},
+        parameters={
+            "factor_names": list(factor_names),
+            "input_start_date": input_start_date,
+            "input_end_date": input_end_date,
+        },
     )
 
 

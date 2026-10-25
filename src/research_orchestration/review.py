@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 from enum import Enum
 
-from src.research_acceptance import ClaimKind, ScenarioKind
+from src.research_acceptance import (
+    ClaimKind,
+    ResearchFactKind,
+    ScenarioKind,
+)
 from src.research_workflow import (
     ResearchExecutionResult,
     ResearchTaskSpec,
@@ -156,6 +161,71 @@ class ResearchReportReviewer:
                     )
                 )
 
+        for section in getattr(report, "fact_sections", ()):
+            for fact in getattr(section, "facts", ()):
+                refs = tuple(getattr(fact, "evidence_refs", ()))
+                if not refs:
+                    findings.append(
+                        ReviewFinding(
+                            "research_fact_evidence_missing",
+                            (
+                                "Every structured research fact requires "
+                                "an evidence reference."
+                            ),
+                        )
+                    )
+                fact_date = getattr(fact, "as_of_date", "")
+                try:
+                    parsed_date = date.fromisoformat(fact_date)
+                except (TypeError, ValueError):
+                    findings.append(
+                        ReviewFinding(
+                            "research_fact_date_invalid",
+                            "Research fact date is invalid.",
+                        )
+                    )
+                else:
+                    cutoff = getattr(task, "as_of_date", None)
+                    if cutoff is not None and parsed_date > date.fromisoformat(
+                        cutoff
+                    ):
+                        findings.append(
+                            ReviewFinding(
+                                "research_fact_after_cutoff",
+                                (
+                                    "Research fact date exceeds the "
+                                    "requested cutoff."
+                                ),
+                            )
+                        )
+                fact_kind = getattr(fact, "kind", None)
+                if fact_kind is ResearchFactKind.OFFICIAL and not any(
+                    re.match(r"^https?://", ref, flags=re.IGNORECASE)
+                    for ref in refs
+                ):
+                    findings.append(
+                        ReviewFinding(
+                            "official_fact_source_invalid",
+                            (
+                                "Official facts require an external "
+                                "document reference."
+                            ),
+                        )
+                    )
+                if (
+                    fact_kind is ResearchFactKind.DERIVED
+                    and not tuple(getattr(fact, "limitations", ()))
+                ):
+                    findings.append(
+                        ReviewFinding(
+                            "derived_fact_methodology_missing",
+                            (
+                                "Derived facts require a visible "
+                                "methodology or scope limitation."
+                            ),
+                        )
+                    )
+
         result = ReviewResult(_deduplicate(findings))
         if user_markdown is not None:
             return self.review_markdown(
@@ -171,6 +241,7 @@ class ResearchReportReviewer:
         user_markdown: str,
         *,
         prior: ReviewResult | None = None,
+        charts: tuple[object, ...] = (),
     ) -> ReviewResult:
         findings = list(prior.findings if prior else ())
         if _contains_internal_value(report, user_markdown):
@@ -179,6 +250,59 @@ class ResearchReportReviewer:
                     "internal_field_leak",
                     "User Markdown contains an internal field or raw "
                     "contract value.",
+                )
+            )
+        expected_charts = tuple(
+            artifact
+            for step in getattr(report, "steps", ())
+            if getattr(step, "step_id", None) == "charts"
+            for artifact in getattr(step, "artifacts", ())
+        )
+        image_lines = tuple(
+            line.strip()
+            for line in user_markdown.splitlines()
+            if line.strip().startswith("![")
+        )
+        if expected_charts and len(image_lines) < len(expected_charts):
+            findings.append(
+                ReviewFinding(
+                    "chart_citation_missing",
+                    (
+                        "Every generated chart artifact requires a "
+                        "Markdown image citation."
+                    ),
+                )
+            )
+        missing_paths = tuple(
+            str(path)
+            for chart in charts
+            if (
+                path := getattr(chart, "markdown_path", "")
+            )
+            and f"]({path})" not in user_markdown
+        )
+        if missing_paths:
+            findings.append(
+                ReviewFinding(
+                    "chart_citation_mismatch",
+                    (
+                        "Markdown does not cite every prepared chart "
+                        "artifact by its published relative path."
+                    ),
+                )
+            )
+        if any(
+            "](assets/" not in line
+            or not re.search(r"\.(?:png|jpg|jpeg|webp|svg)\)$", line)
+            for line in image_lines
+        ):
+            findings.append(
+                ReviewFinding(
+                    "chart_citation_invalid",
+                    (
+                        "Chart citations must use report-relative static "
+                        "asset paths."
+                    ),
                 )
             )
         return ReviewResult(_deduplicate(findings))

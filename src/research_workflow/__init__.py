@@ -1,5 +1,14 @@
 """IDE-first investment research task contracts."""
 
+from .decision_models import (
+    DecisionContextRequirement,
+    DecisionContextStatus,
+    DecisionIntent,
+    DecisionLane,
+    PositionState,
+    ResearchDecisionBrief,
+    required_user_context,
+)
 from .models import (
     AssetResearchProfile,
     ResearchHorizon,
@@ -26,6 +35,10 @@ from .profile_assignment import (
 )
 
 __all__ = [
+    "DecisionContextRequirement",
+    "DecisionContextStatus",
+    "DecisionIntent",
+    "DecisionLane",
     "PROFILE_CYCLICAL_RESOURCE",
     "PROFILE_EXCHANGE_FUND",
     "PROFILE_FINANCIAL_INSTITUTION",
@@ -33,6 +46,8 @@ __all__ = [
     "PROFILE_OPEN_FUND",
     "PROFILE_ORDINARY_COMPANY",
     "AssetResearchProfile",
+    "PositionState",
+    "ResearchDecisionBrief",
     "ResearchHorizon",
     "ResearchOutputDepth",
     "ResearchProfileRegistry",
@@ -49,6 +64,7 @@ __all__ = [
     "ResearchExecutionService",
     "ETFResearchExecutionService",
     "FinancialInstitutionResearchExecutionService",
+    "OpenFundResearchExecutionService",
     "ResearchExecutionStatus",
     "ResearchPhaseResult",
     "ResearchPhaseStatus",
@@ -56,6 +72,7 @@ __all__ = [
     "SQLiteResearchProfileAssignmentRepository",
     "default_profile_registry",
     "default_research_profiles",
+    "required_user_context",
 ]
 
 
@@ -86,6 +103,12 @@ def __getattr__(name):
         )
 
         return FinancialInstitutionResearchExecutionService
+    if name == "OpenFundResearchExecutionService":
+        from .open_fund_execution_service import (
+            OpenFundResearchExecutionService,
+        )
+
+        return OpenFundResearchExecutionService
     if name == "CyclicalResourceResearchExecutionService":
         from .cycle_execution_service import (
             CyclicalResourceResearchExecutionService,

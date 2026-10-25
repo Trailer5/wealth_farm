@@ -10,9 +10,11 @@ from src.data_access import DataAccessResponse
 from src.data_quality import QualitySummary
 from src.factor_engineering import (
     FactorValue,
+    OpenFundStandardMetricResult,
     RiskCalculationResult,
     RiskMetricParameters,
 )
+from src.fund_research import FundResearchBundle
 from src.fundamental_analysis import (
     FundamentalMetricResult,
     FundamentalMetricSet,
@@ -133,10 +135,14 @@ class ResearchExecutionResult:
     quality_summary: QualitySummary | None = None
     factor_values: tuple[FactorValue, ...] = ()
     risk_result: RiskCalculationResult | None = None
+    open_fund_standard_metrics: (
+        OpenFundStandardMetricResult | None
+    ) = None
     fundamental_result: FundamentalMetricSet | None = None
     profile_metrics: tuple[FundamentalMetricResult, ...] = ()
     benchmark_result: BenchmarkCalculationResult | None = None
     evidence_bundle: ResearchEvidenceBundle | None = None
+    fund_bundle: FundResearchBundle | None = None
     chart_artifacts: tuple[ChartArtifact, ...] = ()
     strategy_result: StrategyResult | None = None
 

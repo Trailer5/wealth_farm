@@ -2,21 +2,28 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
+from .budget import InvestmentMandate
 from .models import (
+    PortfolioConstraintSnapshot,
     PortfolioPositionMetric,
     PortfolioSnapshot,
     PortfolioValuation,
+    portfolio_valuation_digest,
 )
 
 
 class SQLitePortfolioRepository:
     """Persist one current-portfolio valuation per user and date."""
 
-    SCHEMA_VERSION = 11
-    SCHEMA_DESCRIPTION = "portfolio valuation and position metrics"
+    SCHEMA_VERSION = 33
+    SCHEMA_DESCRIPTION = (
+        "portfolio constraints, mandates, valuation, and metrics"
+    )
 
     def __init__(self, db_path: str | Path = "data/database/wealth_farm.sqlite3") -> None:
         self.db_path = Path(db_path)
@@ -43,6 +50,10 @@ class SQLitePortfolioRepository:
                     unrealized_pnl REAL,
                     max_weight REAL NOT NULL,
                     concentration_hhi REAL NOT NULL,
+                    base_currency TEXT NOT NULL DEFAULT 'CNY',
+                    holdings_as_of_date TEXT,
+                    evidence_refs_json TEXT NOT NULL DEFAULT '[]',
+                    valuation_digest TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
                     UNIQUE (user_id, as_of_date)
@@ -65,6 +76,156 @@ class SQLitePortfolioRepository:
 
                 CREATE INDEX IF NOT EXISTS idx_portfolio_snapshots_user_date
                 ON portfolio_snapshots (user_id, as_of_date);
+
+                CREATE TABLE IF NOT EXISTS investment_mandates (
+                    mandate_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_investment_mandates_user
+                ON investment_mandates (user_id, mandate_id);
+
+                CREATE TABLE IF NOT EXISTS portfolio_constraint_snapshots (
+                    snapshot_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    mandate_id TEXT NOT NULL,
+                    portfolio_snapshot_id TEXT NOT NULL,
+                    portfolio_valuation_digest TEXT NOT NULL DEFAULT '',
+                    subject_asset_id TEXT NOT NULL,
+                    as_of_date TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
+                    FOREIGN KEY (mandate_id)
+                        REFERENCES investment_mandates (mandate_id) ON DELETE RESTRICT,
+                    FOREIGN KEY (portfolio_snapshot_id)
+                        REFERENCES portfolio_snapshots (snapshot_id) ON DELETE RESTRICT,
+                    FOREIGN KEY (subject_asset_id)
+                        REFERENCES assets (asset_id) ON DELETE RESTRICT
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_constraint_snapshots_user_date
+                ON portfolio_constraint_snapshots (user_id, as_of_date);
+
+                CREATE TRIGGER IF NOT EXISTS freeze_referenced_portfolio_update
+                BEFORE UPDATE ON portfolio_snapshots
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM portfolio_constraint_snapshots
+                    WHERE portfolio_snapshot_id = OLD.snapshot_id
+                )
+                BEGIN
+                    SELECT RAISE(
+                        ABORT,
+                        'referenced portfolio snapshot is immutable'
+                    );
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS freeze_referenced_portfolio_delete
+                BEFORE DELETE ON portfolio_snapshots
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM portfolio_constraint_snapshots
+                    WHERE portfolio_snapshot_id = OLD.snapshot_id
+                )
+                BEGIN
+                    SELECT RAISE(
+                        ABORT,
+                        'referenced portfolio snapshot is immutable'
+                    );
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS freeze_referenced_position_insert
+                BEFORE INSERT ON portfolio_position_metrics
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM portfolio_constraint_snapshots
+                    WHERE portfolio_snapshot_id = NEW.snapshot_id
+                )
+                BEGIN
+                    SELECT RAISE(
+                        ABORT,
+                        'referenced portfolio positions are immutable'
+                    );
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS freeze_referenced_position_update
+                BEFORE UPDATE ON portfolio_position_metrics
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM portfolio_constraint_snapshots
+                    WHERE portfolio_snapshot_id = OLD.snapshot_id
+                )
+                BEGIN
+                    SELECT RAISE(
+                        ABORT,
+                        'referenced portfolio positions are immutable'
+                    );
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS freeze_referenced_position_delete
+                BEFORE DELETE ON portfolio_position_metrics
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM portfolio_constraint_snapshots
+                    WHERE portfolio_snapshot_id = OLD.snapshot_id
+                )
+                BEGIN
+                    SELECT RAISE(
+                        ABORT,
+                        'referenced portfolio positions are immutable'
+                    );
+                END;
+                """
+            )
+            _ensure_column(
+                conn,
+                table="portfolio_snapshots",
+                column="base_currency",
+                definition="TEXT NOT NULL DEFAULT 'CNY'",
+            )
+            _ensure_column(
+                conn,
+                table="portfolio_snapshots",
+                column="holdings_as_of_date",
+                definition="TEXT",
+            )
+            _ensure_column(
+                conn,
+                table="portfolio_snapshots",
+                column="evidence_refs_json",
+                definition="TEXT NOT NULL DEFAULT '[]'",
+            )
+            _ensure_column(
+                conn,
+                table="portfolio_snapshots",
+                column="valuation_digest",
+                definition="TEXT NOT NULL DEFAULT ''",
+            )
+            _ensure_column(
+                conn,
+                table="portfolio_constraint_snapshots",
+                column="portfolio_valuation_digest",
+                definition="TEXT NOT NULL DEFAULT ''",
+            )
+            conn.executescript(
+                """
+                CREATE TRIGGER IF NOT EXISTS validate_constraint_valuation_digest
+                BEFORE INSERT ON portfolio_constraint_snapshots
+                WHEN NEW.portfolio_valuation_digest != (
+                    SELECT valuation_digest
+                    FROM portfolio_snapshots
+                    WHERE snapshot_id = NEW.portfolio_snapshot_id
+                )
+                BEGIN
+                    SELECT RAISE(
+                        ABORT,
+                        'constraint portfolio valuation digest mismatch'
+                    );
+                END;
                 """
             )
             conn.execute(
@@ -80,6 +241,29 @@ class SQLitePortfolioRepository:
 
         snapshot = valuation.snapshot
         with self._connect() as conn:
+            referenced = conn.execute(
+                """
+                SELECT 1
+                FROM portfolio_constraint_snapshots
+                WHERE portfolio_snapshot_id = ?
+                LIMIT 1
+                """,
+                [snapshot.snapshot_id],
+            ).fetchone()
+            if referenced is not None:
+                existing = self.get(
+                    snapshot.snapshot_id,
+                    snapshot.user_id,
+                )
+                if (
+                    existing is None
+                    or _valuation_signature(existing)
+                    != _valuation_signature(valuation)
+                ):
+                    raise ValueError(
+                        "referenced portfolio snapshot is immutable"
+                    )
+                return
             conn.execute(
                 """
                 INSERT INTO portfolio_snapshots (
@@ -91,14 +275,22 @@ class SQLitePortfolioRepository:
                     unrealized_pnl,
                     max_weight,
                     concentration_hhi,
+                    base_currency,
+                    holdings_as_of_date,
+                    evidence_refs_json,
+                    valuation_digest,
                     created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (snapshot_id) DO UPDATE SET
                     total_market_value = excluded.total_market_value,
                     total_cost_value = excluded.total_cost_value,
                     unrealized_pnl = excluded.unrealized_pnl,
                     max_weight = excluded.max_weight,
                     concentration_hhi = excluded.concentration_hhi,
+                    base_currency = excluded.base_currency,
+                    holdings_as_of_date = excluded.holdings_as_of_date,
+                    evidence_refs_json = excluded.evidence_refs_json,
+                    valuation_digest = excluded.valuation_digest,
                     created_at = excluded.created_at
                 """,
                 [
@@ -110,6 +302,13 @@ class SQLitePortfolioRepository:
                     snapshot.unrealized_pnl,
                     snapshot.max_weight,
                     snapshot.concentration_hhi,
+                    snapshot.base_currency,
+                    snapshot.holdings_as_of_date,
+                    json.dumps(
+                        list(snapshot.evidence_refs),
+                        ensure_ascii=False,
+                    ),
+                    portfolio_valuation_digest(valuation),
                     snapshot.created_at,
                 ],
             )
@@ -148,6 +347,213 @@ class SQLitePortfolioRepository:
                 ],
             )
 
+    def save_mandate(
+        self,
+        user_id: str,
+        mandate: InvestmentMandate,
+    ) -> None:
+        """Persist one immutable, user-owned investment mandate."""
+
+        payload_json = _canonical_json(mandate.to_dict())
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT user_id, payload_json
+                FROM investment_mandates
+                WHERE mandate_id = ?
+                """,
+                [mandate.mandate_id],
+            ).fetchone()
+            if row is not None:
+                if (
+                    str(row["user_id"]) != user_id
+                    or str(row["payload_json"]) != payload_json
+                ):
+                    raise ValueError(
+                        "mandate_id already identifies a different "
+                        "user or payload"
+                    )
+                return
+            conn.execute(
+                """
+                INSERT INTO investment_mandates (
+                    mandate_id, user_id, payload_json, created_at
+                ) VALUES (?, ?, ?, ?)
+                """,
+                [
+                    mandate.mandate_id,
+                    user_id,
+                    payload_json,
+                    _utc_now(),
+                ],
+            )
+
+    def get_mandate(
+        self,
+        user_id: str,
+        mandate_id: str,
+    ) -> InvestmentMandate | None:
+        """Return one mandate scoped to a user."""
+
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT payload_json
+                FROM investment_mandates
+                WHERE mandate_id = ? AND user_id = ?
+                """,
+                [mandate_id, user_id],
+            ).fetchone()
+        if row is None:
+            return None
+        return InvestmentMandate.from_dict(
+            json.loads(str(row["payload_json"]))
+        )
+
+    def save_constraint_snapshot(
+        self,
+        snapshot: PortfolioConstraintSnapshot,
+    ) -> None:
+        """Persist one immutable portfolio-constraint snapshot."""
+
+        payload_json = _canonical_json(snapshot.to_dict())
+        with self._connect() as conn:
+            mandate_row = conn.execute(
+                """
+                SELECT user_id, payload_json
+                FROM investment_mandates
+                WHERE mandate_id = ?
+                """,
+                [snapshot.mandate_id],
+            ).fetchone()
+            if (
+                mandate_row is None
+                or str(mandate_row["user_id"]) != snapshot.user_id
+            ):
+                raise ValueError(
+                    "constraint mandate must belong to snapshot user"
+                )
+            mandate = InvestmentMandate.from_dict(
+                json.loads(str(mandate_row["payload_json"]))
+            )
+            if (
+                mandate.implementation_asset_id
+                != snapshot.subject_asset_id
+            ):
+                raise ValueError(
+                    "constraint subject must match mandate"
+                )
+            portfolio_row = conn.execute(
+                """
+                SELECT user_id, as_of_date, base_currency,
+                       holdings_as_of_date, evidence_refs_json,
+                       valuation_digest
+                FROM portfolio_snapshots
+                WHERE snapshot_id = ?
+                """,
+                [snapshot.portfolio_snapshot_id],
+            ).fetchone()
+            if (
+                portfolio_row is None
+                or str(portfolio_row["user_id"]) != snapshot.user_id
+            ):
+                raise ValueError(
+                    "constraint portfolio must belong to snapshot "
+                    "user"
+                )
+            if (
+                str(portfolio_row["as_of_date"])
+                != snapshot.as_of_date
+                or str(portfolio_row["base_currency"])
+                != snapshot.currency
+            ):
+                raise ValueError(
+                    "constraint portfolio cutoff or currency mismatch"
+                )
+            if (
+                str(portfolio_row["holdings_as_of_date"])
+                != snapshot.as_of_date
+                or not json.loads(
+                    str(portfolio_row["evidence_refs_json"])
+                )
+            ):
+                raise ValueError(
+                    "constraint portfolio lacks cutoff provenance"
+                )
+            if (
+                str(portfolio_row["valuation_digest"])
+                != snapshot.portfolio_valuation_digest
+            ):
+                raise ValueError(
+                    "constraint portfolio valuation digest mismatch"
+                )
+            row = conn.execute(
+                """
+                SELECT user_id, payload_json
+                FROM portfolio_constraint_snapshots
+                WHERE snapshot_id = ?
+                """,
+                [snapshot.snapshot_id],
+            ).fetchone()
+            if row is not None:
+                if (
+                    str(row["user_id"]) != snapshot.user_id
+                    or str(row["payload_json"]) != payload_json
+                ):
+                    raise ValueError(
+                        "snapshot_id already identifies a different "
+                        "user or payload"
+                    )
+                return
+            conn.execute(
+                """
+                INSERT INTO portfolio_constraint_snapshots (
+                    snapshot_id,
+                    user_id,
+                    mandate_id,
+                    portfolio_snapshot_id,
+                    portfolio_valuation_digest,
+                    subject_asset_id,
+                    as_of_date,
+                    payload_json,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    snapshot.snapshot_id,
+                    snapshot.user_id,
+                    snapshot.mandate_id,
+                    snapshot.portfolio_snapshot_id,
+                    snapshot.portfolio_valuation_digest,
+                    snapshot.subject_asset_id,
+                    snapshot.as_of_date,
+                    payload_json,
+                    snapshot.created_at,
+                ],
+            )
+
+    def get_constraint_snapshot(
+        self,
+        user_id: str,
+        snapshot_id: str,
+    ) -> PortfolioConstraintSnapshot | None:
+        """Return one constraint snapshot scoped to a user."""
+
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT payload_json
+                FROM portfolio_constraint_snapshots
+                WHERE snapshot_id = ? AND user_id = ?
+                """,
+                [snapshot_id, user_id],
+            ).fetchone()
+        if row is None:
+            return None
+        return PortfolioConstraintSnapshot.from_dict(
+            json.loads(str(row["payload_json"]))
+        )
+
     def get(self, snapshot_id: str, user_id: str) -> PortfolioValuation | None:
         """Return one snapshot scoped to a user."""
 
@@ -156,7 +562,9 @@ class SQLitePortfolioRepository:
                 """
                 SELECT snapshot_id, user_id, as_of_date, total_market_value,
                        total_cost_value, unrealized_pnl, max_weight,
-                       concentration_hhi, created_at
+                       concentration_hhi, base_currency,
+                       holdings_as_of_date, evidence_refs_json,
+                       created_at
                 FROM portfolio_snapshots
                 WHERE snapshot_id = ? AND user_id = ?
                 """,
@@ -187,7 +595,9 @@ class SQLitePortfolioRepository:
                 """
                 SELECT snapshot_id, user_id, as_of_date, total_market_value,
                        total_cost_value, unrealized_pnl, max_weight,
-                       concentration_hhi, created_at
+                       concentration_hhi, base_currency,
+                       holdings_as_of_date, evidence_refs_json,
+                       created_at
                 FROM portfolio_snapshots
                 WHERE user_id = ?
                 ORDER BY as_of_date DESC
@@ -221,6 +631,18 @@ def _snapshot_from_row(row: sqlite3.Row) -> PortfolioSnapshot:
         ),
         max_weight=float(row["max_weight"]),
         concentration_hhi=float(row["concentration_hhi"]),
+        base_currency=str(row["base_currency"]),
+        holdings_as_of_date=(
+            str(row["holdings_as_of_date"])
+            if row["holdings_as_of_date"] is not None
+            else None
+        ),
+        evidence_refs=tuple(
+            str(item)
+            for item in json.loads(
+                str(row["evidence_refs_json"])
+            )
+        ),
         created_at=str(row["created_at"]),
     )
 
@@ -243,4 +665,66 @@ def _position_from_row(row: sqlite3.Row) -> PortfolioPositionMetric:
             else None
         ),
         weight=float(row["weight"]),
+    )
+
+
+def _canonical_json(payload: dict[str, object]) -> str:
+    return json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _ensure_column(
+    conn: sqlite3.Connection,
+    *,
+    table: str,
+    column: str,
+    definition: str,
+) -> None:
+    columns = {
+        str(row["name"])
+        for row in conn.execute(
+            f"PRAGMA table_info({table})"
+        ).fetchall()
+    }
+    if column not in columns:
+        conn.execute(
+            f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+        )
+
+
+def _valuation_signature(
+    valuation: PortfolioValuation,
+) -> tuple[object, ...]:
+    snapshot = valuation.snapshot
+    return (
+        snapshot.user_id,
+        snapshot.as_of_date,
+        snapshot.total_market_value,
+        snapshot.total_cost_value,
+        snapshot.unrealized_pnl,
+        snapshot.max_weight,
+        snapshot.concentration_hhi,
+        snapshot.base_currency,
+        snapshot.holdings_as_of_date,
+        snapshot.evidence_refs,
+        tuple(
+            (
+                item.asset_id,
+                item.quantity,
+                item.market_price,
+                item.market_value,
+                item.cost_value,
+                item.unrealized_pnl,
+                item.weight,
+            )
+            for item in valuation.positions
+        ),
     )

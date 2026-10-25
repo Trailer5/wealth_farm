@@ -16,6 +16,7 @@ from .models import (
     InvalidationCondition,
     ResearchAcceptanceReport,
     ResearchClaim,
+    ResearchFactSection,
     ResearchGap,
     ResearchScenario,
 )
@@ -51,6 +52,7 @@ class RepresentativeResearchAssembler:
         ],
         conclusions: tuple[ResearchClaim, ...],
         gaps: tuple[ResearchGap, ...],
+        fact_sections: tuple[ResearchFactSection, ...] = (),
     ) -> ResearchAcceptanceReport:
         by_id = {step.step_id: step for step in steps}
         missing_steps = set(REQUIRED_ACCEPTANCE_STEPS) - set(by_id)
@@ -80,6 +82,7 @@ class RepresentativeResearchAssembler:
             invalidation_conditions,
             conclusions,
             gaps,
+            fact_sections,
         )
         structure_digest = _digest(structure_payload)
         report_payload = {
@@ -100,6 +103,7 @@ class RepresentativeResearchAssembler:
                 invalidation_conditions,
                 conclusions,
                 gaps,
+                fact_sections,
             )
         )
         return ResearchAcceptanceReport(
@@ -117,6 +121,7 @@ class RepresentativeResearchAssembler:
             overall_status=overall_status,
             structure_digest=structure_digest,
             replay_verified=replay_digest == structure_digest,
+            fact_sections=fact_sections,
         )
 
 
@@ -246,6 +251,7 @@ def _structure_payload(
     invalidation_conditions: tuple[InvalidationCondition, ...],
     conclusions: tuple[ResearchClaim, ...],
     gaps: tuple[ResearchGap, ...],
+    fact_sections: tuple[ResearchFactSection, ...],
 ) -> dict[str, object]:
     return {
         "acceptance_version": acceptance_version,
@@ -281,6 +287,18 @@ def _structure_payload(
             claim.kind.value for claim in conclusions
         ],
         "gap_codes": sorted(gap.code for gap in gaps),
+        "fact_sections": [
+            {
+                "section_id": section.section_id,
+                "fact_labels": [
+                    fact.label for fact in section.facts
+                ],
+                "fact_kinds": [
+                    fact.kind.value for fact in section.facts
+                ],
+            }
+            for section in fact_sections
+        ],
     }
 
 

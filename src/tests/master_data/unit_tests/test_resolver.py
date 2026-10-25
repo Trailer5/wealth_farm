@@ -2,6 +2,7 @@ import unittest
 
 from src.data_src.models import SecurityInfo
 from src.master_data import (
+    ASSET_TYPE_OPEN_FUND,
     ASSET_TYPE_STOCK,
     RESOLUTION_AMBIGUOUS,
     RESOLUTION_CREATED,
@@ -124,6 +125,59 @@ class MasterDataResolverTest(unittest.TestCase):
         self.assertEqual(resolution.asset.asset_type, "open_fund")
         self.assertEqual(resolution.asset.market, "cn_fund")
         self.assertIsNone(resolution.asset.exchange)
+
+    def test_index_equity_fund_type_is_open_fund(self):
+        resolution = MasterDataResolver().ingest_security_info(
+            SecurityInfo(
+                symbol="002236",
+                name="大成360互联网+大数据100A",
+                security_type="指数型-股票",
+                exchange=None,
+                source="akshare:fund_name_em",
+            )
+        )
+
+        self.assertEqual(resolution.status, RESOLUTION_CREATED)
+        self.assertEqual(
+            resolution.asset.asset_type,
+            ASSET_TYPE_OPEN_FUND,
+        )
+        self.assertEqual(resolution.asset.market, "cn_fund")
+
+    def test_canonical_open_fund_type_hint_is_preserved(self):
+        resolution = MasterDataResolver().resolve_identifier(
+            source="research_cli:user_input",
+            raw_symbol="163417",
+            name="兴全合宜混合(LOF)A",
+            asset_type_hint=ASSET_TYPE_OPEN_FUND,
+        )
+
+        self.assertEqual(resolution.status, RESOLUTION_CREATED)
+        self.assertEqual(
+            resolution.asset.asset_type,
+            ASSET_TYPE_OPEN_FUND,
+        )
+        self.assertEqual(resolution.asset.market, "cn_fund")
+        self.assertIsNone(resolution.asset.exchange)
+
+    def test_explicit_type_promotes_same_source_unknown_asset(self):
+        resolver = MasterDataResolver()
+        unknown = resolver.resolve_identifier(
+            source="research_cli:user_input",
+            raw_symbol="163417",
+            name="兴全合宜混合(LOF)A",
+        )
+
+        fund = resolver.resolve_identifier(
+            source="research_cli:user_input",
+            raw_symbol="163417",
+            name="兴全合宜混合(LOF)A",
+            asset_type_hint=ASSET_TYPE_OPEN_FUND,
+        )
+
+        self.assertEqual(fund.status, RESOLUTION_MATCHED)
+        self.assertEqual(fund.asset.asset_id, unknown.asset.asset_id)
+        self.assertEqual(fund.asset.asset_type, ASSET_TYPE_OPEN_FUND)
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 from collections.abc import Sequence
+from datetime import date
 from pathlib import Path
 from typing import Callable, TextIO
 
@@ -20,9 +21,12 @@ from src.event_name_discovery import (
     ExternalEventAnchor,
     MarketReactionSnapshot,
 )
+from src.master_data import ASSET_TYPE_OPEN_FUND
 from src.research_workflow import (
     PROFILE_CYCLICAL_RESOURCE,
     CycleResearchExecutionOptions,
+    DecisionIntent,
+    DecisionLane,
     ResearchExecutionOptions,
     ResearchHorizon,
     ResearchQuestionType,
@@ -34,6 +38,10 @@ from .container import (
 )
 from .models import ResearchRunRequest, ResearchRunStatus
 from .event_name_discovery import EventNameDiscoveryRunRequest
+from .request_planner import (
+    ResearchPlanningRequest,
+    ResearchPlanningStatus,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -51,6 +59,13 @@ def build_parser() -> argparse.ArgumentParser:
     identity.add_argument("--symbol")
     run_single.add_argument("--asset-type")
     run_single.add_argument("--exchange")
+    run_single.add_argument(
+        "--name",
+        help=(
+            "Optional expected name checked against the provider identity "
+            "when a missing open-fund symbol is created."
+        ),
+    )
     run_single.add_argument("--profile", required=True)
     run_single.add_argument(
         "--question",
@@ -83,6 +98,48 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="KEY=VALUE",
         type=_parse_commodity_weight,
     )
+    plan_single = commands.add_parser(
+        "plan-single",
+        help=(
+            "Resolve one code and produce a profile-aware baseline "
+            "task draft."
+        ),
+    )
+    planning_identity = plan_single.add_mutually_exclusive_group(
+        required=True
+    )
+    planning_identity.add_argument("--asset-id")
+    planning_identity.add_argument("--symbol")
+    plan_single.add_argument("--asset-type")
+    plan_single.add_argument("--market")
+    plan_single.add_argument("--exchange")
+    plan_single.add_argument(
+        "--decision-intent",
+        type=DecisionIntent,
+        choices=tuple(item.value for item in DecisionIntent),
+        default=DecisionIntent.UNDERSTANDING,
+    )
+    plan_single.add_argument(
+        "--decision-lane",
+        action="append",
+        type=DecisionLane,
+        choices=tuple(item.value for item in DecisionLane),
+        default=[],
+    )
+    plan_single.add_argument(
+        "--horizon",
+        type=ResearchHorizon,
+        choices=tuple(item.value for item in ResearchHorizon),
+    )
+    plan_single.add_argument(
+        "--as-of-date",
+        default=date.today().isoformat(),
+    )
+    plan_single.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    plan_single.add_argument("--report-root", default="report")
     event_name = commands.add_parser(
         "run-event-name-discovery",
         help="Run one prepared event-to-name discovery request.",
@@ -123,6 +180,39 @@ def main(
             db_path=args.db_path,
             report_root=args.report_root,
         )
+        if args.command == "plan-single":
+            planning_result = container.request_planner.plan(
+                ResearchPlanningRequest(
+                    asset_id=args.asset_id,
+                    symbol=args.symbol,
+                    asset_type=args.asset_type,
+                    market=args.market,
+                    exchange=args.exchange,
+                    as_of_date=args.as_of_date,
+                    decision_intent=args.decision_intent,
+                    decision_lanes=tuple(args.decision_lane),
+                    horizon=(
+                        args.horizon
+                        or _default_planning_horizon(
+                            tuple(args.decision_lane)
+                        )
+                    ),
+                )
+            )
+            print(
+                json.dumps(
+                    planning_result.to_dict(),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                file=output,
+            )
+            return (
+                0
+                if planning_result.status
+                is ResearchPlanningStatus.READY
+                else 2
+            )
         if args.command == "run-event-name-discovery":
             payload = json.loads(
                 Path(args.input_json).read_text(encoding="utf-8")
@@ -156,9 +246,16 @@ def main(
                 execution_options=options,
             )
         )
-    except (KeyError, OSError, RuntimeError, TypeError, ValueError):
+    except (
+        KeyError,
+        OSError,
+        RuntimeError,
+        TypeError,
+        ValueError,
+    ) as exc:
         print(
-            "error: research identity or execution could not be resolved.",
+            "error: research identity or execution could not be resolved: "
+            f"{exc}",
             file=error_output,
         )
         return 2
@@ -195,16 +292,38 @@ def _parse_commodity_weight(value: str) -> tuple[str, float]:
     return key, weight
 
 
+def _default_planning_horizon(
+    decision_lanes: tuple[DecisionLane, ...],
+) -> ResearchHorizon:
+    if DecisionLane.TIMING in decision_lanes:
+        return ResearchHorizon.SHORT
+    return ResearchHorizon.MEDIUM_LONG
+
+
 def _resolve_asset_id(
     container: ResearchOrchestrationContainer,
     args: argparse.Namespace,
 ) -> str:
     if args.asset_id:
         return str(args.asset_id)
+    if not args.asset_type:
+        raise ValueError(
+            "--asset-type is required when resolving by --symbol"
+        )
     matches = container.master_data.find_assets(
         standard_symbol=args.symbol,
         asset_type=args.asset_type,
     )
+    bootstrapped = False
+    if not matches and args.asset_type == ASSET_TYPE_OPEN_FUND:
+        container.data_fetch.fetch_and_store_fund_basic_info(
+            symbol=str(args.symbol),
+        )
+        matches = container.master_data.find_assets(
+            standard_symbol=args.symbol,
+            asset_type=args.asset_type,
+        )
+        bootstrapped = True
     if args.exchange:
         matches = [
             asset
@@ -215,7 +334,25 @@ def _resolve_asset_id(
         raise ValueError(
             "symbol must resolve to exactly one persisted asset"
         )
+    if (
+        bootstrapped
+        and args.name
+        and _identity_name_key(matches[0].display_name)
+        != _identity_name_key(args.name)
+    ):
+        raise ValueError(
+            "provided --name does not match the provider fund identity"
+        )
     return matches[0].asset_id
+
+
+def _identity_name_key(value: object) -> str:
+    return (
+        "".join(str(value).split())
+        .replace("（", "(")
+        .replace("）", ")")
+        .casefold()
+    )
 
 
 def _execution_options(args: argparse.Namespace) -> object:

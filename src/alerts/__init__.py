@@ -7,8 +7,10 @@ from .models import (
     RULE_MAX_WEIGHT_ABOVE,
     RULE_PRICE_ABOVE,
     RULE_PRICE_BELOW,
+    RULE_REVIEW_DATE,
     Alert,
     AlertRule,
+    AlertRuleProvenance,
 )
 from .service import AlertService
 from .sqlite_repository import SQLiteAlertRepository
@@ -20,8 +22,10 @@ __all__ = [
     "RULE_MAX_WEIGHT_ABOVE",
     "RULE_PRICE_ABOVE",
     "RULE_PRICE_BELOW",
+    "RULE_REVIEW_DATE",
     "Alert",
     "AlertRule",
+    "AlertRuleProvenance",
     "AlertService",
     "SQLiteAlertRepository",
 ]

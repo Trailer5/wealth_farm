@@ -14,6 +14,7 @@ from .models import (
     BenchmarkCalculationResult,
     BenchmarkKind,
     BenchmarkMetricParameters,
+    CompositeBenchmarkDefinition,
 )
 
 
@@ -29,6 +30,8 @@ class BenchmarkMetricCalculator:
         asset_dataset: str,
         benchmark_dataset: str,
         parameters: BenchmarkMetricParameters | None = None,
+        benchmark_definition: CompositeBenchmarkDefinition | None = None,
+        benchmark_metadata: dict[str, Any] | None = None,
     ) -> BenchmarkCalculationResult:
         config = parameters or BenchmarkMetricParameters()
         asset_closes = _closes_by_date(asset_records)
@@ -63,6 +66,7 @@ class BenchmarkMetricCalculator:
             **config.to_dict(),
             "benchmark_asset_id": benchmark_asset_id,
             "benchmark_kind": benchmark_kind.value,
+            **(benchmark_metadata or {}),
         }
         source_dataset = (
             f"{asset_dataset}|{benchmark_dataset}"
@@ -116,6 +120,14 @@ class BenchmarkMetricCalculator:
             (
                 "excess_total_return",
                 asset_total - benchmark_total,
+            ),
+            (
+                "cumulative_tracking_difference",
+                asset_total - benchmark_total,
+            ),
+            (
+                "common_observation_count",
+                float(len(return_dates)),
             ),
         ):
             metrics.append(
@@ -219,6 +231,7 @@ class BenchmarkMetricCalculator:
             aligned=aligned,
             series=tuple(series),
             metrics=tuple(metrics),
+            benchmark_definition=benchmark_definition,
         )
 
 

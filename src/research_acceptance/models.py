@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from enum import Enum
 from typing import Any
 
@@ -34,6 +35,95 @@ class ScenarioKind(str, Enum):
     OPTIMISTIC = "optimistic"
     BASE = "base"
     PESSIMISTIC = "pessimistic"
+
+
+class ResearchFactKind(str, Enum):
+    OFFICIAL = "official"
+    REPORTED = "reported"
+    DERIVED = "derived"
+
+
+@dataclass(frozen=True)
+class ResearchFact:
+    label: str
+    value: str
+    as_of_date: str
+    kind: ResearchFactKind
+    evidence_refs: tuple[str, ...]
+    unit: str | None = None
+    limitations: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _text(self.label, "fact label")
+        _text(self.value, "fact value")
+        date.fromisoformat(self.as_of_date)
+        if not isinstance(self.kind, ResearchFactKind):
+            raise TypeError("fact kind must be ResearchFactKind")
+        if not self.evidence_refs:
+            raise ValueError("Research fact requires evidence_refs")
+        if self.unit is not None:
+            _text(self.unit, "fact unit")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "label": self.label,
+            "value": self.value,
+            "as_of_date": self.as_of_date,
+            "kind": self.kind.value,
+            "evidence_refs": list(self.evidence_refs),
+            "unit": self.unit,
+            "limitations": list(self.limitations),
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "ResearchFact":
+        return cls(
+            label=str(payload["label"]),
+            value=str(payload["value"]),
+            as_of_date=str(payload["as_of_date"]),
+            kind=ResearchFactKind(payload["kind"]),
+            evidence_refs=tuple(payload.get("evidence_refs", ())),
+            unit=(
+                str(payload["unit"])
+                if payload.get("unit") is not None
+                else None
+            ),
+            limitations=tuple(payload.get("limitations", ())),
+        )
+
+
+@dataclass(frozen=True)
+class ResearchFactSection:
+    section_id: str
+    title: str
+    facts: tuple[ResearchFact, ...]
+
+    def __post_init__(self) -> None:
+        _text(self.section_id, "fact section_id")
+        _text(self.title, "fact section title")
+        if not self.facts:
+            raise ValueError("Research fact section requires facts")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "section_id": self.section_id,
+            "title": self.title,
+            "facts": [fact.to_dict() for fact in self.facts],
+        }
+
+    @classmethod
+    def from_dict(
+        cls,
+        payload: dict[str, Any],
+    ) -> "ResearchFactSection":
+        return cls(
+            section_id=str(payload["section_id"]),
+            title=str(payload["title"]),
+            facts=tuple(
+                ResearchFact.from_dict(item)
+                for item in payload["facts"]
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -199,6 +289,7 @@ class ResearchAcceptanceReport:
     overall_status: AcceptanceStatus
     structure_digest: str
     replay_verified: bool
+    fact_sections: tuple[ResearchFactSection, ...] = ()
 
     def __post_init__(self) -> None:
         for value, name in (
@@ -212,6 +303,19 @@ class ResearchAcceptanceReport:
         step_ids = [step.step_id for step in self.steps]
         if len(set(step_ids)) != len(step_ids):
             raise ValueError("step_id must be unique")
+        section_ids = [
+            section.section_id for section in self.fact_sections
+        ]
+        if len(set(section_ids)) != len(section_ids):
+            raise ValueError("fact section_id must be unique")
+        if any(
+            fact.as_of_date > self.task.as_of_date
+            for section in self.fact_sections
+            for fact in section.facts
+        ):
+            raise ValueError(
+                "Research facts must not exceed task as_of_date"
+            )
         scenario_kinds = {item.kind for item in self.scenarios}
         if scenario_kinds != set(ScenarioKind):
             raise ValueError(
@@ -250,6 +354,9 @@ class ResearchAcceptanceReport:
             "overall_status": self.overall_status.value,
             "structure_digest": self.structure_digest,
             "replay_verified": self.replay_verified,
+            "fact_sections": [
+                section.to_dict() for section in self.fact_sections
+            ],
         }
 
     @classmethod
@@ -302,6 +409,10 @@ class ResearchAcceptanceReport:
             ),
             structure_digest=str(payload["structure_digest"]),
             replay_verified=bool(payload["replay_verified"]),
+            fact_sections=tuple(
+                ResearchFactSection.from_dict(item)
+                for item in payload.get("fact_sections", ())
+            ),
         )
 
 

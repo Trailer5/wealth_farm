@@ -13,6 +13,11 @@ from src.data_access import (
     DataAccessRequest,
     DataAccessService,
 )
+from src.data_src.models import (
+    DisclosureDocument,
+    DocumentTable,
+    DocumentText,
+)
 from src.master_data import (
     ASSET_TYPE_EXCHANGE_FUND,
     ASSET_TYPE_INDEX,
@@ -25,6 +30,8 @@ from .models import (
     FundAssetRelation,
     FundRelationType,
     FundResearchBundle,
+    OpenFundPeriodicSnapshot,
+    OpenFundProfileSnapshot,
 )
 from .sqlite_repository import SQLiteFundResearchRepository
 
@@ -94,6 +101,80 @@ class FundResearchService:
             )
         )
 
+    def ingest_profile_disclosure(
+        self,
+        *,
+        asset_id: str,
+        document: DisclosureDocument,
+        text: DocumentText,
+        tables: list[DocumentTable],
+        parser=None,
+    ) -> OpenFundProfileSnapshot:
+        """Parse and persist one official product-profile document."""
+
+        self._require_fund(
+            asset_id,
+            expected_type=ASSET_TYPE_OPEN_FUND,
+        )
+        if parser is None:
+            from src.document_processing.open_fund_disclosure import (
+                OpenFundDisclosureParser,
+            )
+
+            parser = OpenFundDisclosureParser()
+        snapshot = parser.parse_profile(
+            fund_asset_id=asset_id,
+            document=document,
+            text=text,
+            tables=tables,
+        )
+        return self.repository.save_profile_snapshot(snapshot)
+
+    def ingest_periodic_disclosure(
+        self,
+        *,
+        asset_id: str,
+        document: DisclosureDocument,
+        text: DocumentText,
+        tables: list[DocumentTable],
+        parser=None,
+    ) -> OpenFundPeriodicSnapshot:
+        """Parse and persist one official periodic-report document."""
+
+        self._require_fund(
+            asset_id,
+            expected_type=ASSET_TYPE_OPEN_FUND,
+        )
+        if parser is None:
+            from src.document_processing.open_fund_disclosure import (
+                OpenFundDisclosureParser,
+            )
+
+            parser = OpenFundDisclosureParser()
+        snapshot = parser.parse_periodic(
+            fund_asset_id=asset_id,
+            document=document,
+            text=text,
+            tables=tables,
+        )
+        return self.repository.save_periodic_snapshot(snapshot)
+
+    def get_open_fund_profile_snapshot(
+        self,
+        *,
+        asset_id: str,
+        as_of_date: str,
+    ) -> OpenFundProfileSnapshot | None:
+        """Return the latest official profile through the service."""
+        self._require_fund(
+            asset_id,
+            expected_type=ASSET_TYPE_OPEN_FUND,
+        )
+        return self.repository.get_latest_profile_snapshot(
+            asset_id,
+            as_of_date=as_of_date,
+        )
+
     def get_open_fund_bundle(
         self,
         *,
@@ -149,11 +230,27 @@ class FundResearchService:
             asset_id,
             as_of_date=as_of_date,
         )
+        profile_snapshot = (
+            self.repository.get_latest_profile_snapshot(
+                asset_id,
+                as_of_date=as_of_date,
+            )
+        )
+        periodic_snapshot = (
+            self.repository.get_latest_periodic_snapshot(
+                asset_id,
+                as_of_date=as_of_date,
+            )
+        )
         sources = {
             source
             for response in responses.values()
             for source in response.sources
         }
+        if profile_snapshot is not None:
+            sources.add(profile_snapshot.source)
+        if periodic_snapshot is not None:
+            sources.add(periodic_snapshot.source)
         return FundResearchBundle(
             asset=asset,
             start_date=start_date,
@@ -184,6 +281,8 @@ class FundResearchService:
                 )
                 and not errors
             ),
+            profile_snapshot=profile_snapshot,
+            periodic_snapshot=periodic_snapshot,
             errors=errors,
         )
 

@@ -20,6 +20,9 @@ from .models import (
     InvalidationCondition,
     ResearchAcceptanceReport,
     ResearchClaim,
+    ResearchFact,
+    ResearchFactKind,
+    ResearchFactSection,
     ResearchGap,
     ResearchScenario,
     ScenarioKind,
@@ -29,16 +32,44 @@ from .service import (
     CrossAssetAcceptanceService,
     RepresentativeResearchAssembler,
 )
-from .report_service import ResearchReportAssemblyService
+from .report_service import (
+    OPEN_FUND_REQUIRED_FACT_MATRIX,
+    OpenFundFactRequirement,
+    ResearchReportAssemblyService,
+)
+from .conversation_models import (
+    NEW_CONVERSATION_ACCEPTANCE_VERSION,
+    ConversationAcceptanceFinding,
+    ConversationAcceptanceStatus,
+    ExpectedFailureSemantics,
+    NewConversationAcceptanceResult,
+    NewConversationObservation,
+    NewConversationScenario,
+)
+from .conversation_scenarios import (
+    SLICE12_AS_OF_DATE,
+    representative_new_conversation_scenarios,
+)
+from .conversation_service import NewConversationAcceptanceService
 
 __all__ = [
     "AcceptanceStatus",
     "AcceptanceStepResult",
     "AcceptanceStepStatus",
     "ClaimKind",
+    "ConversationAcceptanceFinding",
+    "ConversationAcceptanceStatus",
     "CrossAssetAcceptanceService",
     "CrossAssetAcceptanceSummary",
+    "ExpectedFailureSemantics",
     "InvalidationCondition",
+    "NEW_CONVERSATION_ACCEPTANCE_VERSION",
+    "NewConversationAcceptanceResult",
+    "NewConversationAcceptanceService",
+    "NewConversationObservation",
+    "NewConversationScenario",
+    "OPEN_FUND_REQUIRED_FACT_MATRIX",
+    "OpenFundFactRequirement",
     "PLAN15_ACCEPTANCE_VERSION",
     "PLAN15_AS_OF_DATE",
     "PLAN15_BAR_END",
@@ -49,11 +80,16 @@ __all__ = [
     "RepresentativeResearchAssembler",
     "ResearchAcceptanceReport",
     "ResearchClaim",
+    "ResearchFact",
+    "ResearchFactKind",
+    "ResearchFactSection",
     "ResearchGap",
     "ResearchScenario",
     "ResearchReportAssemblyService",
+    "SLICE12_AS_OF_DATE",
     "ScenarioKind",
     "build_plan15_tasks",
     "plan15_etf_expense_schedules",
     "register_plan15_assets",
+    "representative_new_conversation_scenarios",
 ]

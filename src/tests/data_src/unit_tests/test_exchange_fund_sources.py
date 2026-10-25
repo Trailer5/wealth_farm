@@ -3,6 +3,7 @@ import tempfile
 from decimal import Decimal
 from pathlib import Path
 
+from src.data_src.csindex import CsIndexDataSource
 from src.data_src.eastmoney import EastmoneyExchangeFundDataSource
 from src.data_src.exchange_fund import (
     EXCHANGE_FUND_CLOSED,
@@ -65,6 +66,30 @@ class FakeEastmoneyHttp:
                     }
                 ]
             }
+        }
+
+
+class FakeCsIndexHttp:
+    def get_json(self, url, params=None):
+        self.params = params
+        return {
+            "code": "200",
+            "msg": "Success",
+            "data": [
+                {
+                    "tradeDate": "20260724",
+                    "indexCode": "930734",
+                    "indexNameCnAll": (
+                        "中证360互联网+大数据100指数"
+                    ),
+                    "open": 100,
+                    "high": 102,
+                    "low": 99,
+                    "close": 101,
+                    "tradingVol": 1000,
+                    "tradingValue": 2000,
+                }
+            ],
         }
 
 
@@ -137,6 +162,21 @@ class ExchangeFundRuleTest(unittest.TestCase):
 
 
 class ExchangeFundProviderTest(unittest.TestCase):
+    def test_csindex_official_history_uses_compact_dates(self):
+        http = FakeCsIndexHttp()
+        bars = CsIndexDataSource(http).get_index_daily_bars(
+            "930734",
+            "2026-07-01",
+            "2026-07-24",
+            "csi",
+        )
+
+        self.assertEqual(http.params["startDate"], "20260701")
+        self.assertEqual(http.params["endDate"], "20260724")
+        self.assertEqual(bars[0].trade_date, "2026-07-24")
+        self.assertEqual(bars[0].close, 101.0)
+        self.assertEqual(bars[0].source, "csindex:index_perf")
+
     def test_eastmoney_provider_spot_records(self):
         rows = EastmoneyExchangeFundDataSource(FakeEastmoneyHttp()).get_exchange_fund_spot()
         self.assertEqual(rows[0]["symbol"], "510300")

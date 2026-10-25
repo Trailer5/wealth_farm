@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
 
 ZERO = Decimal("0")
@@ -100,6 +100,150 @@ class InvestmentMandate:
                 "max_tracking_error",
                 lower_open=True,
             )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mandate_id": self.mandate_id,
+            "objective": self.objective,
+            "implementation_asset_id": (
+                self.implementation_asset_id
+            ),
+            "benchmark_asset_id": self.benchmark_asset_id,
+            "defensive_asset_id": self.defensive_asset_id,
+            "target_volatility": str(self.target_volatility),
+            "max_drawdown": str(self.max_drawdown),
+            "max_tracking_error": (
+                str(self.max_tracking_error)
+                if self.max_tracking_error is not None
+                else None
+            ),
+            "max_risk_weight": str(self.max_risk_weight),
+            "min_cash_weight": str(self.min_cash_weight),
+            "drawdown_governor_enabled": (
+                self.drawdown_governor_enabled
+            ),
+            "timing_overlay_enabled": (
+                self.timing_overlay_enabled
+            ),
+            "volatility_floor": str(self.volatility_floor),
+            "min_timing_multiplier": str(
+                self.min_timing_multiplier
+            ),
+            "max_timing_multiplier": str(
+                self.max_timing_multiplier
+            ),
+            "neutral_timing_multiplier": str(
+                self.neutral_timing_multiplier
+            ),
+        }
+
+    @classmethod
+    def from_dict(
+        cls,
+        payload: dict[str, Any],
+    ) -> "InvestmentMandate":
+        allowed = {
+            "mandate_id",
+            "objective",
+            "implementation_asset_id",
+            "benchmark_asset_id",
+            "defensive_asset_id",
+            "target_volatility",
+            "max_drawdown",
+            "max_tracking_error",
+            "max_risk_weight",
+            "min_cash_weight",
+            "drawdown_governor_enabled",
+            "timing_overlay_enabled",
+            "volatility_floor",
+            "min_timing_multiplier",
+            "max_timing_multiplier",
+            "neutral_timing_multiplier",
+        }
+        unknown = set(payload) - allowed
+        if unknown:
+            raise ValueError(
+                "Unknown InvestmentMandate fields: "
+                f"{sorted(unknown)}"
+            )
+        tracking_error = payload.get("max_tracking_error")
+        defensive_asset = payload.get("defensive_asset_id")
+        if defensive_asset is not None and not isinstance(
+            defensive_asset,
+            str,
+        ):
+            raise TypeError(
+                "defensive_asset_id must be a string or None"
+            )
+        return cls(
+            mandate_id=_payload_string(payload, "mandate_id"),
+            objective=payload["objective"],
+            implementation_asset_id=_payload_string(
+                payload,
+                "implementation_asset_id",
+            ),
+            benchmark_asset_id=_payload_string(
+                payload,
+                "benchmark_asset_id",
+            ),
+            defensive_asset_id=(
+                defensive_asset
+                if defensive_asset is not None
+                else None
+            ),
+            target_volatility=Decimal(
+                str(payload["target_volatility"])
+            ),
+            max_drawdown=Decimal(
+                str(payload["max_drawdown"])
+            ),
+            max_tracking_error=(
+                Decimal(str(tracking_error))
+                if tracking_error is not None
+                else None
+            ),
+            max_risk_weight=Decimal(
+                str(payload["max_risk_weight"])
+            ),
+            min_cash_weight=Decimal(
+                str(payload["min_cash_weight"])
+            ),
+            drawdown_governor_enabled=payload.get(
+                "drawdown_governor_enabled",
+                False,
+            ),
+            timing_overlay_enabled=payload.get(
+                "timing_overlay_enabled",
+                False,
+            ),
+            volatility_floor=Decimal(
+                str(payload.get("volatility_floor", "0.08"))
+            ),
+            min_timing_multiplier=Decimal(
+                str(
+                    payload.get(
+                        "min_timing_multiplier",
+                        "0.20",
+                    )
+                )
+            ),
+            max_timing_multiplier=Decimal(
+                str(
+                    payload.get(
+                        "max_timing_multiplier",
+                        "1.00",
+                    )
+                )
+            ),
+            neutral_timing_multiplier=Decimal(
+                str(
+                    payload.get(
+                        "neutral_timing_multiplier",
+                        "0.60",
+                    )
+                )
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -292,3 +436,13 @@ def _decimal_between(
     ):
         bracket = "(0, 1]" if lower_open else "[0, 1]"
         raise ValueError(f"{name} must be a finite Decimal in {bracket}")
+
+
+def _payload_string(
+    payload: dict[str, Any],
+    key: str,
+) -> str:
+    value = payload[key]
+    if not isinstance(value, str):
+        raise TypeError(f"{key} must be a string")
+    return value

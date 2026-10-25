@@ -12,7 +12,7 @@ from src.data_access import (
 from src.data_src.models import DisclosureDocument
 from src.data_store import SQLiteDataStore
 from src.event_knowledge import EventKnowledgeService
-from src.master_data import MasterDataService
+from src.master_data import ASSET_TYPE_OPEN_FUND, MasterDataService
 
 from .models import (
     DocumentContentStatus,
@@ -55,10 +55,14 @@ class ResearchEvidenceService:
             raise KeyError(f"Unknown asset_id: {asset_id}")
         responses = {}
         errors: dict[str, str] = {}
-        for dataset, sources in (
+        requested_datasets = [
             (DATASET_DISCLOSURES, disclosure_sources),
-            (DATASET_RESEARCH_REPORTS, research_sources),
-        ):
+        ]
+        if asset.asset_type != ASSET_TYPE_OPEN_FUND:
+            requested_datasets.append(
+                (DATASET_RESEARCH_REPORTS, research_sources)
+            )
+        for dataset, sources in requested_datasets:
             try:
                 responses[dataset] = self.data_access.get(
                     DataAccessRequest(
@@ -207,7 +211,7 @@ class ResearchEvidenceService:
             events=tuple(events),
             sources=tuple(sorted(sources)),
             complete=(
-                len(responses) == 2
+                len(responses) == len(requested_datasets)
                 and all(
                     response.complete
                     for response in responses.values()

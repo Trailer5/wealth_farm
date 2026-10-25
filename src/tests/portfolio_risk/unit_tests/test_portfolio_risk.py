@@ -8,10 +8,12 @@ from src.master_data import MasterDataService, SQLiteMasterDataRepository
 from src.portfolio_risk import (
     InvestmentMandate,
     PortfolioCalculator,
+    PortfolioConstraintSnapshot,
     PositionBudgetCalculator,
     PositionBudgetInput,
     PortfolioRiskService,
     SQLitePortfolioRepository,
+    portfolio_valuation_digest,
 )
 from src.research_state import (
     HoldingPosition,
@@ -72,6 +74,30 @@ class PortfolioCalculatorTest(unittest.TestCase):
                 as_of_date="2026-07-24",
                 holdings=[_holding("asset:a", -1, 8)],
                 prices={"asset:a": 10},
+            )
+        with self.assertRaises(ValueError):
+            self.calculator.calculate(
+                user_id="user:test",
+                as_of_date="2026-07-24",
+                holdings=[_holding("asset:a", 1, 8)],
+                prices={"asset:a": float("inf")},
+            )
+
+    def test_mixed_currencies_are_rejected(self):
+        cny = _holding("asset:a", 1, 8)
+        usd = replace(
+            _holding("asset:b", 1, 8),
+            currency="USD",
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "one base currency",
+        ):
+            self.calculator.calculate(
+                user_id="user:test",
+                as_of_date="2026-07-24",
+                holdings=[cny, usd],
+                prices={"asset:a": 10, "asset:b": 10},
             )
 
 
@@ -251,11 +277,21 @@ class PortfolioRiskServiceTest(unittest.TestCase):
                 context,
                 as_of_date="2026-07-24",
                 prices={asset.asset_id: 8.385},
+                holdings_as_of_date="2026-07-24",
+                evidence_refs=(
+                    "user-confirmation:holdings",
+                    "evidence:prices",
+                ),
             )
             second = service.value_current_holdings(
                 context,
                 as_of_date="2026-07-24",
                 prices={asset.asset_id: 8.4},
+                holdings_as_of_date="2026-07-24",
+                evidence_refs=(
+                    "user-confirmation:holdings",
+                    "evidence:prices",
+                ),
             )
 
             self.assertEqual(first.snapshot.snapshot_id, second.snapshot.snapshot_id)
@@ -271,6 +307,89 @@ class PortfolioRiskServiceTest(unittest.TestCase):
                     second.snapshot.snapshot_id,
                 )
             )
+
+            mandate = replace(
+                _mandate(),
+                implementation_asset_id=asset.asset_id,
+            )
+            service.save_mandate(context, mandate)
+            constraints = PortfolioConstraintSnapshot(
+                snapshot_id="constraints:test",
+                user_id=context.user_id,
+                mandate_id=mandate.mandate_id,
+                portfolio_snapshot_id=second.snapshot.snapshot_id,
+                portfolio_valuation_digest=(
+                    portfolio_valuation_digest(second)
+                ),
+                subject_asset_id=asset.asset_id,
+                as_of_date="2026-07-24",
+                currency="CNY",
+                current_cash=Decimal("1000"),
+                planned_deployable_cash=Decimal("200"),
+                min_target_weight=Decimal("0"),
+                max_single_asset_weight=Decimal("0.30"),
+                min_cash_weight=Decimal("0.10"),
+                max_stress_loss=Decimal("0.03"),
+                stress_scenario_return=Decimal("-0.20"),
+                max_correlation_to_portfolio=Decimal("0.80"),
+                observed_correlation_to_portfolio=Decimal("0.40"),
+                max_high_correlation_weight=Decimal("0.20"),
+                average_daily_traded_notional=Decimal("10000"),
+                max_liquidity_participation=Decimal("0.10"),
+                liquidity_horizon_days=2,
+                evidence_refs=("user-confirmation:test",),
+                created_at="2026-07-24T12:00:00+00:00",
+            )
+            service.save_constraint_snapshot(context, constraints)
+            with self.assertRaisesRegex(
+                ValueError,
+                "referenced portfolio snapshot is immutable",
+            ):
+                service.value_current_holdings(
+                    context,
+                    as_of_date="2026-07-24",
+                    prices={asset.asset_id: 8.6},
+                    holdings_as_of_date="2026-07-24",
+                    evidence_refs=(
+                        "user-confirmation:holdings",
+                        "evidence:prices",
+                    ),
+                )
+
+            self.assertEqual(
+                service.get_mandate(context, mandate.mandate_id),
+                mandate,
+            )
+            self.assertEqual(
+                service.get_constraint_snapshot(
+                    context,
+                    constraints.snapshot_id,
+                ),
+                constraints,
+            )
+            self.assertIsNone(
+                service.get_mandate(
+                    other_context,
+                    mandate.mandate_id,
+                )
+            )
+            self.assertIsNone(
+                service.get_constraint_snapshot(
+                    other_context,
+                    constraints.snapshot_id,
+                )
+            )
+            with self.assertRaisesRegex(
+                ValueError,
+                "different user or payload",
+            ):
+                service.save_constraint_snapshot(
+                    context,
+                    replace(
+                        constraints,
+                        max_stress_loss=Decimal("0.04"),
+                    ),
+                )
 
 
 def _holding(asset_id, quantity, average_cost):
@@ -297,6 +416,21 @@ def _budget_input(
         timing_score_percentile=(
             Decimal(percentile) if percentile is not None else None
         ),
+    )
+
+
+def _mandate():
+    return InvestmentMandate(
+        mandate_id="mandate:persisted",
+        objective="absolute_return",
+        implementation_asset_id="asset:risk",
+        benchmark_asset_id="asset:benchmark",
+        defensive_asset_id=None,
+        target_volatility=Decimal("0.10"),
+        max_drawdown=Decimal("0.20"),
+        max_tracking_error=None,
+        max_risk_weight=Decimal("0.80"),
+        min_cash_weight=Decimal("0.10"),
     )
 
 

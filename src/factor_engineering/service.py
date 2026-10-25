@@ -9,6 +9,10 @@ from src.master_data import MasterDataService
 
 from .calculator import MarketFactorCalculator
 from .models import FactorValue
+from .open_fund import (
+    OpenFundStandardMetricCalculator,
+    OpenFundStandardMetricResult,
+)
 from .risk import (
     RiskCalculationResult,
     RiskMetricCalculator,
@@ -26,12 +30,18 @@ class FactorService:
         master_data: MasterDataService,
         calculator: MarketFactorCalculator | None = None,
         risk_calculator: RiskMetricCalculator | None = None,
+        open_fund_calculator: (
+            OpenFundStandardMetricCalculator | None
+        ) = None,
     ) -> None:
         self.repository = repository
         self.master_data = master_data
         self.calculator = calculator or MarketFactorCalculator()
         self.risk_calculator = (
             risk_calculator or RiskMetricCalculator()
+        )
+        self.open_fund_calculator = (
+            open_fund_calculator or OpenFundStandardMetricCalculator()
         )
         self.repository.initialize()
 
@@ -127,6 +137,26 @@ class FactorService:
             )
             for window in windows
         )
+
+    def compute_open_fund_standard_from_response(
+        self,
+        response: DataAccessResponse,
+        *,
+        as_of_date: str,
+    ) -> OpenFundStandardMetricResult:
+        if not response.complete:
+            raise ValueError("Data access response must be complete")
+        result = self.open_fund_calculator.calculate(
+            asset_id=response.asset.asset_id,
+            records=[dict(record) for record in response.records],
+            source_dataset=response.dataset,
+            as_of_date=as_of_date,
+        )
+        self.repository.upsert_values(list(result.values))
+        return result
+
+    def store_values(self, values: list[FactorValue]) -> None:
+        self.repository.upsert_values(values)
 
     def list_values(
         self,

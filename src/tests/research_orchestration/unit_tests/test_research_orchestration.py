@@ -22,6 +22,9 @@ from src.research_acceptance import (
     REQUIRED_ACCEPTANCE_STEPS,
     ResearchAcceptanceReport,
     ResearchClaim,
+    ResearchFact,
+    ResearchFactKind,
+    ResearchFactSection,
     ResearchGap,
     ResearchScenario,
     ScenarioKind,
@@ -29,11 +32,17 @@ from src.research_acceptance import (
 from src.research_orchestration import (
     DiscoveryOrchestrationPipeline,
     DiscoveryRunRequest,
+    EvidenceTier,
     ExplorationQuestion,
     ExplorationStatus,
+    HypothesisImpact,
+    HypothesisImpactRecord,
+    HypothesisRole,
     HypothesisStatus,
     ResearchExplorationRound,
     ResearchExplorationService,
+    ResearchFinding,
+    ResearchFindingKind,
     ResearchHypothesis,
     ResearchExecutionDispatcher,
     ResearchOrchestrationPipeline,
@@ -43,8 +52,10 @@ from src.research_orchestration import (
     ResearchRunStatus,
 )
 from src.research_orchestration.cli import build_parser, main
+from src.research_orchestration.workflow import _baseline_chart_manifest
 from src.research_workflow import (
     PROFILE_CYCLICAL_RESOURCE,
+    PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
     CycleResearchExecutionOptions,
     ResearchExecutionGap,
@@ -58,7 +69,11 @@ from src.research_workflow import (
     ResearchTaskSpec,
     ResearchWindows,
 )
-from src.research_visualization import ReportArtifactService
+from src.research_visualization import (
+    ChartArtifact,
+    ChartType,
+    ReportArtifactService,
+)
 
 
 class ResearchOrchestrationTest(unittest.TestCase):
@@ -152,6 +167,14 @@ class ResearchOrchestrationTest(unittest.TestCase):
                 ResearchHypothesis(
                     "growth",
                     "盈利增长能够持续。",
+                    falsification_conditions=(
+                        "销量与提价无法共同维持。",
+                    ),
+                ),
+                ResearchHypothesis(
+                    "counter",
+                    "增长主要来自渠道压货。",
+                    role=HypothesisRole.COUNTERARGUMENT,
                 ),
             ),
         )
@@ -181,6 +204,24 @@ class ResearchOrchestrationTest(unittest.TestCase):
                 queries=("渠道价格", "销量结构"),
                 findings=("提价与销量增长同时存在",),
                 evidence_refs=("evidence:channel",),
+                structured_findings=(
+                    ResearchFinding(
+                        finding_id="finding:growth",
+                        text="提价与销量增长同时存在。",
+                        kind=ResearchFindingKind.FACT,
+                        as_of_date="2026-08-09",
+                        evidence_refs=("evidence:channel",),
+                        source_tier=EvidenceTier.PRIMARY,
+                        hypothesis_impacts=(
+                            HypothesisImpactRecord(
+                                hypothesis_id="growth",
+                                impact=HypothesisImpact.SUPPORTS,
+                                rationale="量价同时改善。",
+                            ),
+                        ),
+                    ),
+                ),
+                next_step="评估最强反方。",
             ),
         )
         session = service.update_hypothesis(
@@ -190,6 +231,19 @@ class ResearchOrchestrationTest(unittest.TestCase):
                 "盈利增长能够持续。",
                 status=HypothesisStatus.SUPPORTED,
                 supporting_evidence_refs=("evidence:channel",),
+                falsification_conditions=(
+                    "销量与提价无法共同维持。",
+                ),
+            ),
+        )
+        session = service.update_hypothesis(
+            session,
+            ResearchHypothesis(
+                "counter",
+                "增长主要来自渠道压货。",
+                status=HypothesisStatus.WEAKENED,
+                counterevidence_refs=("evidence:channel",),
+                role=HypothesisRole.COUNTERARGUMENT,
             ),
         )
         ready = service.mark_ready(session)
@@ -232,6 +286,34 @@ class ResearchOrchestrationTest(unittest.TestCase):
         self.assertIn("示例资产 基础研究包", result.user_markdown)
         self.assertEqual(assembly.calls, [(result.execution, peer)])
 
+    def test_pipeline_attaches_persisted_workflow_handoff(self):
+        task = _task("ordinary")
+        workflow_coordinator = _FakeWorkflowCoordinator()
+        pipeline = ResearchOrchestrationPipeline(
+            dispatcher=ResearchExecutionDispatcher(
+                {"ordinary": _FakeExecutionService()}
+            ),
+            report_assembly=_FakeAssembly(_report(task)),
+            workflow_coordinator=workflow_coordinator,
+        )
+        request = ResearchRunRequest(
+            task,
+            workflow_run_id="workflow:test",
+        )
+
+        result = pipeline.run(request)
+
+        self.assertEqual(result.workflow_run, "workflow-run")
+        self.assertEqual(result.handoff, "baseline-handoff")
+        self.assertEqual(
+            workflow_coordinator.calls,
+            [(request, replace(
+                result,
+                workflow_run=None,
+                handoff=None,
+            ))],
+        )
+
     def test_pipeline_publishes_user_markdown_to_report_root(self):
         task = _task("ordinary")
         report = _report(task)
@@ -255,6 +337,97 @@ class ResearchOrchestrationTest(unittest.TestCase):
                 result.user_markdown,
             )
             self.assertNotIn("## 关键步骤摘要", result.user_markdown)
+
+    def test_pipeline_publishes_execution_charts_with_stable_paths(self):
+        task = _task("ordinary")
+        report = _report(task)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            source_root = temp_root / "source"
+            source_root.mkdir()
+            paths = {
+                "png_path": source_root / "source.png",
+                "svg_path": source_root / "source.svg",
+                "data_path": source_root / "source.data.json",
+                "metadata_path": source_root / "source.metadata.json",
+            }
+            for path in paths.values():
+                path.write_text("chart artifact", encoding="utf-8")
+            artifact = ChartArtifact(
+                chart_type=ChartType.DRAWDOWN,
+                input_digest="a" * 64,
+                **paths,
+            )
+            execution = replace(
+                _execution(task),
+                chart_artifacts=(artifact,),
+            )
+            report_root = temp_root / "report"
+            pipeline = ResearchOrchestrationPipeline(
+                dispatcher=ResearchExecutionDispatcher(
+                    {
+                        "ordinary": _FakeExecutionService(
+                            execution=execution
+                        )
+                    }
+                ),
+                report_assembly=_FakeAssembly(report),
+                publisher=ReportArtifactService(report_root),
+            )
+
+            result = pipeline.run(ResearchRunRequest(task))
+
+            chart_root = (
+                report_root
+                / "assets"
+                / "示例资产-基础研究包-2026-08-09-drawdown"
+                / "charts"
+            )
+            self.assertIn(
+                (
+                    "assets/示例资产-基础研究包-2026-08-09-"
+                    "drawdown/charts/chart.png"
+                ),
+                result.user_markdown,
+            )
+            for filename in (
+                "chart.png",
+                "chart.svg",
+                "data.json",
+                "metadata.json",
+            ):
+                self.assertTrue((chart_root / filename).exists())
+            self.assertNotIn(artifact.input_digest, result.user_markdown)
+            self.assertNotIn(task.task_id, result.user_markdown)
+
+    def test_baseline_manifest_accepts_parentheses_in_chart_path(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            report_root = Path(temp_dir)
+            report_path = report_root / "基金(LOF)A-基础研究包.md"
+            report_path.write_text("report", encoding="utf-8")
+            relative = (
+                "assets/基金(LOF)A-基础研究包-drawdown/"
+                "charts/chart.png"
+            )
+            chart_root = report_root / Path(
+                *relative.split("/")
+            ).parent
+            chart_root.mkdir(parents=True)
+            for filename in ("chart.png", "metadata.json", "data.json"):
+                (chart_root / filename).write_text(
+                    filename,
+                    encoding="utf-8",
+                )
+
+            manifest = _baseline_chart_manifest(
+                SimpleNamespace(
+                    report_path=report_path,
+                    user_markdown=f"![回撤]({relative})",
+                )
+            )
+
+            self.assertEqual(len(manifest), 1)
+            self.assertEqual(manifest[0].markdown_path, relative)
 
     def test_blocked_execution_stops_before_report_assembly(self):
         task = _task("blocked-profile")
@@ -295,6 +468,85 @@ class ResearchOrchestrationTest(unittest.TestCase):
         self.assertIn(
             "fact_evidence_missing",
             {item.code for item in review.findings},
+        )
+
+    def test_review_checks_official_sources_and_derived_methodology(self):
+        task = _task("ordinary")
+        report = replace(
+            _report(task),
+            fact_sections=(
+                SimpleNamespace(
+                    section_id="review-test",
+                    facts=(
+                        SimpleNamespace(
+                            kind=ResearchFactKind.OFFICIAL,
+                            as_of_date=task.as_of_date,
+                            evidence_refs=("local:document",),
+                            limitations=(),
+                        ),
+                        SimpleNamespace(
+                            kind=ResearchFactKind.DERIVED,
+                            as_of_date=task.as_of_date,
+                            evidence_refs=("derived:test",),
+                            limitations=(),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        review = ResearchReportReviewer().review(
+            report,
+            expected_task=task,
+        )
+
+        self.assertTrue(
+            {
+                "official_fact_source_invalid",
+                "derived_fact_methodology_missing",
+            }.issubset({item.code for item in review.findings})
+        )
+
+    def test_review_requires_static_markdown_chart_citations(self):
+        task = _task("ordinary")
+        report = _report(task)
+        steps = tuple(
+            replace(
+                step,
+                artifacts=("cumulative_return:digest",),
+            )
+            if step.step_id == "charts"
+            else step
+            for step in report.steps
+        )
+        report = replace(report, asset_type="open_fund", steps=steps)
+
+        missing = ResearchReportReviewer().review_markdown(report, "# 报告")
+        invalid = ResearchReportReviewer().review_markdown(
+            report,
+            "![累计收益](C:/temp/chart.png)",
+        )
+        mismatch = ResearchReportReviewer().review_markdown(
+            report,
+            "![累计收益](assets/wrong/chart.png)",
+            charts=(
+                SimpleNamespace(
+                    markdown_path="assets/expected/chart.png"
+                ),
+            ),
+        )
+
+        self.assertIn(
+            "chart_citation_missing",
+            {item.code for item in missing.findings},
+        )
+        self.assertIn(
+            "chart_citation_invalid",
+            {item.code for item in invalid.findings},
+        )
+        self.assertIn(
+            "chart_citation_mismatch",
+            {item.code for item in mismatch.findings},
         )
 
     def test_renderer_does_not_leak_internal_fields(self):
@@ -339,6 +591,49 @@ class ResearchOrchestrationTest(unittest.TestCase):
         )
         self.assertIn("## 初始三情景", markdown)
         self.assertIn("## 失效条件", markdown)
+
+    def test_renderer_outputs_facts_and_omits_not_applicable_scenarios(
+        self,
+    ):
+        task = _task("ordinary")
+        not_applicable = ResearchClaim(
+            ClaimKind.NOT_APPLICABLE,
+            "理解型任务不适用。",
+        )
+        report = replace(
+            _report(task),
+            fact_sections=(
+                ResearchFactSection(
+                    section_id="fund_nav",
+                    title="净值与数据覆盖",
+                    facts=(
+                        ResearchFact(
+                            label="最新单位净值",
+                            value="1.52",
+                            unit="元",
+                            as_of_date="2026-08-08",
+                            kind=ResearchFactKind.REPORTED,
+                            evidence_refs=("unit:nav",),
+                        ),
+                    ),
+                ),
+            ),
+            scenarios=tuple(
+                ResearchScenario(kind, (not_applicable,))
+                for kind in ScenarioKind
+            ),
+            strongest_counterargument=not_applicable,
+        )
+
+        markdown = ResearchReportRenderer().render(report)
+
+        self.assertIn("## 净值与数据覆盖", markdown)
+        self.assertIn(
+            "最新单位净值：1.52元（来源记录，截至2026-08-08）",
+            markdown,
+        )
+        self.assertNotIn("## 初始三情景", markdown)
+        self.assertNotIn("## 最强反方", markdown)
 
     def test_cli_help_lists_runnable_command(self):
         output = io.StringIO()
@@ -555,6 +850,37 @@ class ResearchOrchestrationTest(unittest.TestCase):
             "asset:resolved",
         )
 
+    def test_cli_creates_missing_fund_identity_from_provider_catalog(self):
+        factory = _FakeContainerFactory(
+            status=ResearchRunStatus.COMPLETE,
+            report_path=Path("report") / "fund.md",
+        )
+        arguments = _cli_arguments(PROFILE_OPEN_FUND)
+        arguments[1:3] = [
+            "--symbol",
+            "163417",
+            "--asset-type",
+            "open_fund",
+            "--name",
+            "兴全合宜混合(LOF)A",
+        ]
+
+        return_code = main(
+            arguments,
+            container_factory=factory,
+            stdout=io.StringIO(),
+        )
+
+        self.assertEqual(return_code, 0)
+        self.assertEqual(
+            factory.task_factory.calls[0]["asset_id"],
+            "asset:created",
+        )
+        self.assertEqual(
+            factory.data_fetch.calls,
+            [{"symbol": "163417"}],
+        )
+
 
 class _FakeContainerFactory:
     def __init__(self, *, status, report_path):
@@ -563,6 +889,7 @@ class _FakeContainerFactory:
         self.pipeline = _FakePipeline(status, report_path)
         self.event_name_discovery = _FakeEventNamePipeline()
         self.master_data = _FakeMasterData()
+        self.data_fetch = _FakeDataFetch(self.master_data)
 
     def __call__(self, **kwargs):
         self.calls.append(kwargs)
@@ -571,6 +898,7 @@ class _FakeContainerFactory:
             pipeline=self.pipeline,
             event_name_discovery=self.event_name_discovery,
             master_data=self.master_data,
+            data_fetch=self.data_fetch,
         )
 
 
@@ -584,15 +912,46 @@ class _FakeTaskFactory:
 
 
 class _FakeMasterData:
+    def __init__(self):
+        self.fund_identity_created = False
+
     def find_assets(self, *, standard_symbol=None, asset_type=None):
         if standard_symbol == "600519" and asset_type == "stock":
             return [
                 SimpleNamespace(
                     asset_id="asset:resolved",
                     exchange="sh",
+                    display_name="贵州茅台",
+                )
+            ]
+        if (
+            standard_symbol == "163417"
+            and asset_type == "open_fund"
+            and self.fund_identity_created
+        ):
+            return [
+                SimpleNamespace(
+                    asset_id="asset:created",
+                    exchange=None,
+                    display_name="兴全合宜混合(LOF)A",
                 )
             ]
         return []
+
+
+class _FakeDataFetch:
+    def __init__(self, master_data):
+        self.master_data = master_data
+        self.calls = []
+
+    def fetch_and_store_fund_basic_info(self, **kwargs):
+        self.calls.append(kwargs)
+        self.master_data.fund_identity_created = True
+        return SimpleNamespace(
+            symbol=kwargs["symbol"],
+            fetched_count=1,
+            stored_count=1,
+        )
 
 
 class _FakePipeline:
@@ -623,13 +982,17 @@ class _FakeEventNamePipeline:
 
 
 class _FakeExecutionService:
-    def __init__(self, blocked=False):
+    def __init__(self, blocked=False, execution=None):
         self.blocked = blocked
+        self.execution = execution
         self.calls = []
 
     def execute(self, task, *, options=None):
         self.calls.append((task, options))
-        return _execution(task, blocked=self.blocked)
+        return self.execution or _execution(
+            task,
+            blocked=self.blocked,
+        )
 
 
 class _RequiredOptionsExecutionService:
@@ -645,6 +1008,15 @@ class _FakeAssembly:
     def assemble(self, execution, *, peer_comparison=None):
         self.calls.append((execution, peer_comparison))
         return self.report
+
+
+class _FakeWorkflowCoordinator:
+    def __init__(self):
+        self.calls = []
+
+    def record_result(self, request, result):
+        self.calls.append((request, result))
+        return "workflow-run", "baseline-handoff"
 
 
 class _FakePreparationJobs:

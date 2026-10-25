@@ -143,6 +143,16 @@ class PeerAnalysisTest(unittest.TestCase):
             raw_symbol=symbol,
         )
 
+    def test_public_service_returns_effective_industry(self):
+        industry = self.service.get_industry(
+            asset_id=self.target.asset_id,
+            as_of_date="2026-08-23",
+        )
+
+        self.assertIsNotNone(industry)
+        assert industry is not None
+        self.assertEqual(industry.industry_name, "白酒")
+
     def test_peer_statistics_and_reasons_are_preserved(self):
         self.metric_repository.upsert_results(
             [

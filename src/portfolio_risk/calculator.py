@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import math
 from uuid import NAMESPACE_URL, uuid5
 
 from src.research_state import HoldingPosition
@@ -24,20 +25,42 @@ class PortfolioCalculator:
         as_of_date: str,
         holdings: list[HoldingPosition],
         prices: dict[str, float],
+        holdings_as_of_date: str | None = None,
+        evidence_refs: tuple[str, ...] = (),
     ) -> PortfolioValuation:
         """Return one portfolio snapshot and position metrics."""
 
         active = [holding for holding in holdings if holding.quantity != 0]
         if not active:
             raise ValueError("Portfolio has no non-zero holdings")
+        currencies = {holding.currency for holding in active}
+        if len(currencies) != 1:
+            raise ValueError(
+                "Portfolio valuation requires one base currency"
+            )
         for holding in active:
-            if holding.quantity < 0:
+            if (
+                not math.isfinite(float(holding.quantity))
+                or holding.quantity < 0
+            ):
                 raise ValueError("Negative holdings are not supported")
             if holding.asset_id not in prices:
                 raise KeyError(f"Missing market price for {holding.asset_id}")
-            if prices[holding.asset_id] <= 0:
+            if (
+                not math.isfinite(float(prices[holding.asset_id]))
+                or prices[holding.asset_id] <= 0
+            ):
                 raise ValueError(
-                    f"Market price must be positive for {holding.asset_id}"
+                    "Market price must be finite and positive for "
+                    f"{holding.asset_id}"
+                )
+            if holding.average_cost is not None and (
+                not math.isfinite(float(holding.average_cost))
+                or holding.average_cost < 0
+            ):
+                raise ValueError(
+                    "Average cost must be finite and non-negative "
+                    f"for {holding.asset_id}"
                 )
 
         market_values = {
@@ -98,6 +121,9 @@ class PortfolioCalculator:
             unrealized_pnl=unrealized_pnl,
             max_weight=max(weights),
             concentration_hhi=sum(weight * weight for weight in weights),
+            base_currency=next(iter(currencies)),
+            holdings_as_of_date=holdings_as_of_date,
+            evidence_refs=evidence_refs,
             created_at=datetime.now(timezone.utc).isoformat(),
         )
         return PortfolioValuation(snapshot=snapshot, positions=positions)

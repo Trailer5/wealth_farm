@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import re
+from pathlib import PurePosixPath
 
-from src.research_acceptance import ScenarioKind
+from src.research_acceptance import (
+    ClaimKind,
+    ResearchFactKind,
+    ScenarioKind,
+)
 from src.research_workflow import ResearchExecutionResult
 
 
@@ -12,6 +17,19 @@ _SCENARIO_LABELS = {
     ScenarioKind.OPTIMISTIC: "乐观情景",
     ScenarioKind.BASE: "基准情景",
     ScenarioKind.PESSIMISTIC: "悲观情景",
+}
+_FACT_KIND_LABELS = {
+    ResearchFactKind.OFFICIAL: "官方披露",
+    ResearchFactKind.REPORTED: "来源记录",
+    ResearchFactKind.DERIVED: "派生指标",
+}
+_CHART_LABELS = {
+    "cumulative_return": "累计收益",
+    "drawdown": "历史回撤",
+    "rolling_risk": "滚动风险",
+    "price_volume": "价格与成交量",
+    "valuation_history": "估值历史",
+    "financial_trends": "财务趋势",
 }
 _RAW_VALUE_LABELS = {
     "complete": "完整",
@@ -48,7 +66,12 @@ _RAW_VALUE_LABELS = {
 class ResearchReportRenderer:
     """Render only fields approved for the user report."""
 
-    def render(self, report: object) -> str:
+    def render(
+        self,
+        report: object,
+        *,
+        charts: object = (),
+    ) -> str:
         task = getattr(report, "task")
         lines = [
             f"# {getattr(report, 'asset_name')} 基础研究包",
@@ -60,28 +83,80 @@ class ResearchReportRenderer:
         lines.extend(
             self._claim_lines(getattr(report, "conclusions", ()), report)
         )
-        lines.extend(("", "## 初始三情景"))
+        for section in getattr(report, "fact_sections", ()):
+            lines.extend(("", f"## {self._sanitize(section.title, report)}"))
+            for fact in section.facts:
+                value = self._sanitize(fact.value, report)
+                unit = (
+                    self._sanitize(fact.unit, report)
+                    if fact.unit is not None
+                    else ""
+                )
+                kind = _FACT_KIND_LABELS.get(
+                    fact.kind,
+                    "研究事实",
+                )
+                lines.append(
+                    f"- {self._sanitize(fact.label, report)}："
+                    f"{value}{unit}"
+                    f"（{kind}，截至{fact.as_of_date}）"
+                )
+                lines.extend(
+                    f"  - 限制：{self._sanitize(item, report)}"
+                    for item in fact.limitations
+                )
+        chart_values = tuple(charts)
+        if chart_values:
+            lines.extend(("", "## 静态图表"))
+            for chart in chart_values:
+                chart_type = getattr(
+                    getattr(chart, "artifact", None),
+                    "chart_type",
+                    None,
+                )
+                chart_key = getattr(chart_type, "value", str(chart_type))
+                label = _CHART_LABELS.get(chart_key, "研究图表")
+                path = self._markdown_path(
+                    getattr(chart, "markdown_path", "")
+                )
+                lines.extend(("", f"![{label}]({path})"))
+
         scenarios = {
             getattr(item, "kind", None): item
             for item in getattr(report, "scenarios", ())
         }
-        for kind in (
-            ScenarioKind.OPTIMISTIC,
-            ScenarioKind.BASE,
-            ScenarioKind.PESSIMISTIC,
+        if any(
+            getattr(claim, "kind", None) is not ClaimKind.NOT_APPLICABLE
+            for scenario in scenarios.values()
+            for claim in getattr(scenario, "claims", ())
         ):
-            lines.extend(("", f"### {_SCENARIO_LABELS[kind]}"))
-            scenario = scenarios.get(kind)
-            claims = getattr(scenario, "claims", ()) if scenario else ()
-            lines.extend(self._claim_lines(claims, report))
+            lines.extend(("", "## 初始三情景"))
+            for kind in (
+                ScenarioKind.OPTIMISTIC,
+                ScenarioKind.BASE,
+                ScenarioKind.PESSIMISTIC,
+            ):
+                lines.extend(("", f"### {_SCENARIO_LABELS[kind]}"))
+                scenario = scenarios.get(kind)
+                claims = (
+                    getattr(scenario, "claims", ())
+                    if scenario
+                    else ()
+                )
+                lines.extend(self._claim_lines(claims, report))
 
-        lines.extend(("", "## 最强反方"))
-        lines.extend(
-            self._claim_lines(
-                (getattr(report, "strongest_counterargument"),),
-                report,
+        counterargument = getattr(report, "strongest_counterargument")
+        if (
+            getattr(counterargument, "kind", None)
+            is not ClaimKind.NOT_APPLICABLE
+        ):
+            lines.extend(("", "## 最强反方"))
+            lines.extend(
+                self._claim_lines(
+                    (counterargument,),
+                    report,
+                )
             )
-        )
 
         lines.extend(("", "## 失效条件"))
         for item in getattr(report, "invalidation_conditions", ()):
@@ -222,3 +297,14 @@ class ResearchReportRenderer:
             flags=re.IGNORECASE,
         )
         return cleaned.strip() or "暂无可展示内容。"
+
+    @staticmethod
+    def _markdown_path(value: str) -> str:
+        path = PurePosixPath(str(value).replace("\\", "/"))
+        if (
+            not value
+            or path.is_absolute()
+            or ".." in path.parts
+        ):
+            raise ValueError("chart markdown path must be report-relative")
+        return path.as_posix()

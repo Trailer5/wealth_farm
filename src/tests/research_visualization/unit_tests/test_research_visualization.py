@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -141,6 +142,30 @@ class ResearchVisualizationTest(unittest.TestCase):
             published.report_path.read_text(encoding="utf-8"),
         )
 
+        escaped = replace(
+            charts[0],
+            markdown_path="assets/D:escape.png",
+        )
+        with self.assertRaisesRegex(ValueError, "relative PNG"):
+            service.publish_markdown(
+                filename="安全报告.md",
+                content="# 安全报告",
+                charts=(escaped,),
+            )
+        with self.assertRaisesRegex(ValueError, "filename"):
+            service.publish_markdown(
+                filename="D:escape.md",
+                content="# 安全报告",
+            )
+        with self.assertRaisesRegex(
+            ValueError,
+            "reviewed publication",
+        ):
+            service.publish_markdown(
+                filename="未复查-完整决策报告-2026-01-10.md",
+                content="# 未复查报告",
+            )
+
     def test_all_chart_types_render(self):
         factor_values = _factor_values()
         specs = [
@@ -232,6 +257,16 @@ class ResearchVisualizationTest(unittest.TestCase):
             ]["observation_count"],
             1,
         )
+        cumulative_spec = next(
+            spec
+            for spec in specs
+            if spec.chart_type is ChartType.CUMULATIVE_RETURN
+        )
+        self.assertIn("2026-01-01 to 2026-01-10", cumulative_spec.title)
+        self.assertEqual(
+            cumulative_spec.parameters["input_start_date"],
+            "2026-01-01",
+        )
 
         self.assertEqual(
             {artifact.chart_type for artifact in artifacts},
@@ -239,6 +274,58 @@ class ResearchVisualizationTest(unittest.TestCase):
         )
         self.assertTrue(
             all(artifact.svg_path.exists() for artifact in artifacts)
+        )
+
+    def test_cumulative_return_supports_benchmark_overlay(self):
+        values = []
+        for value_date, fund_value, benchmark_value in (
+            ("2026-01-01", 0.01, 0.02),
+            ("2026-01-02", 0.03, 0.025),
+        ):
+            for name, value in (
+                ("asset_cumulative_return", fund_value),
+                ("benchmark_cumulative_return", benchmark_value),
+            ):
+                values.append(
+                    FactorValue(
+                        asset_id=self.asset.asset_id,
+                        factor_name=name,
+                        as_of_date=value_date,
+                        value=value,
+                        calculation_version="benchmark-v1",
+                        parameters={},
+                        input_start_date="2025-12-31",
+                        input_end_date=value_date,
+                        source_dataset=(
+                            "open_fund_nav|composite_benchmark"
+                        ),
+                        computed_at="2026-01-03T00:00:00+00:00",
+                    )
+                )
+
+        spec = build_factor_series_spec(
+            task=self.task,
+            asset=self.asset,
+            chart_type=ChartType.CUMULATIVE_RETURN,
+            values=values,
+            factor_names=(
+                "asset_cumulative_return",
+                "benchmark_cumulative_return",
+            ),
+            source_dataset="open_fund_nav|composite_benchmark",
+            benchmark_asset_id="composite:fund:test",
+        )
+
+        self.assertEqual(
+            set(spec.points[0].values),
+            {
+                "asset_cumulative_return",
+                "benchmark_cumulative_return",
+            },
+        )
+        self.assertEqual(
+            spec.benchmark_asset_id,
+            "composite:fund:test",
         )
 
     def test_chart_spec_rejects_future_and_duplicate_dates(self):

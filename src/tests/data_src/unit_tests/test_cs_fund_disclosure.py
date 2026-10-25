@@ -42,6 +42,10 @@ class FakeCsFundHttpClient:
         </table>
         """
 
+    def download_bytes(self, url):
+        self.last_url = url
+        return b"%PDF-1.4 official fund disclosure"
+
 
 class CsFundDisclosureDataSourceTest(unittest.TestCase):
     def test_search_announcements_uses_dynamic_json(self):
@@ -80,6 +84,33 @@ class CsFundDisclosureServiceTest(unittest.TestCase):
             self.assertEqual(result.fetched_count, 1)
             self.assertEqual(result.stored_count, 1)
             self.assertEqual(rows[0]["title"], "测试基金2025年年度报告")
+
+    def test_download_uses_fund_disclosure_provider_and_source(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = SQLiteDataStore(Path(temp_dir) / "test.sqlite3")
+            source = CsFundDisclosureDataSource(
+                FakeCsFundHttpClient()
+            )
+            service = DataFetchService(
+                store=store,
+                cs_fund_source=source,
+            )
+            documents = source.search_announcements(
+                fund_code="000001",
+                report_type="annual",
+            )
+
+            files = service.download_and_store_disclosure_files(
+                documents,
+                root_dir=temp_dir,
+            )
+
+            self.assertEqual(files[0].source, "cs_fund_disclosure")
+            self.assertTrue(Path(files[0].file_path).exists())
+            self.assertIn(
+                "cs_fund_disclosure",
+                Path(files[0].file_path).parts,
+            )
 
 
 if __name__ == "__main__":

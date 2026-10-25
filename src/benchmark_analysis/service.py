@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any, NoReturn
+
 from src.data_access import (
     DATASET_EXCHANGE_FUND_DAILY_BARS,
     DATASET_INDEX_DAILY_BARS,
+    DATASET_OPEN_FUND_NAV,
     DATASET_STOCK_DAILY_BARS,
     AssetInput,
     DataAccessRequest,
@@ -19,13 +22,28 @@ from src.master_data import (
 )
 
 from .calculator import BenchmarkMetricCalculator
+from .composite import build_composite_benchmark_records
 from .models import (
     BenchmarkCalculationResult,
+    BenchmarkComponentKind,
     BenchmarkKind,
     BenchmarkMetricParameters,
     BenchmarkRelation,
+    CompositeBenchmarkDefinition,
 )
 from .sqlite_repository import SQLiteBenchmarkRepository
+
+
+class BenchmarkDefinitionIncompleteError(ValueError):
+    """Official benchmark text could not be fully resolved."""
+
+
+class BenchmarkComponentUnavailableError(RuntimeError):
+    """A required benchmark component source is unavailable."""
+
+
+class BenchmarkCoverageError(ValueError):
+    """Benchmark components do not have enough common history."""
 
 
 class BenchmarkAnalysisService:
@@ -66,6 +84,10 @@ class BenchmarkAnalysisService:
         if benchmark is None:
             raise KeyError(
                 f"Unknown benchmark_asset_id: {benchmark_asset_id}"
+            )
+        if benchmark_kind is BenchmarkKind.COMPOSITE:
+            raise ValueError(
+                "Composite benchmarks require an official definition"
             )
         expected_type = (
             ASSET_TYPE_INDEX
@@ -180,29 +202,171 @@ class BenchmarkAnalysisService:
             )
         )
         if not asset_response.complete:
-            raise ValueError("Asset daily data is incomplete")
+            raise BenchmarkComponentUnavailableError(
+                "Asset daily data source is incomplete"
+            )
         if not benchmark_response.complete:
-            raise ValueError("Benchmark daily data is incomplete")
-        result = self.calculator.calculate(
-            asset_id=asset.asset_id,
-            benchmark_asset_id=benchmark.asset_id,
-            benchmark_kind=relation.benchmark_kind,
-            asset_records=[
-                dict(record)
-                for record in asset_response.records
-            ],
-            benchmark_records=[
-                dict(record)
-                for record in benchmark_response.records
-            ],
-            asset_dataset=asset_dataset,
-            benchmark_dataset=benchmark_dataset,
-            parameters=parameters,
-        )
+            raise BenchmarkComponentUnavailableError(
+                "Benchmark daily data source is incomplete"
+            )
+        try:
+            result = self.calculator.calculate(
+                asset_id=asset.asset_id,
+                benchmark_asset_id=benchmark.asset_id,
+                benchmark_kind=relation.benchmark_kind,
+                asset_records=[
+                    dict(record)
+                    for record in asset_response.records
+                ],
+                benchmark_records=[
+                    dict(record)
+                    for record in benchmark_response.records
+                ],
+                asset_dataset=asset_dataset,
+                benchmark_dataset=benchmark_dataset,
+                parameters=parameters,
+            )
+        except ValueError as exc:
+            _raise_coverage_error(exc)
         self.factor_repository.upsert_values(
             list(result.values)
         )
         return result
+
+    def compare_composite(
+        self,
+        *,
+        asset_id: str,
+        asset_records: list[dict[str, Any]],
+        definition: CompositeBenchmarkDefinition,
+        start_date: str,
+        end_date: str,
+        as_of_date: str,
+        parameters: BenchmarkMetricParameters | None = None,
+        allow_remote: bool = True,
+        provider_timeout_seconds: float = 30.0,
+    ) -> BenchmarkCalculationResult:
+        asset = self.master_data.get_asset(asset_id)
+        if asset is None:
+            raise KeyError(f"Unknown asset_id: {asset_id}")
+        if definition.asset_id != asset_id:
+            raise ValueError(
+                "Composite benchmark definition belongs to another asset"
+            )
+        if not definition.resolved:
+            unresolved = [
+                component.label
+                for component in definition.components
+                if not component.resolved
+            ]
+            raise BenchmarkDefinitionIncompleteError(
+                "Unresolved official benchmark components: "
+                + ", ".join(unresolved)
+            )
+
+        index_records: dict[str, list[dict[str, Any]]] = {}
+        effective_end = min(end_date, as_of_date)
+        for component in definition.components:
+            if component.kind is BenchmarkComponentKind.CASH_RATE:
+                continue
+            assert component.index_asset_id is not None
+            index_asset = self.master_data.get_asset(
+                component.index_asset_id
+            )
+            if index_asset is None:
+                raise BenchmarkDefinitionIncompleteError(
+                    f"Unknown benchmark component asset: {component.label}"
+                )
+            if index_asset.asset_type != ASSET_TYPE_INDEX:
+                raise BenchmarkDefinitionIncompleteError(
+                    f"Benchmark component is not an index: {component.label}"
+                )
+            if index_asset.exchange not in {"sh", "sz", "csi"}:
+                raise BenchmarkComponentUnavailableError(
+                    f"No index provider for component: {component.label}"
+                )
+            try:
+                response = self.data_access.get(
+                    DataAccessRequest(
+                        asset=AssetInput(
+                            asset_id=component.index_asset_id
+                        ),
+                        dataset=DATASET_INDEX_DAILY_BARS,
+                        start_date=start_date,
+                        end_date=effective_end,
+                        as_of_date=as_of_date,
+                        allow_remote=allow_remote,
+                        allow_stale_on_error=True,
+                        remote_sources=(
+                            "csindex",
+                            "eastmoney",
+                            "akshare",
+                        ),
+                        provider_timeout_seconds=(
+                            provider_timeout_seconds
+                        ),
+                    )
+                )
+            except Exception as exc:
+                raise BenchmarkComponentUnavailableError(
+                    f"{component.label}: {type(exc).__name__}: {exc}"
+                ) from exc
+            if not response.complete or not response.records:
+                reason = response.error or "incomplete index history"
+                raise BenchmarkComponentUnavailableError(
+                    f"{component.label}: {reason}"
+                )
+            index_records[component.index_asset_id] = [
+                dict(record) for record in response.records
+            ]
+
+        try:
+            aligned_asset, benchmark_records = (
+                build_composite_benchmark_records(
+                    asset_records=asset_records,
+                    definition=definition,
+                    index_records=index_records,
+                )
+            )
+        except ValueError as exc:
+            raise BenchmarkCoverageError(str(exc)) from exc
+        try:
+            result = self.calculator.calculate(
+                asset_id=asset_id,
+                benchmark_asset_id=definition.synthetic_asset_id,
+                benchmark_kind=BenchmarkKind.COMPOSITE,
+                asset_records=aligned_asset,
+                benchmark_records=benchmark_records,
+                asset_dataset=DATASET_OPEN_FUND_NAV,
+                benchmark_dataset="composite_benchmark",
+                parameters=parameters,
+                benchmark_definition=definition,
+                benchmark_metadata={
+                    "benchmark_effective_date": (
+                        definition.effective_date
+                    ),
+                    "components": [
+                        {
+                            "label": component.label,
+                            "kind": component.kind.value,
+                            "weight": str(component.weight),
+                            "source": component.source,
+                        }
+                        for component in definition.components
+                    ],
+                    "cash_day_count": "actual/365_simple",
+                },
+            )
+        except ValueError as exc:
+            _raise_coverage_error(exc)
+        self.factor_repository.upsert_values(list(result.values))
+        return result
+
+
+def _raise_coverage_error(exc: ValueError) -> NoReturn:
+    if "matching observation interval" in str(exc):
+        raise BenchmarkCoverageError(str(exc)) from exc
+    raise exc
 
 
 def _dataset_for_asset_type(asset_type: str) -> str:

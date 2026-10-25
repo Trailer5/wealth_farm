@@ -42,6 +42,19 @@ class PeerAnalysisService:
         self._require_stock(assignment.asset_id)
         return self.peer_repository.save_industry(assignment)
 
+    def get_industry(
+        self,
+        *,
+        asset_id: str,
+        as_of_date: str,
+    ) -> IndustryAssignment | None:
+        """Return the effective industry through the public service."""
+        self._require_stock(asset_id)
+        return self.peer_repository.get_industry(
+            asset_id,
+            as_of_date=as_of_date,
+        )
+
     def save_peer_set(self, peer_set: PeerSet) -> PeerSet:
         self._require_stock(peer_set.target_asset_id)
         for member in peer_set.members:

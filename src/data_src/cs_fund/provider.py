@@ -5,11 +5,12 @@ from __future__ import annotations
 import hashlib
 import re
 import urllib.parse
+from pathlib import Path
 from typing import Any
 
 from src.data_src.common import to_date_string
 from src.data_src.http_client import UrlLibHttpClient
-from src.data_src.models import DisclosureDocument
+from src.data_src.models import DisclosureDocument, DownloadedFile
 
 
 class CsFundDisclosureDataSource:
@@ -64,6 +65,51 @@ class CsFundDisclosureDataSource:
         if fund_code:
             documents = [document for document in documents if document.symbol == fund_code]
         return documents
+
+    def download_pdf(
+        self,
+        document: DisclosureDocument,
+        root_dir: str | Path = "data/disclosures",
+    ) -> DownloadedFile:
+        """Download a fund disclosure PDF with source-appropriate headers."""
+
+        root = Path(root_dir)
+        year = (
+            document.announcement_date[:4]
+            if document.announcement_date
+            else "unknown"
+        )
+        filename = _safe_filename(
+            f"{document.document_id}-{document.title}.pdf"
+        )
+        target_path = (
+            root / self.source / document.symbol / year / filename
+        )
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        content = self.http.download_bytes(document.file_url)
+        sha256 = hashlib.sha256(content).hexdigest()
+        if target_path.exists():
+            existing_hash = hashlib.sha256(
+                target_path.read_bytes()
+            ).hexdigest()
+            if existing_hash == sha256:
+                return DownloadedFile(
+                    document_id=document.document_id,
+                    file_path=str(target_path),
+                    file_url=document.file_url,
+                    sha256=sha256,
+                    size_bytes=target_path.stat().st_size,
+                    source=self.source,
+                )
+        target_path.write_bytes(content)
+        return DownloadedFile(
+            document_id=document.document_id,
+            file_path=str(target_path),
+            file_url=document.file_url,
+            sha256=sha256,
+            size_bytes=len(content),
+            source=self.source,
+        )
 
     def _search_json_announcements(
         self,
@@ -148,3 +194,12 @@ def _find_date(value: str) -> str:
 
 def _stable_document_id(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+
+
+def _safe_filename(value: str) -> str:
+    cleaned = re.sub(
+        r'[<>:"/\\|?*\r\n\t]+',
+        "_",
+        value,
+    ).strip(" ._")
+    return cleaned[:180] or "document.pdf"

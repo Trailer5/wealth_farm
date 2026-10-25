@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+from datetime import date
 from pathlib import Path
 
 
@@ -131,13 +132,14 @@ def main() -> int:
             chart_renderer=ChartRenderer(root / "research"),
         )
         factory = ResearchTaskFactory(master)
+        as_of_date = date.today().isoformat()
         tasks = {
             "csi300": factory.create(
                 asset_id=funds["csi300"].asset_id,
                 profile_id=PROFILE_EXCHANGE_FUND,
                 question_type=ResearchQuestionType.COMPARISON,
                 horizon=ResearchHorizon.MEDIUM_LONG,
-                as_of_date="2026-08-03",
+                as_of_date=as_of_date,
                 benchmark_asset_id=index.asset_id,
             ),
             "gold": factory.create(
@@ -145,7 +147,7 @@ def main() -> int:
                 profile_id=PROFILE_EXCHANGE_FUND,
                 question_type=ResearchQuestionType.CYCLE_READING,
                 horizon=ResearchHorizon.LONG,
-                as_of_date="2026-08-03",
+                as_of_date=as_of_date,
                 benchmark_asset_id=index.asset_id,
             ),
         }

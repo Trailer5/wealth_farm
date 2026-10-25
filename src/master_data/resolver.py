@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from dataclasses import replace
 from uuid import uuid4
 
 from src.data_src.common import infer_a_share_exchange, normalize_a_share_code
@@ -80,10 +81,44 @@ class MasterDataResolver:
             exchange = infer_exchange_safely(standard_symbol)
         market = normalize_market(market_hint, exchange, asset_type)
 
-        identifier_match = self._find_identifier_match(source, raw_symbol, standard_symbol)
+        identifier_match = self._find_identifier_match(
+            source,
+            raw_symbol,
+            standard_symbol,
+            asset_type,
+        )
         if identifier_match is not None:
             asset = self.assets.get(identifier_match.asset_id)
             if asset is not None:
+                if (
+                    asset_type != ASSET_TYPE_UNKNOWN
+                    and asset.asset_type == ASSET_TYPE_UNKNOWN
+                ):
+                    asset = replace(
+                        asset,
+                        asset_type=asset_type,
+                        display_name=asset.display_name or name,
+                        market=market,
+                        exchange=exchange,
+                    )
+                    identifier_match = replace(
+                        identifier_match,
+                        name=identifier_match.name or name,
+                        asset_type=asset_type,
+                        market=market,
+                        exchange=exchange,
+                    )
+                    self.assets[asset.asset_id] = asset
+                    self.identifiers = [
+                        (
+                            identifier_match
+                            if item.asset_id == asset.asset_id
+                            and item.source == identifier_match.source
+                            and item.raw_symbol == identifier_match.raw_symbol
+                            else item
+                        )
+                        for item in self.identifiers
+                    ]
                 return AssetResolution(
                     status=RESOLUTION_MATCHED,
                     observation=observation,
@@ -204,10 +239,25 @@ class MasterDataResolver:
         source: str,
         raw_symbol: str,
         standard_symbol: str,
+        asset_type: str,
     ) -> AssetIdentifier | None:
         raw_key = raw_symbol.strip().lower()
         for identifier in self.identifiers:
             if not identifier.active:
+                continue
+            if (
+                asset_type != ASSET_TYPE_UNKNOWN
+                and identifier.asset_type
+                not in {None, ASSET_TYPE_UNKNOWN, asset_type}
+            ):
+                continue
+            linked_asset = self.assets.get(identifier.asset_id)
+            if (
+                asset_type != ASSET_TYPE_UNKNOWN
+                and linked_asset is not None
+                and linked_asset.asset_type
+                not in {ASSET_TYPE_UNKNOWN, asset_type}
+            ):
                 continue
             if identifier.source == source and identifier.raw_symbol.strip().lower() == raw_key:
                 return identifier
@@ -227,6 +277,11 @@ class MasterDataResolver:
         comparable_name = normalize_name(name)
         for asset in self.assets.values():
             if asset.standard_symbol != standard_symbol:
+                continue
+            if (
+                asset_type != ASSET_TYPE_UNKNOWN
+                and asset.asset_type != asset_type
+            ):
                 continue
             score = 0.7
             reasons = ["same_standard_symbol"]
@@ -303,11 +358,27 @@ def normalize_asset_type(asset_type_hint: str | None) -> str:
     value = str(asset_type_hint).strip().lower()
     if value in {"stock", "a_share", "a-share", "1", "股票"}:
         return ASSET_TYPE_STOCK
+    if value == ASSET_TYPE_EXCHANGE_FUND:
+        return ASSET_TYPE_EXCHANGE_FUND
+    if value == ASSET_TYPE_OPEN_FUND:
+        return ASSET_TYPE_OPEN_FUND
     if "etf" in value or "lof" in value or "封闭" in value or "封基" in value:
         return ASSET_TYPE_EXCHANGE_FUND
     if value in {"index", "指数"}:
         return ASSET_TYPE_INDEX
-    if "基金" in value or "混合" in value or "债券" in value:
+    if any(
+        token in value
+        for token in (
+            "基金",
+            "混合",
+            "债券",
+            "股票型",
+            "指数型",
+            "货币型",
+            "qdii",
+            "fof",
+        )
+    ):
         return ASSET_TYPE_OPEN_FUND
     return ASSET_TYPE_UNKNOWN
 

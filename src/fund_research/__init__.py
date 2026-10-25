@@ -22,6 +22,7 @@ from .instrument_selection import (
     ETFSelectionObservation,
 )
 from .models import (
+    DisclosureExtractionStatus,
     ETFExpenseSchedule,
     ETFMarketSnapshot,
     ETFMetricSet,
@@ -29,6 +30,15 @@ from .models import (
     FundAssetRelation,
     FundRelationType,
     FundResearchBundle,
+    OpenFundAssetAllocation,
+    OpenFundHolding,
+    OpenFundIndustryAllocation,
+    OpenFundManagerTenure,
+    OpenFundPerformanceComparison,
+    OpenFundPeriodicSnapshot,
+    OpenFundProfileSnapshot,
+    OpenFundShareClassSnapshot,
+    OpenFundShareFlow,
 )
 from .service import FundResearchService
 from .share_flow import (
@@ -39,6 +49,14 @@ from .share_flow import (
     ExchangeFundShareRecord,
 )
 from .sqlite_repository import SQLiteFundResearchRepository
+from .summary import (
+    OPEN_FUND_HISTORY_SUMMARY_VERSION,
+    OpenFundHistoricalSummaryCalculator,
+)
+from .benchmark_definition import (
+    OpenFundBenchmarkParser,
+    OpenFundBenchmarkResolver,
+)
 from .total_return import (
     ETF_TOTAL_RETURN_VERSION,
     ETFDistributionEvent,
@@ -59,6 +77,7 @@ __all__ = [
     "ETFComparisonRow",
     "ETFComparisonSeries",
     "ETFComparisonService",
+    "DisclosureExtractionStatus",
     "ETFDistributionEvent",
     "ETFExpenseSchedule",
     "ETFInstrumentProfile",
@@ -92,6 +111,19 @@ __all__ = [
     "FundRelationType",
     "FundResearchBundle",
     "FundResearchService",
+    "OpenFundAssetAllocation",
+    "OpenFundBenchmarkParser",
+    "OpenFundBenchmarkResolver",
+    "OpenFundHolding",
+    "OPEN_FUND_HISTORY_SUMMARY_VERSION",
+    "OpenFundHistoricalSummaryCalculator",
+    "OpenFundIndustryAllocation",
+    "OpenFundManagerTenure",
+    "OpenFundPerformanceComparison",
+    "OpenFundPeriodicSnapshot",
+    "OpenFundProfileSnapshot",
+    "OpenFundShareClassSnapshot",
+    "OpenFundShareFlow",
     "ReturnIndexPoint",
     "SQLiteFundResearchRepository",
     "percent_to_ratio",

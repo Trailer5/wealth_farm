@@ -1,15 +1,25 @@
 import math
 import tempfile
 import unittest
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 from src.benchmark_analysis import (
     BenchmarkAnalysisService,
+    BenchmarkComponent,
+    BenchmarkComponentKind,
+    BenchmarkComponentUnavailableError,
+    BenchmarkCoverageError,
     BenchmarkKind,
     BenchmarkMetricCalculator,
     BenchmarkMetricParameters,
+    CompositeBenchmarkDefinition,
     SQLiteBenchmarkRepository,
+)
+from src.benchmark_analysis.composite import (
+    build_composite_benchmark_records,
 )
 from src.data_access import (
     DATASET_INDEX_DAILY_BARS,
@@ -67,6 +77,116 @@ class FakeIndexFetchService:
 
 
 class BenchmarkMetricCalculatorTest(unittest.TestCase):
+    def test_composite_index_and_cash_use_common_dates(self):
+        definition = CompositeBenchmarkDefinition(
+            asset_id="asset:fund",
+            effective_date="2026-01-01",
+            source="official-unit-test",
+            source_document_id="profile-doc",
+            benchmark_text="指数甲×60%+指数乙×20%+现金×20%",
+            components=(
+                BenchmarkComponent(
+                    label="指数甲",
+                    kind=BenchmarkComponentKind.INDEX,
+                    weight=Decimal("0.6"),
+                    source="official:a",
+                    index_asset_id="index:a",
+                ),
+                BenchmarkComponent(
+                    label="指数乙",
+                    kind=BenchmarkComponentKind.INDEX,
+                    weight=Decimal("0.2"),
+                    source="official:b",
+                    index_asset_id="index:b",
+                ),
+                BenchmarkComponent(
+                    label="现金",
+                    kind=BenchmarkComponentKind.CASH_RATE,
+                    weight=Decimal("0.2"),
+                    source="official:rate",
+                    annual_rate=Decimal("0.0365"),
+                    rate_effective_date="2026-01-01",
+                ),
+            ),
+        )
+        asset_records, benchmark_records = (
+            build_composite_benchmark_records(
+                asset_records=_records(
+                    {
+                        "2026-01-01": 100,
+                        "2026-01-02": 102,
+                        "2026-01-03": 104,
+                    }
+                ),
+                definition=definition,
+                index_records={
+                    "index:a": _records(
+                        {
+                            "2026-01-01": 100,
+                            "2026-01-02": 101,
+                            "2026-01-03": 102,
+                        }
+                    ),
+                    "index:b": _records(
+                        {
+                            "2026-01-01": 100,
+                            "2026-01-02": 98,
+                            "2026-01-03": 99,
+                        }
+                    ),
+                },
+            )
+        )
+        result = BenchmarkMetricCalculator().calculate(
+            asset_id=definition.asset_id,
+            benchmark_asset_id=definition.synthetic_asset_id,
+            benchmark_kind=BenchmarkKind.COMPOSITE,
+            asset_records=asset_records,
+            benchmark_records=benchmark_records,
+            asset_dataset="open_fund_nav",
+            benchmark_dataset="composite_benchmark",
+            benchmark_definition=definition,
+        )
+        metrics = {
+            value.factor_name: value.value
+            for value in result.metrics
+        }
+
+        expected_first_return = (
+            0.6 * 0.01
+            + 0.2 * -0.02
+            + 0.2 * (0.0365 / 365)
+        )
+        self.assertAlmostEqual(
+            benchmark_records[1]["close"],
+            100 * (1 + expected_first_return),
+        )
+        self.assertEqual(
+            metrics["common_observation_count"],
+            2.0,
+        )
+        self.assertIn("cumulative_tracking_difference", metrics)
+        self.assertIs(result.benchmark_definition, definition)
+
+    def test_composite_weights_must_sum_to_one(self):
+        with self.assertRaisesRegex(ValueError, "sum to 1"):
+            CompositeBenchmarkDefinition(
+                asset_id="asset:fund",
+                effective_date="2026-01-01",
+                source="official-unit-test",
+                source_document_id="profile-doc",
+                benchmark_text="指数甲×80%",
+                components=(
+                    BenchmarkComponent(
+                        label="指数甲",
+                        kind=BenchmarkComponentKind.INDEX,
+                        weight=Decimal("0.8"),
+                        source="official:a",
+                        index_asset_id="index:a",
+                    ),
+                ),
+            )
+
     def test_alignment_excludes_mismatched_return_intervals(self):
         result = BenchmarkMetricCalculator().calculate(
             asset_id="asset:stock",
@@ -357,6 +477,29 @@ class BenchmarkAnalysisServiceTest(unittest.TestCase):
             "index",
         )
 
+    def test_no_matching_interval_is_coverage_error(self):
+        self.service.set_benchmark(
+            asset_id=self.stock.asset_id,
+            benchmark_asset_id=self.index.asset_id,
+            benchmark_kind=BenchmarkKind.INDEX,
+            source="unit-test",
+            effective_date="2026-01-01",
+            reason="Broad market benchmark",
+        )
+        self.service.calculator = _NoOverlapCalculator()
+
+        with self.assertRaisesRegex(
+            BenchmarkCoverageError,
+            "matching observation interval",
+        ):
+            self.service.compare(
+                asset_id=self.stock.asset_id,
+                start_date="2026-01-01",
+                end_date="2026-01-04",
+                as_of_date="2026-01-04",
+                allow_remote=False,
+            )
+
     def test_benchmark_kind_validates_asset_type(self):
         with self.assertRaisesRegex(
             ValueError,
@@ -408,6 +551,47 @@ class BenchmarkAnalysisServiceTest(unittest.TestCase):
         self.assertFalse(second.fetched_remote)
         self.assertEqual(fetch.calls, 1)
 
+    def test_composite_remote_failure_identifies_required_component(self):
+        definition = CompositeBenchmarkDefinition(
+            asset_id=self.stock.asset_id,
+            effective_date="2026-01-01",
+            source="official-unit-test",
+            source_document_id="profile-doc",
+            benchmark_text="沪深300指数收益率×100%",
+            components=(
+                BenchmarkComponent(
+                    label="沪深300指数",
+                    kind=BenchmarkComponentKind.INDEX,
+                    weight=Decimal("1"),
+                    source="official:index",
+                    index_asset_id=self.index.asset_id,
+                ),
+            ),
+        )
+        self.service.data_access = Mock()
+        self.service.data_access.get.side_effect = RuntimeError(
+            "remote disconnected"
+        )
+
+        with self.assertRaisesRegex(
+            BenchmarkComponentUnavailableError,
+            "沪深300指数",
+        ):
+            self.service.compare_composite(
+                asset_id=self.stock.asset_id,
+                asset_records=_records(
+                    {
+                        "2026-01-01": 100,
+                        "2026-01-02": 101,
+                    }
+                ),
+                definition=definition,
+                start_date="2026-01-01",
+                end_date="2026-01-02",
+                as_of_date="2026-01-02",
+                allow_remote=True,
+            )
+
 
 def _records(values):
     return [
@@ -448,6 +632,15 @@ def _daily_bars(symbol, closes):
         )
         for index, close in enumerate(closes, start=1)
     ]
+
+
+class _NoOverlapCalculator:
+    def calculate(self, **kwargs):
+        del kwargs
+        raise ValueError(
+            "Benchmark comparison requires a matching "
+            "observation interval"
+        )
 
 
 if __name__ == "__main__":

@@ -747,6 +747,8 @@ class DataAccessService:
             return request.remote_sources
         if request.dataset == DATASET_RESEARCH_REPORTS:
             return ("eastmoney",)
+        if asset.asset_type == ASSET_TYPE_OPEN_FUND:
+            return ("cs_fund_disclosure",)
         by_exchange = {
             "sh": ("sse", "cninfo"),
             "sz": ("szse", "cninfo"),
@@ -978,7 +980,6 @@ class DataAccessService:
             DATASET_STOCK_DAILY_BARS: ASSET_TYPE_STOCK,
             DATASET_EXCHANGE_FUND_DAILY_BARS: ASSET_TYPE_EXCHANGE_FUND,
             DATASET_INDEX_DAILY_BARS: ASSET_TYPE_INDEX,
-            DATASET_DISCLOSURES: ASSET_TYPE_STOCK,
             DATASET_RESEARCH_REPORTS: ASSET_TYPE_STOCK,
             **{
                 item: ASSET_TYPE_OPEN_FUND
@@ -1002,6 +1003,15 @@ class DataAccessService:
                 raise AssetResolutionRequiredError(
                     f"Dataset {dataset} requires asset_type "
                     f"{expected_asset_type}, got {asset.asset_type}"
+                )
+            if (
+                dataset == DATASET_DISCLOSURES
+                and asset.asset_type
+                not in {ASSET_TYPE_STOCK, ASSET_TYPE_OPEN_FUND}
+            ):
+                raise AssetResolutionRequiredError(
+                    "Dataset disclosures requires a stock or "
+                    "open_fund asset"
                 )
             return asset
         if not asset_input.raw_symbol:
@@ -1044,11 +1054,7 @@ class DataAccessService:
         if asset_type_hint is None and (
             dataset == DATASET_STOCK_DAILY_BARS
             or dataset in FINANCIAL_DATASETS
-            or dataset
-            in {
-                DATASET_DISCLOSURES,
-                DATASET_RESEARCH_REPORTS,
-            }
+            or dataset == DATASET_RESEARCH_REPORTS
         ):
             asset_type_hint = "股票"
         if asset_type_hint is None and dataset == DATASET_EXCHANGE_FUND_DAILY_BARS:
@@ -1216,7 +1222,13 @@ class DataAccessService:
         if request.dataset in FINANCIAL_DATASETS:
             return ("akshare",)
         if request.dataset == DATASET_INDEX_DAILY_BARS:
-            return ("tencent", "sina", "akshare")
+            return (
+                "csindex",
+                "tencent",
+                "sina",
+                "eastmoney",
+                "akshare",
+            )
         if request.dataset == DATASET_EXCHANGE_FUND_DAILY_BARS:
             return ("mootdx", "tencent", "sina", "baostock", "akshare")
         return ("mootdx", "tencent", "sina", "baostock", "akshare")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from typing import Protocol
 
 from src.research_acceptance import (
@@ -20,6 +21,7 @@ from .models import (
 )
 from .renderer import ResearchReportRenderer
 from .review import ResearchReportReviewer, ReviewStatus
+from .workflow import ResearchWorkflowCoordinator
 
 
 class ResearchReportAssemblyProtocol(Protocol):
@@ -41,12 +43,16 @@ class ResearchOrchestrationPipeline:
         reviewer: ResearchReportReviewer | None = None,
         renderer: ResearchReportRenderer | None = None,
         publisher: ReportArtifactService | None = None,
+        workflow_coordinator: (
+            ResearchWorkflowCoordinator | None
+        ) = None,
     ) -> None:
         self.dispatcher = dispatcher
         self.report_assembly = report_assembly
         self.reviewer = reviewer or ResearchReportReviewer()
         self.renderer = renderer or ResearchReportRenderer()
         self.publisher = publisher
+        self.workflow_coordinator = workflow_coordinator
 
     def run(self, request: ResearchRunRequest) -> ResearchRunResult:
         execution = self.dispatcher.execute(
@@ -55,13 +61,18 @@ class ResearchOrchestrationPipeline:
         )
         if execution.status is ResearchExecutionStatus.BLOCKED:
             review = self.reviewer.review_blocked_execution(execution)
-            return ResearchRunResult(
-                task=request.task,
-                execution=execution,
-                report=None,
-                review=review,
-                user_markdown=self.renderer.render_blocked(execution),
-                status=ResearchRunStatus.BLOCKED,
+            return self._finalize(
+                request,
+                ResearchRunResult(
+                    task=request.task,
+                    execution=execution,
+                    report=None,
+                    review=review,
+                    user_markdown=self.renderer.render_blocked(
+                        execution
+                    ),
+                    status=ResearchRunStatus.BLOCKED,
+                ),
             )
 
         report = self.report_assembly.assemble(
@@ -76,55 +87,96 @@ class ResearchOrchestrationPipeline:
             review.status is ReviewStatus.BLOCKED
             or report.overall_status is AcceptanceStatus.BLOCKED
         ):
-            return ResearchRunResult(
-                task=request.task,
-                execution=execution,
-                report=report,
-                review=review,
-                user_markdown=self.renderer.render_review_blocked(
-                    review,
-                    report,
+            return self._finalize(
+                request,
+                ResearchRunResult(
+                    task=request.task,
+                    execution=execution,
+                    report=report,
+                    review=review,
+                    user_markdown=self.renderer.render_review_blocked(
+                        review,
+                        report,
+                    ),
+                    status=ResearchRunStatus.BLOCKED,
                 ),
-                status=ResearchRunStatus.BLOCKED,
             )
 
-        markdown = self.renderer.render(report)
-        review = self.reviewer.review_markdown(
-            report,
-            markdown,
-            prior=review,
-        )
-        if review.status is ReviewStatus.BLOCKED:
-            return ResearchRunResult(
-                task=request.task,
-                execution=execution,
-                report=report,
-                review=review,
-                user_markdown=self.renderer.render_review_blocked(
-                    review,
-                    report,
-                ),
-                status=ResearchRunStatus.BLOCKED,
-            )
-
-        report_path = None
+        filename = None
+        charts = ()
         if self.publisher is not None:
             filename = request.report_filename or _report_filename(
                 report.asset_name,
                 request.task.as_of_date,
             )
+            charts = self.publisher.prepare_existing_charts(
+                report_filename=filename,
+                artifacts=execution.chart_artifacts,
+            )
+        markdown = self.renderer.render(report, charts=charts)
+        review = self.reviewer.review_markdown(
+            report,
+            markdown,
+            prior=review,
+            charts=charts,
+        )
+        if review.status is ReviewStatus.BLOCKED:
+            return self._finalize(
+                request,
+                ResearchRunResult(
+                    task=request.task,
+                    execution=execution,
+                    report=report,
+                    review=review,
+                    user_markdown=self.renderer.render_review_blocked(
+                        review,
+                        report,
+                    ),
+                    status=ResearchRunStatus.BLOCKED,
+                ),
+            )
+
+        report_path = None
+        if self.publisher is not None:
+            assert filename is not None
             report_path = self.publisher.publish_markdown(
                 filename=filename,
                 content=markdown,
+                charts=charts,
             ).report_path
-        return ResearchRunResult(
-            task=request.task,
-            execution=execution,
-            report=report,
-            review=review,
-            user_markdown=markdown,
-            status=_run_status(execution.status, report.overall_status),
-            report_path=report_path,
+        return self._finalize(
+            request,
+            ResearchRunResult(
+                task=request.task,
+                execution=execution,
+                report=report,
+                review=review,
+                user_markdown=markdown,
+                status=_run_status(
+                    execution.status,
+                    report.overall_status,
+                ),
+                report_path=report_path,
+            ),
+        )
+
+    def _finalize(
+        self,
+        request: ResearchRunRequest,
+        result: ResearchRunResult,
+    ) -> ResearchRunResult:
+        if self.workflow_coordinator is None:
+            return result
+        workflow_run, handoff = (
+            self.workflow_coordinator.record_result(
+                request,
+                result,
+            )
+        )
+        return replace(
+            result,
+            workflow_run=workflow_run,
+            handoff=handoff,
         )
 
 

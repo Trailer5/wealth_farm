@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import hashlib
+import json
+import math
+from datetime import date, datetime, timezone
+from typing import Callable
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from src.event_knowledge import ResearchEvent
@@ -16,8 +20,10 @@ from .models import (
     RULE_MAX_WEIGHT_ABOVE,
     RULE_PRICE_ABOVE,
     RULE_PRICE_BELOW,
+    RULE_REVIEW_DATE,
     Alert,
     AlertRule,
+    AlertRuleProvenance,
 )
 from .sqlite_repository import SQLiteAlertRepository
 
@@ -30,10 +36,15 @@ class AlertService:
         repository: SQLiteAlertRepository,
         user_space: UserSpaceService,
         master_data: MasterDataService,
+        *,
+        rule_authorizer: (
+            Callable[[str, AlertRule], bool] | None
+        ) = None,
     ) -> None:
         self.repository = repository
         self.user_space = user_space
         self.master_data = master_data
+        self.rule_authorizer = rule_authorizer
         self.repository.initialize()
 
     def create_price_rule(
@@ -48,6 +59,8 @@ class AlertService:
 
         if rule_type not in {RULE_PRICE_ABOVE, RULE_PRICE_BELOW}:
             raise ValueError("Price rule must be price_above or price_below")
+        if not math.isfinite(float(threshold)):
+            raise ValueError("Price threshold must be finite")
         self._require_asset(asset_id)
         return self._create_rule(
             context,
@@ -65,6 +78,8 @@ class AlertService:
     ) -> AlertRule:
         """Create a rule for one event type and optional asset."""
 
+        if not isinstance(event_type, str) or not event_type.strip():
+            raise ValueError("event_type must be non-empty")
         if asset_id is not None:
             self._require_asset(asset_id)
         return self._create_rule(
@@ -82,13 +97,36 @@ class AlertService:
     ) -> AlertRule:
         """Create a portfolio maximum weight rule."""
 
-        if threshold < 0 or threshold > 1:
+        if (
+            not math.isfinite(float(threshold))
+            or threshold < 0
+            or threshold > 1
+        ):
             raise ValueError("max weight threshold must be between 0 and 1")
         return self._create_rule(
             context,
             rule_type=RULE_MAX_WEIGHT_ABOVE,
             asset_id=None,
             config={"threshold": float(threshold)},
+        )
+
+    def create_review_date_rule(
+        self,
+        context: UserContext,
+        *,
+        review_date: str,
+        asset_id: str | None = None,
+    ) -> AlertRule:
+        """Create a local review reminder evaluated by explicit date."""
+
+        date.fromisoformat(review_date)
+        if asset_id is not None:
+            self._require_asset(asset_id)
+        return self._create_rule(
+            context,
+            rule_type=RULE_REVIEW_DATE,
+            asset_id=asset_id,
+            config={"review_date": review_date},
         )
 
     def evaluate_price(
@@ -108,6 +146,8 @@ class AlertService:
             context.user_id,
             enabled_only=True,
         ):
+            if not self._is_authorized(rule):
+                continue
             if rule.asset_id != asset_id:
                 continue
             threshold = float(rule.config.get("threshold", 0))
@@ -144,6 +184,8 @@ class AlertService:
             rule_type=RULE_EVENT_TYPE,
             enabled_only=True,
         ):
+            if not self._is_authorized(rule):
+                continue
             if rule.asset_id is not None and rule.asset_id != event.asset_id:
                 continue
             if rule.config.get("event_type") != event.event_type:
@@ -181,6 +223,8 @@ class AlertService:
             rule_type=RULE_MAX_WEIGHT_ABOVE,
             enabled_only=True,
         ):
+            if not self._is_authorized(rule):
+                continue
             threshold = float(rule.config["threshold"])
             if snapshot.max_weight > threshold:
                 generated.extend(
@@ -203,6 +247,43 @@ class AlertService:
                         },
                     )
                 )
+        return generated
+
+    def evaluate_review_date(
+        self,
+        context: UserContext,
+        *,
+        observed_on: str,
+    ) -> list[Alert]:
+        """Evaluate local review-date rules for an explicit observation."""
+
+        self._require_user(context)
+        observed = date.fromisoformat(observed_on)
+        generated: list[Alert] = []
+        for rule in self.repository.list_rules(
+            context.user_id,
+            rule_type=RULE_REVIEW_DATE,
+            enabled_only=True,
+        ):
+            if not self._is_authorized(rule):
+                continue
+            review_date = str(rule.config["review_date"])
+            if observed < date.fromisoformat(review_date):
+                continue
+            generated.extend(
+                self._save_if_new(
+                    rule,
+                    asset_id=rule.asset_id,
+                    triggered_at=observed_on,
+                    dedupe_key=f"review-date:{rule.rule_id}:{review_date}",
+                    title="研究复查日期到达",
+                    message=f"计划复查日期 {review_date} 已到达",
+                    payload={
+                        "review_date": review_date,
+                        "observed_on": observed_on,
+                    },
+                )
+            )
         return generated
 
     def list_rules(self, context: UserContext) -> list[AlertRule]:
@@ -230,6 +311,53 @@ class AlertService:
             _now(),
         )
 
+    def _create_monitoring_rule(
+        self,
+        context: UserContext,
+        *,
+        rule_type: str,
+        asset_id: str | None,
+        config: dict[str, object],
+        provenance: AlertRuleProvenance,
+    ) -> AlertRule:
+        """Internal sink for confirmed research-monitoring candidates."""
+
+        if rule_type in {RULE_PRICE_ABOVE, RULE_PRICE_BELOW}:
+            if asset_id is None:
+                raise ValueError("price monitoring requires an asset")
+            threshold = float(config["threshold"])
+            if not math.isfinite(threshold):
+                raise ValueError("Price threshold must be finite")
+            self._require_asset(asset_id)
+        elif rule_type == RULE_EVENT_TYPE:
+            event_type = config.get("event_type")
+            if not isinstance(event_type, str) or not event_type.strip():
+                raise ValueError("event_type must be non-empty")
+            if asset_id is not None:
+                self._require_asset(asset_id)
+        elif rule_type == RULE_MAX_WEIGHT_ABOVE:
+            threshold = float(config["threshold"])
+            if (
+                not math.isfinite(threshold)
+                or threshold < 0
+                or threshold > 1
+                or asset_id is not None
+            ):
+                raise ValueError("Invalid max-weight monitoring rule")
+        elif rule_type == RULE_REVIEW_DATE:
+            date.fromisoformat(str(config["review_date"]))
+            if asset_id is not None:
+                self._require_asset(asset_id)
+        else:
+            raise ValueError("Unsupported research monitoring rule")
+        return self._create_rule(
+            context,
+            rule_type=rule_type,
+            asset_id=asset_id,
+            config=config,
+            provenance=provenance,
+        )
+
     def _create_rule(
         self,
         context: UserContext,
@@ -237,11 +365,23 @@ class AlertService:
         rule_type: str,
         asset_id: str | None,
         config: dict[str, object],
+        provenance: AlertRuleProvenance | None = None,
     ) -> AlertRule:
         self._require_user(context)
         now = _now()
+        rule_id = (
+            _monitoring_rule_id(
+                user_id=context.user_id,
+                rule_type=rule_type,
+                asset_id=asset_id,
+                config=config,
+                provenance=provenance,
+            )
+            if provenance is not None
+            else f"rule:{uuid4()}"
+        )
         rule = AlertRule(
-            rule_id=f"rule:{uuid4()}",
+            rule_id=rule_id,
             user_id=context.user_id,
             asset_id=asset_id,
             rule_type=rule_type,
@@ -249,7 +389,23 @@ class AlertService:
             enabled=True,
             created_at=now,
             updated_at=now,
+            provenance=provenance,
         )
+        existing = self.repository.get_rule(
+            context.user_id,
+            rule.rule_id,
+        )
+        if existing is not None:
+            if (
+                existing.rule_type != rule.rule_type
+                or existing.asset_id != rule.asset_id
+                or existing.config != rule.config
+                or existing.provenance != rule.provenance
+            ):
+                raise ValueError(
+                    "Deterministic monitoring rule ID collision"
+                )
+            return existing
         self.repository.insert_rule(rule)
         return rule
 
@@ -264,6 +420,11 @@ class AlertService:
         message: str,
         payload: dict[str, object],
     ) -> list[Alert]:
+        alert_payload = dict(payload)
+        if rule.provenance is not None:
+            alert_payload["research_provenance"] = (
+                rule.provenance.to_dict()
+            )
         alert = Alert(
             alert_id=f"alert:{uuid5(NAMESPACE_URL, dedupe_key)}",
             rule_id=rule.rule_id,
@@ -274,7 +435,7 @@ class AlertService:
             triggered_at=triggered_at,
             dedupe_key=dedupe_key,
             status=ALERT_PENDING,
-            payload=payload,
+            payload=alert_payload,
             created_at=_now(),
         )
         stored, inserted = self.repository.save_alert(alert)
@@ -288,6 +449,43 @@ class AlertService:
         if self.master_data.get_asset(asset_id) is None:
             raise KeyError(f"Unknown asset_id: {asset_id}")
 
+    def _is_authorized(self, rule: AlertRule) -> bool:
+        if rule.provenance is None:
+            return True
+        if self.rule_authorizer is None:
+            return False
+        try:
+            return bool(
+                self.rule_authorizer(rule.user_id, rule)
+            )
+        except Exception:
+            return False
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _monitoring_rule_id(
+    *,
+    user_id: str,
+    rule_type: str,
+    asset_id: str | None,
+    config: dict[str, object],
+    provenance: AlertRuleProvenance,
+) -> str:
+    payload = {
+        "user_id": user_id,
+        "rule_type": rule_type,
+        "asset_id": asset_id,
+        "config": config,
+        "provenance": provenance.to_dict(),
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return "rule:monitor:" + hashlib.sha256(encoded).hexdigest()[:24]

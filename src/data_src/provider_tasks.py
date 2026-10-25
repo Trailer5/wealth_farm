@@ -6,6 +6,8 @@ from .akshare import AkShareDataSource
 from .baostock import BaoStockDataSource
 from .bse import BseDisclosureDataSource
 from .cninfo import CninfoDataSource
+from .csindex import CsIndexDataSource
+from .cs_fund import CsFundDisclosureDataSource
 from .eastmoney import (
     EastmoneyExchangeFundDataSource,
     EastmoneyResearchReportDataSource,
@@ -167,6 +169,13 @@ def fetch_index_daily_bars(
     end_date: str,
     exchange: str,
 ):
+    if source == "csindex":
+        return CsIndexDataSource().get_index_daily_bars(
+            symbol,
+            start_date,
+            end_date,
+            exchange,
+        )
     if source == "eastmoney":
         return EastmoneyExchangeFundDataSource().get_index_daily_bars(
             symbol,
@@ -360,6 +369,36 @@ def fetch_disclosure_documents(
             symbol,
             start_date,
             end_date,
+        )
+    if source == "cs_fund_disclosure":
+        provider = CsFundDisclosureDataSource()
+        documents = {}
+        for report_type in (
+            "latest",
+            "annual",
+            "semi_annual",
+            "q1",
+            "q2",
+            "q3",
+            "q4",
+            "other",
+        ):
+            for document in provider.search_announcements(
+                fund_code=symbol,
+                report_type=report_type,
+            ):
+                if (
+                    start_date
+                    <= document.announcement_date
+                    <= end_date
+                ):
+                    documents[document.document_id] = document
+        return sorted(
+            documents.values(),
+            key=lambda item: (
+                item.announcement_date,
+                item.document_id,
+            ),
         )
     raise ValueError(f"Unsupported disclosure source: {source}")
 

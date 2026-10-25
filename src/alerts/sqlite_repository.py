@@ -6,14 +6,16 @@ import json
 import sqlite3
 from pathlib import Path
 
-from .models import Alert, AlertRule
+from .models import Alert, AlertRule, AlertRuleProvenance
 
 
 class SQLiteAlertRepository:
     """Persist user-owned rules and idempotent alerts."""
 
-    SCHEMA_VERSION = 12
-    SCHEMA_DESCRIPTION = "local alert rules and reminders"
+    SCHEMA_VERSION = 34
+    SCHEMA_DESCRIPTION = (
+        "research-linked local alert rules and reminders"
+    )
 
     def __init__(self, db_path: str | Path = "data/database/wealth_farm.sqlite3") -> None:
         self.db_path = Path(db_path)
@@ -37,6 +39,7 @@ class SQLiteAlertRepository:
                     asset_id TEXT,
                     rule_type TEXT NOT NULL,
                     config_json TEXT NOT NULL,
+                    provenance_json TEXT,
                     enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
@@ -69,6 +72,12 @@ class SQLiteAlertRepository:
                 ON alerts (user_id, status, triggered_at);
                 """
             )
+            _ensure_column(
+                conn,
+                table="alert_rules",
+                column="provenance_json",
+                definition="TEXT",
+            )
             conn.execute(
                 """
                 INSERT OR IGNORE INTO schema_versions (version, description)
@@ -83,8 +92,8 @@ class SQLiteAlertRepository:
                 """
                 INSERT INTO alert_rules (
                     rule_id, user_id, asset_id, rule_type, config_json,
-                    enabled, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    provenance_json, enabled, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     rule.rule_id,
@@ -92,11 +101,33 @@ class SQLiteAlertRepository:
                     rule.asset_id,
                     rule.rule_type,
                     _json(rule.config),
+                    (
+                        _json(rule.provenance.to_dict())
+                        if rule.provenance is not None
+                        else None
+                    ),
                     1 if rule.enabled else 0,
                     rule.created_at,
                     rule.updated_at,
                 ],
             )
+
+    def get_rule(
+        self,
+        user_id: str,
+        rule_id: str,
+    ) -> AlertRule | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT rule_id, user_id, asset_id, rule_type, config_json,
+                       provenance_json, enabled, created_at, updated_at
+                FROM alert_rules
+                WHERE rule_id = ? AND user_id = ?
+                """,
+                [rule_id, user_id],
+            ).fetchone()
+        return _rule_from_row(row) if row is not None else None
 
     def list_rules(
         self,
@@ -116,7 +147,7 @@ class SQLiteAlertRepository:
             rows = conn.execute(
                 f"""
                 SELECT rule_id, user_id, asset_id, rule_type, config_json,
-                       enabled, created_at, updated_at
+                       provenance_json, enabled, created_at, updated_at
                 FROM alert_rules
                 WHERE {" AND ".join(conditions)}
                 ORDER BY created_at, rule_id
@@ -238,6 +269,11 @@ def _json(value: dict[str, object]) -> str:
 
 
 def _rule_from_row(row: sqlite3.Row) -> AlertRule:
+    provenance_payload = (
+        json.loads(row["provenance_json"])
+        if row["provenance_json"] is not None
+        else None
+    )
     return AlertRule(
         rule_id=str(row["rule_id"]),
         user_id=str(row["user_id"]),
@@ -247,6 +283,11 @@ def _rule_from_row(row: sqlite3.Row) -> AlertRule:
         enabled=bool(row["enabled"]),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
+        provenance=(
+            AlertRuleProvenance.from_dict(provenance_payload)
+            if provenance_payload is not None
+            else None
+        ),
     )
 
 
@@ -265,3 +306,22 @@ def _alert_from_row(row: sqlite3.Row) -> Alert:
         acknowledged_at=row["acknowledged_at"],
         created_at=str(row["created_at"]),
     )
+
+
+def _ensure_column(
+    conn: sqlite3.Connection,
+    *,
+    table: str,
+    column: str,
+    definition: str,
+) -> None:
+    columns = {
+        str(row["name"])
+        for row in conn.execute(
+            f"PRAGMA table_info({table})"
+        ).fetchall()
+    }
+    if column not in columns:
+        conn.execute(
+            f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+        )

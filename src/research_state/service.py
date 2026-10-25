@@ -6,6 +6,14 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from src.master_data import MasterDataService
+from src.research_workflow import (
+    DecisionIntent,
+    DecisionLane,
+    PositionState,
+    ResearchDecisionBrief,
+    ResearchHorizon,
+    required_user_context,
+)
 from src.user_space import UserContext, UserSpaceService
 
 from .models import AnalysisReport, HoldingPosition, Watchlist, WatchlistItem
@@ -172,6 +180,19 @@ class ResearchStateService:
         self._require_user(context)
         return self.repository.list_holdings(context.user_id)
 
+    def get_holding(
+        self,
+        context: UserContext,
+        *,
+        asset_id: str,
+    ) -> HoldingPosition | None:
+        self._require_user(context)
+        self._require_asset(asset_id)
+        return self.repository.get_holding(
+            context.user_id,
+            asset_id,
+        )
+
     def remove_holding(
         self,
         context: UserContext,
@@ -238,6 +259,105 @@ class ResearchStateService:
         self._require_user(context)
         return self.repository.list_reports(context.user_id, asset_id)
 
+    def save_decision_brief(
+        self,
+        context: UserContext,
+        *,
+        asset_id: str,
+        decision_intent: DecisionIntent,
+        decision_lanes: tuple[DecisionLane, ...],
+        horizon: ResearchHorizon,
+        as_of_date: str,
+        position_state: PositionState | None = None,
+        portfolio_role: str | None = None,
+        mandate_id: str | None = None,
+        portfolio_constraint_snapshot_id: str | None = None,
+        constraints: tuple[str, ...] = (),
+        assumptions: tuple[str, ...] = (),
+    ) -> ResearchDecisionBrief:
+        """Create or update one private decision brief."""
+
+        self._require_user(context)
+        self._require_asset(asset_id)
+        holding = self.repository.get_holding(
+            context.user_id,
+            asset_id,
+        )
+        has_position_details = (
+            holding is not None and holding.quantity != 0
+        )
+        resolved_position_state = position_state or (
+            PositionState.HELD
+            if has_position_details
+            else PositionState.NOT_HELD
+        )
+        normalized_role = _optional_text(portfolio_role)
+        normalized_mandate_id = _optional_text(mandate_id)
+        normalized_snapshot_id = _optional_text(
+            portfolio_constraint_snapshot_id
+        )
+        normalized_constraints = _unique_texts(constraints)
+        normalized_assumptions = _unique_texts(assumptions)
+        missing_context = required_user_context(
+            decision_intent=decision_intent,
+            decision_lanes=decision_lanes,
+            position_state=resolved_position_state,
+            has_current_position_details=has_position_details,
+            portfolio_role=normalized_role,
+            mandate_id=normalized_mandate_id,
+            portfolio_constraint_snapshot_id=(
+                normalized_snapshot_id
+            ),
+        )
+        existing = self.repository.get_decision_brief(
+            context.user_id,
+            asset_id,
+        )
+        now = _now()
+        brief = ResearchDecisionBrief(
+            brief_id=(
+                existing.brief_id
+                if existing is not None
+                else f"decision-brief:{uuid4()}"
+            ),
+            user_id=context.user_id,
+            asset_id=asset_id,
+            decision_intent=decision_intent,
+            decision_lanes=decision_lanes,
+            position_state=resolved_position_state,
+            horizon=horizon,
+            as_of_date=as_of_date,
+            portfolio_role=normalized_role,
+            mandate_id=normalized_mandate_id,
+            portfolio_constraint_snapshot_id=(
+                normalized_snapshot_id
+            ),
+            constraints=normalized_constraints,
+            assumptions=normalized_assumptions,
+            missing_user_context=missing_context,
+            created_at=(
+                existing.created_at
+                if existing is not None
+                else now
+            ),
+            updated_at=now,
+        )
+        self.repository.upsert_decision_brief(brief)
+        return brief
+
+    def get_decision_brief(
+        self,
+        context: UserContext,
+        *,
+        asset_id: str,
+    ) -> ResearchDecisionBrief | None:
+        self._require_user(context)
+        self._require_asset(asset_id)
+        return self.repository.get_decision_brief(
+            context.user_id,
+            asset_id,
+        )
+
     def _require_user(self, context: UserContext) -> None:
         if self.user_space.get_user(context.user_id) is None:
             raise KeyError(f"Unknown user_id: {context.user_id}")
@@ -263,3 +383,19 @@ class ResearchStateService:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _unique_texts(values: tuple[str, ...]) -> tuple[str, ...]:
+    normalized = (
+        value.strip()
+        for value in values
+        if value.strip()
+    )
+    return tuple(dict.fromkeys(normalized))

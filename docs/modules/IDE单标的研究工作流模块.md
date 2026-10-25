@@ -125,18 +125,21 @@
 
 当前已在 `.agent/docs/` 建立：
 
-1. 研究任务路由。
-2. 单标的研究执行步骤。
-3. 数据与指标调用手册。
-4. 图表和比较输出规范。
-5. 策略与时间尺度选择规则。
-6. 标的发现工作流。
-7. 报告模板、证据规则和复查清单。
+1. 代码/名称单独输入的冷启动与最小澄清。
+2. 是否、何时和多少三个用户决策轨道。
+3. 资产、profile、问题和时间尺度路由。
+4. 当前公共能力、明确缺口和禁止回退边界。
+5. 任务策略、多轮假设验证、反证和停止规则。
+6. 用户上下文最小问题。
+7. 标的发现与事件名称注意力专项。
+8. 最终报告章节、证据、行动和新对话验收契约。
 
 ## 当前能力与缺口
 
 当前身份、统一数据访问、财务与 profile 专用指标、图表、行业同行与基准比较、策略、低频回测、标的发现和结构化验收报告均已有公共接口。`src/research_workflow/` 已建立研究任务契约、四类时间尺度、研究问题类型、截止日期校验和六类资产研究模板。
 
-五个冻结任务和普通公司、ETF、金融机构、周期资源四个 profile 已通过端到端验收。`.agent` IDE 投研指引已经建立；仍需遵守数据不足停止、事实引用证据和显式记录结论限制的边界。
+五个冻结任务以及普通公司、ETF、金融机构、周期资源和场外基金五个 profile 已建立正式基础执行，其中场外基金主 smoke 覆盖两个代表性标的。`.agent` 已把用户是否购买、何时购买、购买多少冻结为统一顶层契约，并建立冷启动、当前能力地图、探索、最终报告和新对话验收专题。代码层已实现按用户与标的持久化的 `ResearchDecisionBrief`，代码到唯一身份、profile 和基础任务的 `ResearchRequestPlanner`/`plan-single`，五类 profile 能力注册、`ResearchWorkflowRun`、`BaselineResearchHandoff`，用户隔离的探索账本与重启恢复，问题到公共能力的显式查询路由，三个独立决策对象，最终报告装配、双重复查、静态图复用和发布门禁，经用户确认的监测规则交接，以及 `slice12_v1` 九场景结构验收。当前尚未实现规划结果自动执行；独立新对话人工复核随总体 review 延后。
 
-`ResearchExecutionService`、`ETFResearchExecutionService`、`FinancialInstitutionResearchExecutionService` 和 `CyclicalResourceResearchExecutionService` 已分别覆盖普通公司、ETF、银行和周期资源冻结路径。同行比较和叙事报告仍是独立服务，不自动塞入 profile 执行入口。
+`ResearchExecutionService`、`ETFResearchExecutionService`、`FinancialInstitutionResearchExecutionService`、`CyclicalResourceResearchExecutionService` 和 `OpenFundResearchExecutionService` 已覆盖五类正式基础路径。同行比较和叙事报告仍是独立服务，不自动塞入 profile 执行入口。
+
+当前开发计划是 `docs/当前阶段-Agent决策研究闭环.md`。该计划先冻结用户决策和报告契约，再依次建设决策简报、高层路由、能力注册表、基础包 handoff、探索证据持久化、是否/何时/多少三个决策结果、最终报告、失效条件监测交接以及新对话端到端验收。

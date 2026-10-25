@@ -16,6 +16,7 @@ from src.data_src.common import (
     to_akshare_symbol,
 )
 from src.data_src.csrc import CsrcPublicInfoDataSource
+from src.data_src.csindex import CsIndexDataSource
 from src.data_src.cs_fund import CsFundDisclosureDataSource
 from src.data_src.eastmoney import (
     EastmoneyExchangeFundDataSource,
@@ -80,6 +81,7 @@ class DataFetchService:
         bse_source: BseDisclosureDataSource | None = None,
         cninfo_source: CninfoDataSource | None = None,
         csrc_source: CsrcPublicInfoDataSource | None = None,
+        csindex_source: CsIndexDataSource | None = None,
         cs_fund_source: CsFundDisclosureDataSource | None = None,
         eastmoney_source: EastmoneyExchangeFundDataSource | None = None,
         eastmoney_research_source: EastmoneyResearchReportDataSource | None = None,
@@ -103,6 +105,7 @@ class DataFetchService:
         self.bse = bse_source or BseDisclosureDataSource()
         self.cninfo = cninfo_source or CninfoDataSource()
         self.csrc = csrc_source or CsrcPublicInfoDataSource()
+        self.csindex = csindex_source or CsIndexDataSource()
         self.cs_fund = cs_fund_source or CsFundDisclosureDataSource()
         self.eastmoney = eastmoney_source or EastmoneyExchangeFundDataSource()
         self.eastmoney_research = eastmoney_research_source or EastmoneyResearchReportDataSource()
@@ -491,6 +494,13 @@ class DataFetchService:
                 end_date,
                 exchange,
             )
+        if source == "csindex":
+            return self.csindex.get_index_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+                exchange,
+            )
         if source == "eastmoney":
             return self.eastmoney.get_index_daily_bars(
                 symbol,
@@ -665,24 +675,48 @@ class DataFetchService:
             stored_count=len(resolutions),
         )
 
-    def fetch_fund_basic_info(self, source: str = "akshare") -> list[SecurityInfo]:
-        """Fetch normalized public fund basic information."""
+    def fetch_fund_basic_info(
+        self,
+        source: str = "akshare",
+        *,
+        symbol: str | None = None,
+    ) -> list[SecurityInfo]:
+        """Fetch public fund identities, optionally filtered to one code."""
 
-        if source == "akshare":
-            return self.akshare.get_fund_names()
-        raise ValueError(f"Unsupported fund basic info source: {source}")
+        if source != "akshare":
+            raise ValueError(f"Unsupported fund basic info source: {source}")
+        securities = self.akshare.get_fund_names()
+        if symbol is None:
+            return securities
+        standard_symbol = normalize_a_share_code(symbol)
+        matches = [
+            security
+            for security in securities
+            if normalize_a_share_code(security.symbol) == standard_symbol
+        ]
+        if len(matches) != 1:
+            raise ValueError(
+                "fund symbol must resolve to exactly one provider identity: "
+                f"{standard_symbol}"
+            )
+        return matches
 
-    def fetch_and_store_fund_basic_info(self, source: str = "akshare") -> FetchResult:
-        """Fetch public fund basic information and persist it to SQLite."""
+    def fetch_and_store_fund_basic_info(
+        self,
+        source: str = "akshare",
+        *,
+        symbol: str | None = None,
+    ) -> FetchResult:
+        """Fetch public fund identities and persist them to SQLite."""
 
         self.initialize()
-        securities = self.fetch_fund_basic_info(source)
+        securities = self.fetch_fund_basic_info(symbol=symbol, source=source)
         resolutions = [
             self.master_data.ingest_security_info(security)
             for security in securities
         ]
         return FetchResult(
-            symbol="ALL",
+            symbol=normalize_a_share_code(symbol) if symbol else "ALL",
             source=source,
             fetched_count=len(securities),
             stored_count=len(resolutions),
@@ -894,6 +928,9 @@ class DataFetchService:
             "sse": self.fetch_sse_disclosure_documents,
             "szse": self.fetch_szse_disclosure_documents,
             "bse": self.fetch_bse_disclosure_documents,
+            "cs_fund_disclosure": (
+                self.fetch_cs_fund_disclosure_documents_for_range
+            ),
         }
         method = methods.get(source)
         if method is None:
@@ -1088,6 +1125,43 @@ class DataFetchService:
 
         return self.cs_fund.search_announcements(fund_code=fund_code, report_type=report_type)
 
+    def fetch_cs_fund_disclosure_documents_for_range(
+        self,
+        fund_code: str,
+        start_date: str,
+        end_date: str,
+    ) -> list[DisclosureDocument]:
+        """Fetch current official fund document categories in a date range."""
+
+        documents: dict[str, DisclosureDocument] = {}
+        for report_type in (
+            "latest",
+            "annual",
+            "semi_annual",
+            "q1",
+            "q2",
+            "q3",
+            "q4",
+            "other",
+        ):
+            for document in self.fetch_cs_fund_disclosure_documents(
+                fund_code=fund_code,
+                report_type=report_type,
+            ):
+                if (
+                    start_date
+                    <= document.announcement_date
+                    <= end_date
+                ):
+                    documents[document.document_id] = document
+        return sorted(
+            documents.values(),
+            key=lambda item: (
+                item.announcement_date,
+                item.document_id,
+            ),
+        )
+
     def fetch_and_store_cs_fund_disclosure_documents(
         self,
         fund_code: str | None = None,
@@ -1207,7 +1281,21 @@ class DataFetchService:
         """Download official disclosure PDFs and persist file metadata."""
 
         self.initialize()
-        files = [self.cninfo.download_pdf(document, root_dir=root_dir) for document in documents]
+        provider_by_source = {
+            self.cninfo.source: self.cninfo,
+            self.cs_fund.source: self.cs_fund,
+            self.fund_company.source: self.fund_company,
+        }
+        files = [
+            provider_by_source.get(
+                document.source,
+                self.cninfo,
+            ).download_pdf(
+                document,
+                root_dir=root_dir,
+            )
+            for document in documents
+        ]
         self.store.upsert_document_files(files)
         return files
 

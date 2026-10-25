@@ -22,6 +22,7 @@ from src.event_knowledge import (
     SQLiteEventRepository,
 )
 from src.master_data import (
+    ASSET_TYPE_OPEN_FUND,
     ASSET_TYPE_STOCK,
     Asset,
     MasterDataService,
@@ -334,6 +335,69 @@ class ResearchEvidenceTest(unittest.TestCase):
             DATASET_RESEARCH_REPORTS,
             "research_reports",
         )
+
+    def test_open_fund_bundle_uses_official_documents_without_equity_research(
+        self,
+    ):
+        fund = self.master_data.register_asset(
+            Asset(
+                asset_id="asset:fund",
+                asset_type=ASSET_TYPE_OPEN_FUND,
+                standard_symbol="163417",
+                display_name="测试基金",
+                market="cn_fund",
+                exchange=None,
+            ),
+            source="unit-test",
+            raw_symbol="163417",
+        )
+        self.store.upsert_disclosure_documents(
+            [
+                DisclosureDocument(
+                    document_id="fund:q2",
+                    symbol="163417",
+                    title="测试基金2026年第2季度报告",
+                    announcement_date="2026-07-21",
+                    category="q2",
+                    source="cs_fund_disclosure",
+                    file_url="https://example.com/fund-q2.pdf",
+                )
+            ]
+        )
+        self.store.upsert_document_texts(
+            [
+                DocumentText(
+                    document_id="fund:q2",
+                    text_content="基金季度报告正文",
+                    extractor="pymupdf",
+                    page_count=15,
+                    status="extracted",
+                )
+            ]
+        )
+        self.data_access.repository.mark_coverage(
+            asset_id=fund.asset_id,
+            dataset=DATASET_DISCLOSURES,
+            start_date="2026-01-01",
+            end_date="2026-08-22",
+            source="cs_fund_disclosure",
+        )
+
+        bundle = self.service.get_bundle(
+            asset_id=fund.asset_id,
+            start_date="2026-01-01",
+            end_date="2026-08-22",
+            as_of_date="2026-08-22",
+            allow_remote=False,
+        )
+
+        self.assertTrue(bundle.complete)
+        self.assertEqual(self.fetch_service.research_calls, 0)
+        self.assertEqual(
+            bundle.document_states[0].status,
+            DocumentContentStatus.TEXT_AVAILABLE,
+        )
+        self.assertEqual(bundle.document_states[0].page_count, 15)
 
 
 if __name__ == "__main__":
