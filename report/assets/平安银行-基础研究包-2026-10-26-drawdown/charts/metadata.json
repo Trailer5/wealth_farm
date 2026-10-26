@@ -1,0 +1,32 @@
+{
+  "as_of_date": "2026-10-26",
+  "asset_id": "asset:ef50058c-db3b-4d70-bee9-44386959b1e7",
+  "asset_name": "平安银行",
+  "benchmark_asset_id": null,
+  "chart_type": "drawdown",
+  "currency": null,
+  "files": {
+    "data": "drawdown-82300de9d7fc.data.json",
+    "png": "drawdown-82300de9d7fc.png",
+    "svg": "drawdown-82300de9d7fc.svg"
+  },
+  "input_digest": "82300de9d7fc51154964b6ac14fc582ddd4dd72c55e6fa07d521a7388ea7c36f",
+  "parameters": {
+    "factor_names": [
+      "drawdown_series"
+    ],
+    "input_end_date": "2026-10-23",
+    "input_start_date": "2024-10-28"
+  },
+  "point_count": 483,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:30b91e34-4cc8-4480-8a5d-eb5e84831bd0",
+  "title": "Drawdown (2024-10-28 to 2026-10-23)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Drawdown"
+}

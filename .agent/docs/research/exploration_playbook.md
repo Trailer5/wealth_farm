@@ -33,12 +33,15 @@
 
 ## 查询执行
 
+各步的确切调用、字段和校验规则见 `exploration_api.md`。
+
 1. 每次项目查询先创建 `ResearchQueryPlan`，绑定当前 session 中一个开放问题、注册表声明的能力、预期证据、完成条件和不晚于任务的截止日。
 2. 调用 `container.queries.execute(context, session_id=..., plan=...)`。默认公共路由包括数据访问、官方文档证据、基准、事件、同行、用户研究状态和组合快照；不得绕到 repository 或 Provider。
 3. 外部官方网页使用 `external_official_web` 路由登记 Agent 已阅读的 HTTPS 来源、标题、官方机构和发布日期；登记不等于系统抓取或已解释内容。
 4. `success`、`partial`、`business_empty`、`remote_failure`、`user_context_required`、`unsupported` 和 `failed` 必须按原状态保留。远程失败和业务无数据不关闭问题；能力不支持形成 capability gap，不能用 prompt 补值。
 5. 每次执行会更新问题的查询 ID、最近结果和证据，并追加不可覆盖的 `query_executed` 账本项。查询 success 不自动回答问题；Agent 解释证据、记录结构化轮次后再显式调用 `answer_question`。
 6. 查询产生的自动 finding 是待解释输入，不会自动改变假设；Agent 必须在探索轮次中记录其支持、削弱、否定或无影响。
+7. 查询结果的值在 `result.metadata`：数据访问看 `latest_records` 与覆盖区间，文档证据看 `items`（标题、日期、来源、层级、链接）与 `events`，基准看 `metrics`，事件看 `events`，同行看 `comparisons`。需要全文或超出列表上限的内容时，按链接阅读官方原文。行业查询只拿到 profile 分配的行业名称时返回 `partial`，同行比较仍需先建立同行行业归属。
 
 ## 反证纪律
 

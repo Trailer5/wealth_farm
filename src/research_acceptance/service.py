@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 
-from src.research_workflow import ResearchTaskSpec
+from src.research_contracts import ResearchTaskSpec
 
 from .models import (
     AcceptanceStatus,

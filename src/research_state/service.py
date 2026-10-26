@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from src.master_data import MasterDataService
-from src.research_workflow import (
+from src.research_contracts import (
     DecisionIntent,
     DecisionLane,
     PositionState,

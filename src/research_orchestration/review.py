@@ -12,10 +12,8 @@ from src.research_acceptance import (
     ResearchFactKind,
     ScenarioKind,
 )
-from src.research_workflow import (
-    ResearchExecutionResult,
-    ResearchTaskSpec,
-)
+from src.research_contracts import ResearchTaskSpec
+from src.research_workflow import ResearchExecutionResult
 
 
 class ReviewStatus(str, Enum):

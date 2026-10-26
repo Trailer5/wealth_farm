@@ -53,20 +53,22 @@ from src.research_orchestration import (
 )
 from src.research_orchestration.cli import build_parser, main
 from src.research_orchestration.workflow import _baseline_chart_manifest
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
+    ResearchHorizon,
+    ResearchQuestionType,
+    ResearchTaskSpec,
+)
+from src.research_workflow import (
     CycleResearchExecutionOptions,
     ResearchExecutionGap,
     ResearchExecutionOptions,
     ResearchExecutionResult,
     ResearchExecutionStatus,
-    ResearchHorizon,
     ResearchPhaseResult,
     ResearchPhaseStatus,
-    ResearchQuestionType,
-    ResearchTaskSpec,
     ResearchWindows,
 )
 from src.research_visualization import (
@@ -878,7 +880,7 @@ class ResearchOrchestrationTest(unittest.TestCase):
         )
         self.assertEqual(
             factory.data_fetch.calls,
-            [{"symbol": "163417"}],
+            [("163417", "open_fund")],
         )
 
 
@@ -944,11 +946,11 @@ class _FakeDataFetch:
         self.master_data = master_data
         self.calls = []
 
-    def fetch_and_store_fund_basic_info(self, **kwargs):
-        self.calls.append(kwargs)
+    def fetch_and_store_identities(self, symbol, *, asset_type=None):
+        self.calls.append((symbol, asset_type))
         self.master_data.fund_identity_created = True
         return SimpleNamespace(
-            symbol=kwargs["symbol"],
+            symbol=symbol,
             fetched_count=1,
             stored_count=1,
         )

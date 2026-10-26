@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
@@ -29,6 +29,7 @@ from .exploration_models import (
     ResearchFindingKind,
     ResearchHypothesis,
 )
+from .gap_messages import final_report_gap_message
 from .suitability_models import (
     SuitabilityAction,
     SuitabilityAssessment,
@@ -177,13 +178,10 @@ class SuitabilityAssessmentService:
                 for block in all_blocks
             ),
             *(
-                (gap.message,)
+                (final_report_gap_message(gap.code),)
                 for gap in session.query_gaps
             ),
-        ) or (
-            "Assessment is bounded by evidence recorded through "
-            "the research cutoff.",
-        )
+        ) or ("评估只基于截止日前已入账的证据。",)
         policy_id = (
             policy.policy_id
             if policy is not None
@@ -395,9 +393,8 @@ class SuitabilityAssessmentService:
                 core.append(
                     "strongest_counterargument_conflicts_unresolved"
                 )
-        for gap in session.query_gaps:
-            if gap.blocking:
-                core.append(f"blocking_query_gap:{gap.code}")
+        for gap in session.unresolved_blocking_query_gaps():
+            core.append(f"blocking_query_gap:{gap.code}")
         for dimension in (
             SuitabilityDimension.EXPECTED_RETURN_SOURCE,
             SuitabilityDimension.DOWNSIDE,
@@ -751,10 +748,19 @@ def _hypothesis_block(
     if not evidence_refs or not all_recorded:
         return None
     limitations = _merge_texts(
-        hypothesis.falsification_conditions,
-        hypothesis.expected_observations,
-        hypothesis.unresolved_conflicts,
-    ) or ("Hypothesis limitations were not recorded.",)
+        tuple(
+            f"证伪条件：{item}"
+            for item in hypothesis.falsification_conditions
+        ),
+        tuple(
+            f"预期观察：{item}"
+            for item in hypothesis.expected_observations
+        ),
+        tuple(
+            f"未解决冲突：{item}"
+            for item in hypothesis.unresolved_conflicts
+        ),
+    ) or ("假设未记录证伪条件或预期观察。",)
     return SuitabilityClaimBlock(
         claim_id=claim_id,
         text=hypothesis.statement,

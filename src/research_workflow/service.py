@@ -6,15 +6,15 @@ from typing import Protocol
 from uuid import uuid4
 
 from src.master_data import Asset, MasterDataService
-
-from .models import (
-    AssetResearchProfile,
+from src.research_contracts import (
     ResearchHorizon,
     ResearchOutputDepth,
     ResearchQuestionType,
     ResearchTaskSpec,
 )
+
 from .profiles import (
+    AssetResearchProfile,
     ResearchProfileRegistry,
     default_profile_registry,
 )

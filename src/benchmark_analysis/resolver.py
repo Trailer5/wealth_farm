@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol
 
+from src.data_src.common import DataSourceError
 from src.fund_research import (
     FundRelationType,
     SQLiteFundResearchRepository,
@@ -17,6 +18,21 @@ from src.master_data import (
 from .models import BenchmarkKind, BenchmarkRelation
 from .sqlite_repository import SQLiteBenchmarkRepository
 
+BROAD_MARKET_SYMBOL = "000300"
+# Sector and style benchmarks arrive with industry profiles (roadmap stage 6).
+BROAD_MARKET_FALLBACK_ROLES = frozenset(
+    {"financial_sector", "industry_cycle", "growth_style"}
+)
+
+
+class IndexIdentityBootstrapProtocol(Protocol):
+    def fetch_and_store_identities(
+        self,
+        symbol: str,
+        *,
+        asset_type: str | None = None,
+    ) -> object: ...
+
 
 class DefaultBenchmarkResolver:
     def __init__(
@@ -25,8 +41,10 @@ class DefaultBenchmarkResolver:
         master_data: MasterDataService,
         benchmark_repository: SQLiteBenchmarkRepository,
         fund_repository: SQLiteFundResearchRepository | None = None,
+        identity_bootstrap: IndexIdentityBootstrapProtocol | None = None,
     ) -> None:
         self.master_data = master_data
+        self.identity_bootstrap = identity_bootstrap
         self.benchmark_repository = benchmark_repository
         self.fund_repository = fund_repository
         self.benchmark_repository.initialize()
@@ -46,8 +64,14 @@ class DefaultBenchmarkResolver:
         if existing is not None:
             return existing.benchmark_asset_id
         role = profile.default_benchmark_role
+        source = f"profile_default:{role}"
+        reason = f"Resolved default benchmark role: {role}"
         if role == "broad_market":
             benchmark = self._broad_market()
+        elif role in BROAD_MARKET_FALLBACK_ROLES:
+            benchmark = self._broad_market()
+            source = f"profile_fallback:{role}:broad_market"
+            reason = f"{role} benchmark not built yet; using broad market"
         elif role == "underlying_index":
             benchmark = self._underlying_index(
                 asset.asset_id,
@@ -62,19 +86,31 @@ class DefaultBenchmarkResolver:
                 asset_id=asset.asset_id,
                 benchmark_asset_id=benchmark.asset_id,
                 benchmark_kind=BenchmarkKind.INDEX,
-                source=f"profile_default:{role}",
+                source=source,
                 effective_date=as_of_date,
-                reason=f"Resolved default benchmark role: {role}",
+                reason=reason,
             )
         )
         return benchmark.asset_id
 
     def _broad_market(self) -> Asset | None:
-        matches = self.master_data.find_assets(
-            standard_symbol="000300",
+        matches = self._broad_market_matches()
+        if not matches and self.identity_bootstrap is not None:
+            try:
+                self.identity_bootstrap.fetch_and_store_identities(
+                    BROAD_MARKET_SYMBOL,
+                    asset_type=ASSET_TYPE_INDEX,
+                )
+            except DataSourceError:
+                return None
+            matches = self._broad_market_matches()
+        return matches[0] if len(matches) == 1 else None
+
+    def _broad_market_matches(self) -> list[Asset]:
+        return self.master_data.find_assets(
+            standard_symbol=BROAD_MARKET_SYMBOL,
             asset_type=ASSET_TYPE_INDEX,
         )
-        return matches[0] if len(matches) == 1 else None
 
     def _underlying_index(
         self,

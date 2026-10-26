@@ -91,6 +91,14 @@ from .final_decision_pipeline import (
     FinalDecisionPublishResult,
     FinalDecisionReportService,
 )
+from .ledger_projection import (
+    FinalDecisionLedgerRecorder,
+    LedgerRecordingOutcome,
+    LedgerRecordingStatus,
+    PublishedJudgements,
+    final_report_source_ref,
+    project_final_decision,
+)
 from .final_decision_renderer import FinalDecisionReportRenderer
 from .final_decision_review import FinalDecisionReportReviewer
 from .event_name_discovery import (
@@ -224,6 +232,12 @@ __all__ = [
     "FinalDecisionOutcome",
     "FinalChartArtifactReference",
     "FinalDecisionPublishResult",
+    "FinalDecisionLedgerRecorder",
+    "LedgerRecordingOutcome",
+    "LedgerRecordingStatus",
+    "PublishedJudgements",
+    "final_report_source_ref",
+    "project_final_decision",
     "FinalDecisionPublicationAttestation",
     "FinalDecisionReportAssemblyService",
     "FinalDecisionReportRenderer",

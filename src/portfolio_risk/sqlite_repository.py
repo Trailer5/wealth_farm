@@ -410,6 +410,24 @@ class SQLitePortfolioRepository:
             json.loads(str(row["payload_json"]))
         )
 
+    def list_mandates(self, user_id: str) -> list[InvestmentMandate]:
+        """Return every mandate recorded for one user, oldest first."""
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT payload_json
+                FROM investment_mandates
+                WHERE user_id = ?
+                ORDER BY created_at, mandate_id
+                """,
+                [user_id],
+            ).fetchall()
+        return [
+            InvestmentMandate.from_dict(json.loads(str(row["payload_json"])))
+            for row in rows
+        ]
+
     def save_constraint_snapshot(
         self,
         snapshot: PortfolioConstraintSnapshot,
@@ -553,6 +571,29 @@ class SQLitePortfolioRepository:
         return PortfolioConstraintSnapshot.from_dict(
             json.loads(str(row["payload_json"]))
         )
+
+    def list_constraint_snapshots(
+        self,
+        user_id: str,
+    ) -> list[PortfolioConstraintSnapshot]:
+        """Return every constraint snapshot of one user, newest first."""
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT payload_json
+                FROM portfolio_constraint_snapshots
+                WHERE user_id = ?
+                ORDER BY as_of_date DESC, snapshot_id
+                """,
+                [user_id],
+            ).fetchall()
+        return [
+            PortfolioConstraintSnapshot.from_dict(
+                json.loads(str(row["payload_json"]))
+            )
+            for row in rows
+        ]
 
     def get(self, snapshot_id: str, user_id: str) -> PortfolioValuation | None:
         """Return one snapshot scoped to a user."""

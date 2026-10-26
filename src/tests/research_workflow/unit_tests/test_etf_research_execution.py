@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -21,13 +22,15 @@ from src.master_data import (
     SQLiteMasterDataRepository,
 )
 from src.research_visualization import ChartArtifact, ChartType
-from src.research_workflow import (
-    ETFResearchExecutionService,
+from src.research_contracts import (
     PROFILE_EXCHANGE_FUND,
-    ResearchExecutionOptions,
-    ResearchExecutionStatus,
     ResearchHorizon,
     ResearchQuestionType,
+)
+from src.research_workflow import (
+    ETFResearchExecutionService,
+    ResearchExecutionOptions,
+    ResearchExecutionStatus,
     ResearchTaskFactory,
 )
 from src.strategy import (
@@ -118,7 +121,10 @@ class ETFResearchExecutionServiceTest(unittest.TestCase):
     def _service(self, etf):
         bars = _bars(etf)
         data_access = Mock()
-        data_access.get.return_value = bars
+        data_access.get.side_effect = lambda request: replace(
+            bars,
+            dataset=request.dataset,
+        )
         factors = Mock()
         factors.compute_from_response.return_value = []
         factors.compute_risk_from_response.return_value = _risk(

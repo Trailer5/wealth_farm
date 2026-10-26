@@ -30,7 +30,7 @@ from src.research_orchestration import (
 from src.research_orchestration.position_models import (
     position_plan_id,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_EXCHANGE_FUND,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
@@ -165,7 +165,7 @@ class PositionPlanTest(unittest.TestCase):
                 plan.tranche_adjustments[0].source_condition_id
             )
             self.assertIn(
-                "ETF liquidity cap",
+                "ETF 流动性上限",
                 " ".join(plan.limitations),
             )
 

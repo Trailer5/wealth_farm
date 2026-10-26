@@ -8,11 +8,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from src.research_acceptance import ResearchAcceptanceReport
-from src.research_workflow import (
-    DecisionLane,
-    ResearchExecutionResult,
-    ResearchTaskSpec,
-)
+from src.research_contracts import DecisionLane, ResearchTaskSpec
+from src.research_workflow import ResearchExecutionResult
 
 if TYPE_CHECKING:
     from .review import ReviewResult

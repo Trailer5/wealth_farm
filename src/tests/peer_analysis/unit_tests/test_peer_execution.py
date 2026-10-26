@@ -8,7 +8,6 @@ from src.peer_analysis import (
     PeerSet,
     PeerSetMember,
 )
-from src.research_workflow import ResearchExecutionOptions
 
 
 class PeerMetricExecutionTest(unittest.TestCase):
@@ -58,7 +57,7 @@ class PeerMetricExecutionTest(unittest.TestCase):
             industry=self.industry,
             as_of_date="2026-08-03",
             metric_names=("roe",),
-            options=ResearchExecutionOptions(allow_remote=False),
+            allow_remote=False,
         )
 
         self.assertEqual(
@@ -101,9 +100,7 @@ class PeerMetricExecutionTest(unittest.TestCase):
                 industry=self.industry,
                 as_of_date="2026-08-03",
                 metric_names=("roe",),
-                options=ResearchExecutionOptions(
-                    allow_remote=False
-                ),
+                allow_remote=False,
             )
         fundamental.analyze.assert_not_called()
 

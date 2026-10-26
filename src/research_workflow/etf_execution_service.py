@@ -26,6 +26,11 @@ from src.fund_research import (
     official_etf_expense_schedule,
 )
 from src.master_data import ASSET_TYPE_INDEX, MasterDataService
+from src.research_contracts import (
+    PROFILE_EXCHANGE_FUND,
+    ResearchHorizon,
+    ResearchTaskSpec,
+)
 from src.research_visualization import (
     ChartRenderer,
     ChartType,
@@ -51,10 +56,10 @@ from .execution_service import (
     _complete_phases,
     _derive_windows,
     _error,
+    _rolling_risk_factor_names,
     _status,
 )
-from .models import ResearchHorizon, ResearchTaskSpec
-from .profiles import PROFILE_EXCHANGE_FUND
+from .return_bars import fetch_total_return_bars, risk_parameters_for
 
 
 class ETFResearchExecutionService:
@@ -175,12 +180,25 @@ class ETFResearchExecutionService:
         factor_values = []
         risk = None
         try:
+            return_bars, basis_gap = fetch_total_return_bars(
+                self.data_access,
+                bars,
+                start_date=windows.bar_start,
+                end_date=windows.bar_end,
+                as_of_date=task.as_of_date,
+                options=config,
+            )
+            if basis_gap is not None:
+                gaps.append(basis_gap)
             factor_values.extend(
-                self.factor_service.compute_from_response(bars)
+                self.factor_service.compute_from_response(return_bars)
             )
             risk = self.factor_service.compute_risk_from_response(
-                bars,
-                parameters=config.risk_parameters,
+                return_bars,
+                parameters=risk_parameters_for(
+                    return_bars,
+                    config.risk_parameters,
+                ),
             )
             factor_values.extend(risk.values)
             spot_rows = self.data_fetch.fetch_exchange_fund_spot(
@@ -230,7 +248,7 @@ class ETFResearchExecutionService:
                     self.commodity_service.calculate_and_store(
                         asset_id=asset.asset_id,
                         asset_records=[
-                            dict(record) for record in bars.records
+                            dict(record) for record in return_bars.records
                         ],
                         benchmarks={"sge:Au99.99": gold},
                         weights={"sge:Au99.99": 1.0},
@@ -385,10 +403,7 @@ class ETFResearchExecutionService:
                     asset=asset,
                     chart_type=ChartType.ROLLING_RISK,
                     values=list(risk.series),
-                    factor_names=(
-                        "rolling_annualized_volatility_5d",
-                        "rolling_sharpe_5d",
-                    ),
+                    factor_names=_rolling_risk_factor_names(risk.series),
                     source_dataset="risk_daily_v1",
                 ),
             ]

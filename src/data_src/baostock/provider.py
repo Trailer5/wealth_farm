@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import sys
 from typing import Any
 
 from ..common import (
@@ -14,7 +16,13 @@ from ..common import (
     to_baostock_symbol,
     to_optional_float,
 )
-from ..models import DailyBar, SecurityInfo
+from ..models import DailyBar, SecurityInfo, StockIndustryInfo
+
+_INDEX_MEMBER_APIS = {
+    "000300": "query_hs300_stocks",
+    "000905": "query_zz500_stocks",
+    "000016": "query_sz50_stocks",
+}
 
 
 class BaoStockDataSource:
@@ -77,7 +85,8 @@ class BaoStockDataSource:
 
         if self._logged_in:
             return
-        result = self._load_baostock().login()
+        with _library_output_to_stderr():
+            result = self._load_baostock().login()
         ensure_baostock_success(result, "BaoStock login")
         self._logged_in = True
 
@@ -86,7 +95,8 @@ class BaoStockDataSource:
 
         if not self._logged_in:
             return
-        self._load_baostock().logout()
+        with _library_output_to_stderr():
+            self._load_baostock().logout()
         self._logged_in = False
 
     def get_a_share_daily_bars(
@@ -172,6 +182,26 @@ class BaoStockDataSource:
         )
         return baostock_result_to_records(result)
 
+    def get_index_members_on(self, index_symbol: str, day: str) -> list[dict[str, Any]]:
+        """Constituents of CSI 300, CSI 500 or SSE 50 in effect on a date."""
+
+        api_name = _INDEX_MEMBER_APIS.get(index_symbol)
+        if api_name is None:
+            raise DataSourceError(
+                f"BaoStock has historical members only for {', '.join(_INDEX_MEMBER_APIS)}"
+            )
+        result = self._query(api_name, date=normalize_date_dash(day))
+        return [
+            {
+                "symbol": str(record.get("code") or "").split(".")[-1],
+                "name": str(record.get("code_name") or ""),
+                "effective_on": str(record.get("updateDate") or "") or None,
+                "source": f"baostock:{api_name}",
+            }
+            for record in baostock_result_to_records(result)
+            if record.get("code")
+        ]
+
     def get_all_stocks(self, day: str) -> list[dict[str, Any]]:
         """Disabled: full-market list should come from a gentler source.
 
@@ -207,6 +237,63 @@ class BaoStockDataSource:
         """Fetch and normalize stock basic information."""
 
         return [self._security_from_record(record) for record in self.get_stock_basic(symbol, code_name)]
+
+    def get_exchange_listings(self, symbol: str) -> list[SecurityInfo]:
+        """Basic info for one six-digit code on both Shanghai and Shenzhen.
+
+        Codes are shared across exchanges (sh.000001 is an index, sz.000001 a
+        stock), so the exchange is never inferred from the code here.
+        """
+
+        code = normalize_a_share_code(symbol)
+        last_error: DataSourceError | None = None
+        for _ in range(2):
+            try:
+                self.login()
+                records = []
+                for exchange in ("sh", "sz"):
+                    result = self._query(
+                        "query_stock_basic",
+                        code=f"{exchange}.{code}",
+                    )
+                    records.extend(baostock_result_to_records(result))
+                return [self._security_from_record(record) for record in records]
+            except DataSourceError as exc:
+                last_error = exc
+            finally:
+                # Long-lived BaoStock sessions drop silently; start fresh next time.
+                self.logout()
+        assert last_error is not None
+        raise last_error
+
+    def get_stock_industry_records(
+        self,
+        symbols: list[str],
+    ) -> list[StockIndustryInfo]:
+        """CSRC industry classification for A-share stocks."""
+
+        try:
+            self.login()
+            output = []
+            for symbol in symbols:
+                result = self._query(
+                    "query_stock_industry",
+                    code=to_baostock_symbol(symbol),
+                )
+                output.extend(
+                    StockIndustryInfo(
+                        symbol=normalize_a_share_code(str(record["code"])),
+                        name=str(record.get("code_name") or ""),
+                        industry_name=str(record["industry"]),
+                        source=f"{self.source}:query_stock_industry",
+                        raw=dict(record),
+                    )
+                    for record in baostock_result_to_records(result)
+                    if record.get("industry")
+                )
+            return output
+        finally:
+            self.logout()
 
     def get_profit_data(self, symbol: str, year: int, quarter: int) -> list[dict[str, Any]]:
         """Fetch quarterly profitability data."""
@@ -282,6 +369,7 @@ class BaoStockDataSource:
             amount=to_optional_float(record.get("amount")),
             source=f"{self.source}:query_history_k_data_plus",
             raw=dict(record),
+            preclose=to_optional_float(record.get("preclose")),
         )
 
     def _security_from_record(self, record: dict[str, Any]) -> SecurityInfo:
@@ -297,3 +385,9 @@ class BaoStockDataSource:
 
 def _scale(value: float | None, factor: float) -> float | None:
     return value * factor if value is not None else None
+
+
+def _library_output_to_stderr() -> contextlib.AbstractContextManager[object]:
+    """BaoStock prints session status to stdout, which corrupts JSON CLI output."""
+
+    return contextlib.redirect_stdout(sys.stderr)

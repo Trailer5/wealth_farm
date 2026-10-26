@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.research_workflow import DecisionLane
+from src.research_contracts import DecisionLane
 
 from .conversation_models import (
     NEW_CONVERSATION_ACCEPTANCE_VERSION,

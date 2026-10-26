@@ -32,10 +32,30 @@ from .models import (
     SizeBucket,
 )
 from .service import MarketAnalysisService
+from .archive import (
+    MARKET_SUBJECT_ID,
+    MarketArchive,
+    MarketArchiveService,
+    PercentileStat,
+    days_before,
+    historical_percentile,
+    percentile_bucket,
+    value_on_or_before,
+    years_before,
+)
 from .sqlite_repository import SQLiteMarketFactorRepository
 from .valuation_series import IndexValuationSeriesService
 
 __all__ = [
+    "MARKET_SUBJECT_ID",
+    "MarketArchive",
+    "MarketArchiveService",
+    "PercentileStat",
+    "days_before",
+    "historical_percentile",
+    "percentile_bucket",
+    "value_on_or_before",
+    "years_before",
     "A_SHARE_MARKET_CALCULATION_VERSION",
     "AShareMarketFactorCalculator",
     "IndexFundamentalAssessment",

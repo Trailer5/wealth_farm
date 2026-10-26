@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from src.data_access import (
     DATASET_EXCHANGE_FUND_DAILY_BARS,
     DATASET_STOCK_DAILY_BARS,
+    DATASET_STOCK_TOTAL_RETURN_BARS,
     AssetInput,
     AssetResolutionRequiredError,
     DataAccessRequest,
@@ -34,6 +35,8 @@ class FakeFetchService:
         self.failed_sources = set()
         self.requests = []
         self.calendar_calls = 0
+        self.first_bar_date = None
+        self.closes = {}
 
     def fetch_and_store_a_share_daily_bars(
         self,
@@ -49,14 +52,14 @@ class FakeFetchService:
             raise RuntimeError("remote unavailable")
         bar = DailyBar(
             symbol=symbol,
-            trade_date=start_date,
+            trade_date=self.first_bar_date or start_date,
             open=10.0,
             high=10.5,
             low=9.8,
-            close=10.3,
+            close=self.closes.get(source, 10.3),
             volume=1000.0,
             amount=10300.0,
-            source="fake:remote",
+            source=f"{source}:remote",
         )
         stored_count = self.store.upsert_stock_daily_bars([bar])
         return SimpleNamespace(fetched_count=1, stored_count=stored_count)
@@ -86,6 +89,48 @@ class FakeFetchService:
         )
         stored_count = self.store.upsert_fund_exchange_daily_bars([bar])
         return SimpleNamespace(fetched_count=1, stored_count=stored_count)
+
+    def fetch_and_store_total_return_bars(
+        self,
+        symbol,
+        start_date,
+        end_date,
+        *,
+        fund,
+        source="baostock",
+        timeout_seconds=None,
+    ):
+        self.calls += 1
+        self.requests.append(("total_return", source, start_date, end_date))
+        if self.fail or source in self.failed_sources:
+            raise RuntimeError("remote unavailable")
+        # 10-for-10 bonus shares on the second day: price halves, holders do not lose.
+        bars = [
+            DailyBar(
+                symbol=symbol,
+                trade_date=day,
+                open=close,
+                high=close,
+                low=close,
+                close=close,
+                volume=1000.0,
+                amount=None,
+                source="fake:total-return",
+                preclose=preclose,
+            )
+            for day, close, preclose in (
+                (start_date, 20.0, 19.8),
+                ("2026-07-02", 10.5, 10.0),
+                ("2026-07-03", 10.2, 10.5),
+            )
+        ]
+        table = (
+            "fund_exchange_total_return_bars"
+            if fund
+            else "stock_total_return_bars"
+        )
+        stored_count = self.store.upsert_total_return_bars(table, bars)
+        return SimpleNamespace(fetched_count=3, stored_count=stored_count)
 
     def fetch_trade_calendar(
         self,
@@ -125,6 +170,69 @@ class DataAccessServiceTest(unittest.TestCase):
 
     def tearDown(self):
         self.temp_dir.cleanup()
+
+    def test_total_return_bars_are_forward_adjusted_by_exchange_preclose(self):
+        request = DataAccessRequest(
+            asset=AssetInput(raw_symbol="600519"),
+            dataset=DATASET_STOCK_TOTAL_RETURN_BARS,
+            start_date="2026-07-01",
+            end_date="2026-07-03",
+        )
+
+        response = self.service.get(request)
+        cached = self.service.get(request)
+
+        closes = [record["close"] for record in response.records]
+        self.assertEqual(self.fetch_service.requests[0][1], "baostock")
+        self.assertEqual(response.metadata["price_basis"], "total_return")
+        self.assertAlmostEqual(closes[-1], 10.2)
+        self.assertAlmostEqual(closes[1] / closes[0], 10.5 / 10.0)
+        self.assertAlmostEqual(response.records[0]["unadjusted_close"], 20.0)
+        self.assertEqual(
+            [record["close"] for record in cached.records],
+            closes,
+        )
+        self.assertEqual(self.fetch_service.calls, 3)
+
+    def test_concurrent_sources_merge_by_priority_and_report_conflicts(self):
+        self.fetch_service.failed_sources = {"mootdx"}
+        self.fetch_service.closes = {"tencent": 10.3, "sina": 10.5}
+        request = DataAccessRequest(
+            asset=AssetInput(raw_symbol="600519"),
+            dataset=DATASET_STOCK_DAILY_BARS,
+            start_date="2026-07-01",
+            end_date="2026-07-01",
+            remote_sources=("mootdx", "tencent", "sina"),
+        )
+
+        response = self.service.get(request)
+
+        self.assertEqual(self.fetch_service.calls, 3)
+        self.assertEqual(response.records[0]["source"], "tencent:remote")
+        self.assertEqual(
+            response.metadata["successful_sources"],
+            ["tencent", "sina"],
+        )
+        self.assertIn("mootdx", response.metadata["provider_errors"])
+        self.assertEqual(response.metadata["source_conflict_count"], 1)
+        self.assertEqual(
+            response.metadata["source_conflicts"][0]["values"],
+            {"tencent": 10.3, "sina": 10.5},
+        )
+
+    def test_sequential_mode_stops_at_first_success(self):
+        request = DataAccessRequest(
+            asset=AssetInput(raw_symbol="600519"),
+            dataset=DATASET_STOCK_DAILY_BARS,
+            start_date="2026-07-01",
+            end_date="2026-07-01",
+            remote_sources=("mootdx", "tencent"),
+            fetch_mode="sequential",
+        )
+
+        self.service.get(request)
+
+        self.assertEqual(self.fetch_service.calls, 1)
 
     def test_missing_data_is_fetched_then_reused_from_fresh_coverage(self):
         request = _stock_request()
@@ -225,7 +333,7 @@ class DataAccessServiceTest(unittest.TestCase):
             "remote unavailable",
             response.metadata["provider_errors"]["akshare"],
         )
-        self.assertEqual(self.fetch_service.calls, 6)
+        self.assertEqual(self.fetch_service.calls, 7)
 
     def test_unknown_asset_id_is_rejected(self):
         with self.assertRaises(AssetResolutionRequiredError):
@@ -312,6 +420,38 @@ class DataAccessServiceTest(unittest.TestCase):
         self.assertFalse(second.fetched_remote)
         self.assertEqual(self.fetch_service.calls, 1)
         self.assertEqual(self.fetch_service.calendar_calls, 2)
+
+    def test_truncated_fetch_does_not_cover_missing_leading_range(self):
+        service = DataAccessService(
+            master_data=self.master_data,
+            repository=self.repository,
+            fetch_service=self.fetch_service,
+            trading_calendar=TradingCalendarService(
+                repository=self.repository,
+                fetch_service=self.fetch_service,
+            ),
+        )
+        request = DataAccessRequest(
+            asset=AssetInput(raw_symbol="600519", asset_type_hint="股票"),
+            dataset=DATASET_STOCK_DAILY_BARS,
+            start_date="2026-07-01",
+            end_date="2026-07-10",
+            remote_sources=("baostock",),
+        )
+        self.fetch_service.first_bar_date = "2026-07-08"
+
+        first = service.get(request)
+        service.get(request)
+
+        self.assertEqual(
+            first.metadata["leading_gap"],
+            {
+                "expected_first_date": "2026-07-01",
+                "first_record_date": "2026-07-08",
+            },
+        )
+        self.assertEqual(first.coverage_start, "2026-07-08")
+        self.assertEqual(self.fetch_service.calls, 2)
 
     def test_fresh_daily_data_is_returned_without_remote_fetch(self):
         asset = Asset(

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
@@ -47,7 +47,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
     return (
         StrategySpec(
             strategy_id="trend_timing",
-            name="Short-term Trend Timing",
+            name="短期趋势择时规则",
             version="v1",
             maturity=StrategyMaturity.RESEARCH_RULE,
             supported_profiles=stock_profiles
@@ -69,7 +69,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "max_drawdown",
                     ConditionOperator.GTE,
                     Decimal("-0.20"),
-                    "Drawdown must not exceed 20%",
+                    "区间回撤不超过 20%",
                 ),
             ),
             vetoes=(
@@ -78,7 +78,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "annualized_volatility",
                     ConditionOperator.GT,
                     Decimal("0.80"),
-                    "Extreme annualized volatility",
+                    "年化波动率极端",
                 ),
             ),
             score_rules=(
@@ -87,7 +87,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "momentum_5",
                     ConditionOperator.GT,
                     "0",
-                    "Positive five-day momentum",
+                    "5 日动量为正",
                     "0.3",
                 ),
                 _weighted(
@@ -95,7 +95,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "return_1d",
                     ConditionOperator.GT,
                     "0",
-                    "Positive latest daily return",
+                    "最近一日收益为正",
                     "0.2",
                 ),
                 _weighted(
@@ -103,7 +103,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "excess_total_return",
                     ConditionOperator.GT,
                     "0",
-                    "Outperforming benchmark",
+                    "跑赢比较基准",
                     "0.3",
                 ),
                 _weighted(
@@ -111,7 +111,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "max_drawdown",
                     ConditionOperator.GTE,
                     "-0.10",
-                    "Drawdown contained within 10%",
+                    "区间回撤控制在 10% 以内",
                     "0.2",
                 ),
             ),
@@ -119,13 +119,13 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
             signal_on_pass="timing_supportive",
             signal_on_fail="timing_not_supportive",
             limitations=(
-                "Short-term timing only; says nothing about intrinsic value",
-                "Not backtested",
+                "只用于短期择时，不说明内在价值",
+                "未经回测",
             ),
         ),
         StrategySpec(
             strategy_id="catalyst_repricing",
-            name="Medium-short Catalyst Repricing",
+            name="中短期催化重估规则",
             version="v1",
             maturity=StrategyMaturity.RESEARCH_RULE,
             supported_profiles=(
@@ -148,7 +148,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "pe_ttm",
                     ConditionOperator.BETWEEN,
                     Decimal("0"),
-                    "Valuation must remain in reviewable range",
+                    "估值须处于可评估区间",
                     upper_threshold=Decimal("40"),
                 ),
             ),
@@ -158,7 +158,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "max_drawdown",
                     ConditionOperator.LT,
                     Decimal("-0.30"),
-                    "Price damage exceeds catalyst-risk boundary",
+                    "价格损伤超出催化风险边界",
                 ),
             ),
             score_rules=(
@@ -167,7 +167,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "momentum_5",
                     ConditionOperator.GT,
                     "0",
-                    "Catalyst has positive price confirmation",
+                    "催化获得价格正向确认",
                     "0.35",
                 ),
                 _weighted(
@@ -175,7 +175,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "excess_total_return",
                     ConditionOperator.GT,
                     "0",
-                    "Catalyst outperforms benchmark",
+                    "催化期间跑赢基准",
                     "0.35",
                 ),
                 _weighted(
@@ -183,7 +183,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "pe_ttm",
                     ConditionOperator.LTE,
                     "25",
-                    "Valuation has not fully repriced",
+                    "估值尚未充分重估",
                     "0.30",
                 ),
             ),
@@ -191,13 +191,13 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
             signal_on_pass="catalyst_research_supportive",
             signal_on_fail="catalyst_not_confirmed",
             limitations=(
-                "Requires explicit catalyst evidence and expiry review",
-                "Not backtested",
+                "需要明确的催化证据并复查到期时间",
+                "未经回测",
             ),
         ),
         StrategySpec(
             strategy_id="quality_value",
-            name="Medium-long Quality and Value",
+            name="中长期质量与估值规则",
             version="v1",
             maturity=StrategyMaturity.RESEARCH_RULE,
             supported_profiles=(PROFILE_ORDINARY_COMPANY,),
@@ -223,17 +223,17 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                             "roic",
                             ConditionOperator.GTE,
                             Decimal("0.10"),
-                            "ROIC at least 10%",
+                            "ROIC 不低于 10%",
                         ),
                         MetricCondition(
                             "quality_value_fcf_gate",
                             "fcf_yield",
                             ConditionOperator.GT,
                             Decimal("0"),
-                            "Free cash flow yield must be positive",
+                            "自由现金流收益率须为正",
                         ),
                     ),
-                    description="Quality and cash-flow hard gate",
+                    description="质量与现金流硬性门槛",
                 ),
             ),
             vetoes=(
@@ -242,7 +242,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "debt_to_assets",
                     ConditionOperator.GT,
                     Decimal("0.70"),
-                    "Excessive leverage veto",
+                    "杠杆过高否决",
                 ),
             ),
             score_rules=(
@@ -251,7 +251,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "roe",
                     ConditionOperator.GTE,
                     "0.15",
-                    "ROE at least 15%",
+                    "ROE 不低于 15%",
                     "0.25",
                 ),
                 _weighted(
@@ -259,7 +259,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "roic",
                     ConditionOperator.GTE,
                     "0.15",
-                    "ROIC at least 15%",
+                    "ROIC 不低于 15%",
                     "0.25",
                 ),
                 _weighted(
@@ -267,7 +267,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "revenue_growth",
                     ConditionOperator.GT,
                     "0",
-                    "Revenue is growing",
+                    "营业收入增长",
                     "0.20",
                 ),
                 _weighted(
@@ -275,7 +275,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "pe_ttm",
                     ConditionOperator.LTE,
                     "30",
-                    "PE remains below 30",
+                    "市盈率不高于 30 倍",
                     "0.30",
                 ),
             ),
@@ -283,13 +283,13 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
             signal_on_pass="quality_value_research_supportive",
             signal_on_fail="quality_or_value_insufficient",
             limitations=(
-                "Thresholds are initial research assumptions",
-                "Not backtested or peer-normalized",
+                "阈值是初始研究假设",
+                "未经回测，也未按同行标准化",
             ),
         ),
         StrategySpec(
             strategy_id="business_thesis_check",
-            name="Long-term Business Thesis Readiness",
+            name="长期商业论点就绪度规则",
             version="v1",
             maturity=StrategyMaturity.RESEARCH_RULE,
             supported_profiles=(
@@ -319,7 +319,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "fcf_yield",
                     ConditionOperator.GT,
                     Decimal("0"),
-                    "Long-term thesis requires positive FCF yield",
+                    "长期论点要求自由现金流收益率为正",
                 ),
             ),
             vetoes=(
@@ -328,14 +328,14 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "debt_to_assets",
                     ConditionOperator.GT,
                     Decimal("0.70"),
-                    "Balance-sheet fragility veto",
+                    "资产负债表脆弱否决",
                 ),
                 MetricCondition(
                     "thesis_drawdown_veto",
                     "max_drawdown",
                     ConditionOperator.LT,
                     Decimal("-0.60"),
-                    "Extreme capital-loss history requires rejection",
+                    "历史资本损失极端，需否决",
                 ),
             ),
             score_rules=(
@@ -344,7 +344,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "roe",
                     ConditionOperator.GTE,
                     "0.15",
-                    "Sustained owner return potential",
+                    "股东回报具备持续潜力",
                     "0.30",
                 ),
                 _weighted(
@@ -352,7 +352,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "roic",
                     ConditionOperator.GTE,
                     "0.15",
-                    "Strong capital allocation economics",
+                    "资本配置回报较强",
                     "0.40",
                 ),
                 _weighted(
@@ -360,7 +360,7 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
                     "fcf_yield",
                     ConditionOperator.GTE,
                     "0.03",
-                    "Positive free-cash-flow yield",
+                    "自由现金流收益率为正且不低于 3%",
                     "0.30",
                 ),
             ),
@@ -368,9 +368,9 @@ def default_strategy_specs() -> tuple[StrategySpec, ...]:
             signal_on_pass="thesis_evidence_ready",
             signal_on_fail="thesis_evidence_not_ready",
             limitations=(
-                "This is thesis-readiness, not intrinsic-value proof",
-                "Qualitative moat and management evidence require review",
-                "Not backtested",
+                "只检查论点证据是否就绪，不证明内在价值",
+                "护城河与管理层等定性证据仍需人工复查",
+                "未经回测",
             ),
         ),
     )
@@ -382,7 +382,7 @@ def exchange_fund_strategy_specs() -> tuple[StrategySpec, ...]:
     return (
         StrategySpec(
             strategy_id="etf_tracking_efficiency",
-            name="Medium-long ETF Tracking Efficiency",
+            name="中长期 ETF 跟踪效率规则",
             version="v1",
             maturity=StrategyMaturity.RESEARCH_RULE,
             supported_profiles=(PROFILE_EXCHANGE_FUND,),
@@ -403,7 +403,7 @@ def exchange_fund_strategy_specs() -> tuple[StrategySpec, ...]:
                     "premium_discount",
                     ConditionOperator.BETWEEN,
                     Decimal("-0.02"),
-                    "ETF premium or discount must remain within 2%",
+                    "ETF 折溢价须在 2% 以内",
                     upper_threshold=Decimal("0.02"),
                 ),
                 MetricCondition(
@@ -411,7 +411,7 @@ def exchange_fund_strategy_specs() -> tuple[StrategySpec, ...]:
                     "expense_ratio",
                     ConditionOperator.LTE,
                     Decimal("0.01"),
-                    "Annual comprehensive expense ratio at most 1%",
+                    "年综合费率不高于 1%",
                 ),
             ),
             vetoes=(
@@ -420,7 +420,7 @@ def exchange_fund_strategy_specs() -> tuple[StrategySpec, ...]:
                     "tracking_error",
                     ConditionOperator.GT,
                     Decimal("0.15"),
-                    "Annualized tracking error exceeds 15%",
+                    "年化跟踪误差超过 15%",
                 ),
             ),
             score_rules=(
@@ -429,7 +429,7 @@ def exchange_fund_strategy_specs() -> tuple[StrategySpec, ...]:
                     "tracking_error",
                     ConditionOperator.LTE,
                     "0.05",
-                    "Annualized tracking error at most 5%",
+                    "年化跟踪误差不高于 5%",
                     "0.35",
                 ),
                 _weighted(
@@ -437,7 +437,7 @@ def exchange_fund_strategy_specs() -> tuple[StrategySpec, ...]:
                     "expense_ratio",
                     ConditionOperator.LTE,
                     "0.005",
-                    "Annual comprehensive expense ratio at most 0.5%",
+                    "年综合费率不高于 0.5%",
                     "0.25",
                 ),
                 _weighted(
@@ -445,7 +445,7 @@ def exchange_fund_strategy_specs() -> tuple[StrategySpec, ...]:
                     "max_drawdown",
                     ConditionOperator.GTE,
                     "-0.30",
-                    "Input-window drawdown no worse than -30%",
+                    "区间回撤不差于 -30%",
                     "0.20",
                 ),
                 _weighted(
@@ -453,7 +453,7 @@ def exchange_fund_strategy_specs() -> tuple[StrategySpec, ...]:
                     "excess_total_return",
                     ConditionOperator.GTE,
                     "-0.10",
-                    "Input-window excess return no worse than -10%",
+                    "区间超额收益不差于 -10%",
                     "0.20",
                 ),
             ),
@@ -461,10 +461,9 @@ def exchange_fund_strategy_specs() -> tuple[StrategySpec, ...]:
             signal_on_pass="etf_tracking_research_supportive",
             signal_on_fail="etf_tracking_efficiency_insufficient",
             limitations=(
-                "Evaluates ETF vehicle efficiency, not underlying "
-                "asset direction",
-                "Premium/discount is a point-in-time snapshot",
-                "Thresholds are research assumptions, not backtested",
+                "只评估 ETF 工具效率，不判断标的资产方向",
+                "折溢价是单一时点快照",
+                "阈值是研究假设，未经回测",
             ),
         ),
     )
@@ -476,7 +475,7 @@ def financial_institution_strategy_specs() -> tuple[StrategySpec, ...]:
     return (
         StrategySpec(
             strategy_id="bank_quality_risk",
-            name="Medium-long Bank Quality and Risk",
+            name="中长期银行质量与风险规则",
             version="v1",
             maturity=StrategyMaturity.RESEARCH_RULE,
             supported_profiles=(PROFILE_FINANCIAL_INSTITUTION,),
@@ -498,21 +497,21 @@ def financial_institution_strategy_specs() -> tuple[StrategySpec, ...]:
                     "capital_adequacy",
                     ConditionOperator.GTE,
                     Decimal("0.10"),
-                    "Capital adequacy must be at least 10%",
+                    "资本充足率不低于 10%",
                 ),
                 MetricCondition(
                     "bank_npl_gate",
                     "non_performing_loan_ratio",
                     ConditionOperator.LTE,
                     Decimal("0.03"),
-                    "Non-performing loan ratio at most 3%",
+                    "不良贷款率不高于 3%",
                 ),
                 MetricCondition(
                     "bank_pb_gate",
                     "pb",
                     ConditionOperator.BETWEEN,
                     Decimal("0"),
-                    "PB must remain in a reviewable range",
+                    "市净率须处于可评估区间",
                     upper_threshold=Decimal("3"),
                 ),
             ),
@@ -522,7 +521,7 @@ def financial_institution_strategy_specs() -> tuple[StrategySpec, ...]:
                     "max_drawdown",
                     ConditionOperator.LT,
                     Decimal("-0.50"),
-                    "Input-window drawdown exceeds 50%",
+                    "区间回撤超过 50%",
                 ),
             ),
             score_rules=(
@@ -531,7 +530,7 @@ def financial_institution_strategy_specs() -> tuple[StrategySpec, ...]:
                     "roe",
                     ConditionOperator.GTE,
                     "0.08",
-                    "Reported ROE at least 8%",
+                    "报告期 ROE 不低于 8%",
                     "0.25",
                 ),
                 _weighted(
@@ -539,7 +538,7 @@ def financial_institution_strategy_specs() -> tuple[StrategySpec, ...]:
                     "net_interest_margin",
                     ConditionOperator.GTE,
                     "0.015",
-                    "Net interest margin at least 1.5%",
+                    "净息差不低于 1.5%",
                     "0.25",
                 ),
                 _weighted(
@@ -547,7 +546,7 @@ def financial_institution_strategy_specs() -> tuple[StrategySpec, ...]:
                     "non_performing_loan_ratio",
                     ConditionOperator.LTE,
                     "0.02",
-                    "Non-performing loan ratio at most 2%",
+                    "不良贷款率不高于 2%",
                     "0.30",
                 ),
                 _weighted(
@@ -555,7 +554,7 @@ def financial_institution_strategy_specs() -> tuple[StrategySpec, ...]:
                     "pb",
                     ConditionOperator.LTE,
                     "1.5",
-                    "PB no higher than 1.5",
+                    "市净率不高于 1.5 倍",
                     "0.20",
                 ),
             ),
@@ -563,10 +562,9 @@ def financial_institution_strategy_specs() -> tuple[StrategySpec, ...]:
             signal_on_pass="bank_quality_research_supportive",
             signal_on_fail="bank_quality_or_risk_insufficient",
             limitations=(
-                "Bank-specific research rule; excludes EV/EBITDA "
-                "and free-cash-flow yield",
-                "Reported quarter ROE may not be annualized",
-                "Thresholds are research assumptions, not backtested",
+                "银行专用研究规则，不使用 EV/EBITDA 与自由现金流收益率",
+                "报告期 ROE 可能未年化",
+                "阈值是研究假设，未经回测",
             ),
         ),
     )
@@ -578,7 +576,7 @@ def cycle_strategy_specs() -> tuple[StrategySpec, ...]:
     return (
         StrategySpec(
             strategy_id="resource_cycle_readiness",
-            name="Long-term Resource Cycle Readiness",
+            name="长期资源周期就绪度规则",
             version="v1",
             maturity=StrategyMaturity.RESEARCH_RULE,
             supported_profiles=(PROFILE_CYCLICAL_RESOURCE,),
@@ -602,7 +600,7 @@ def cycle_strategy_specs() -> tuple[StrategySpec, ...]:
                     "pb",
                     ConditionOperator.BETWEEN,
                     Decimal("0"),
-                    "PB must remain in a reviewable range",
+                    "市净率须处于可评估区间",
                     upper_threshold=Decimal("5"),
                 ),
                 MetricCondition(
@@ -610,7 +608,7 @@ def cycle_strategy_specs() -> tuple[StrategySpec, ...]:
                     "commodity_sensitivity",
                     ConditionOperator.GT,
                     Decimal("0"),
-                    "Equity returns must retain positive commodity sensitivity",
+                    "股价收益须保持对商品价格的正向敏感",
                 ),
             ),
             score_rules=(
@@ -619,7 +617,7 @@ def cycle_strategy_specs() -> tuple[StrategySpec, ...]:
                     "roic",
                     ConditionOperator.GTE,
                     "0.08",
-                    "ROIC at least 8%",
+                    "ROIC 不低于 8%",
                     "0.4",
                 ),
                 _weighted(
@@ -627,7 +625,7 @@ def cycle_strategy_specs() -> tuple[StrategySpec, ...]:
                     "max_drawdown",
                     ConditionOperator.GTE,
                     "-0.40",
-                    "Input-window drawdown no worse than -40%",
+                    "区间回撤不差于 -40%",
                     "0.3",
                 ),
                 _weighted(
@@ -635,20 +633,20 @@ def cycle_strategy_specs() -> tuple[StrategySpec, ...]:
                     "commodity_sensitivity",
                     ConditionOperator.GTE,
                     "0.5",
-                    "Commodity return beta at least 0.5",
+                    "商品收益 Beta 不低于 0.5",
                     "0.3",
                 ),
             ),
             passing_score=Decimal("0.6"),
             limitations=(
-                "Sensitivity is historical co-movement, not causality",
-                "Copper/gold weights are explicit research assumptions",
-                "Does not forecast commodity prices",
+                "敏感度是历史联动，不代表因果",
+                "铜/金权重是显式研究假设",
+                "不预测商品价格",
             ),
         ),
         StrategySpec(
             strategy_id="gold_etf_cycle_vehicle",
-            name="Long-term Gold ETF Cycle Vehicle Readiness",
+            name="长期黄金 ETF 周期工具就绪度规则",
             version="v1",
             maturity=StrategyMaturity.RESEARCH_RULE,
             supported_profiles=(PROFILE_EXCHANGE_FUND,),
@@ -668,14 +666,14 @@ def cycle_strategy_specs() -> tuple[StrategySpec, ...]:
                     "commodity_sensitivity",
                     ConditionOperator.GT,
                     Decimal("0"),
-                    "ETF must retain positive gold-price sensitivity",
+                    "ETF 须保持对金价的正向敏感",
                 ),
                 MetricCondition(
                     "gold_etf_premium_gate",
                     "premium_discount",
                     ConditionOperator.BETWEEN,
                     Decimal("-0.02"),
-                    "Premium or discount must remain within 2%",
+                    "折溢价须在 2% 以内",
                     upper_threshold=Decimal("0.02"),
                 ),
             ),
@@ -685,7 +683,7 @@ def cycle_strategy_specs() -> tuple[StrategySpec, ...]:
                     "commodity_sensitivity",
                     ConditionOperator.GTE,
                     "0.5",
-                    "Gold return beta at least 0.5",
+                    "金价收益 Beta 不低于 0.5",
                     "0.4",
                 ),
                 _weighted(
@@ -693,7 +691,7 @@ def cycle_strategy_specs() -> tuple[StrategySpec, ...]:
                     "expense_ratio",
                     ConditionOperator.LTE,
                     "0.01",
-                    "Annual comprehensive expense ratio at most 1%",
+                    "年综合费率不高于 1%",
                     "0.3",
                 ),
                 _weighted(
@@ -701,14 +699,14 @@ def cycle_strategy_specs() -> tuple[StrategySpec, ...]:
                     "max_drawdown",
                     ConditionOperator.GTE,
                     "-0.40",
-                    "Input-window drawdown no worse than -40%",
+                    "区间回撤不差于 -40%",
                     "0.3",
                 ),
             ),
             passing_score=Decimal("0.6"),
             limitations=(
-                "Evaluates vehicle readiness, not future gold direction",
-                "Macro and real-rate evidence still requires review",
+                "只评估工具就绪度，不判断未来金价方向",
+                "宏观与实际利率证据仍需复查",
             ),
         ),
     )

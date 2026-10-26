@@ -12,12 +12,12 @@ from typing import Any, Protocol
 from uuid import uuid4
 
 from src.master_data import MasterDataService
-from src.research_workflow import (
+from src.research_contracts import (
     DecisionLane,
-    ResearchExecutionGap,
     ResearchQuestionType,
     ResearchTaskSpec,
 )
+from src.research_workflow import ResearchExecutionGap
 
 from .capabilities import ResearchCapabilityRegistry
 from .models import (
@@ -579,6 +579,10 @@ class ResearchWorkflowRepositoryProtocol(Protocol):
         report_id: str,
     ) -> FinalDecisionPublicationAttestation | None: ...
 
+    def list_final_publications(
+        self,
+    ) -> tuple[FinalDecisionPublicationAttestation, ...]: ...
+
 
 class ExplorationOwnershipRepositoryProtocol(Protocol):
     def get_exploration_session(
@@ -726,6 +730,11 @@ class ResearchWorkflowCoordinator:
         report_id: str,
     ) -> FinalDecisionPublicationAttestation | None:
         return self.repository.get_final_publication(report_id)
+
+    def list_final_publications(
+        self,
+    ) -> tuple[FinalDecisionPublicationAttestation, ...]:
+        return self.repository.list_final_publications()
 
     def record_final_publication(
         self,
@@ -1002,6 +1011,13 @@ class ResearchWorkflowCoordinator:
             raise ValueError(
                 "exploration session ownership is not persisted"
             )
+        persisted_brief_id = getattr(persisted, "decision_brief_id", None)
+        # A run without a brief (run-single or an impersonal recipe) takes the
+        # brief chosen when its first exploration session starts.
+        binds_brief = (
+            workflow_run.decision_brief_id is None
+            and workflow_run.exploration_session_id is None
+        )
         if (
             getattr(persisted, "user_id", None) != user_id
             or getattr(persisted, "session_id", None) != session_id
@@ -1009,8 +1025,10 @@ class ResearchWorkflowCoordinator:
             != workflow_run_id
             or getattr(persisted, "handoff_id", None)
             != workflow_run.handoff_id
-            or getattr(persisted, "decision_brief_id", None)
-            != workflow_run.decision_brief_id
+            or (
+                persisted_brief_id != workflow_run.decision_brief_id
+                and not binds_brief
+            )
             or getattr(persisted, "asset_id", None)
             != workflow_run.task.asset_id
         ):
@@ -1026,6 +1044,11 @@ class ResearchWorkflowCoordinator:
             )
         updated = replace(
             workflow_run,
+            decision_brief_id=(
+                persisted_brief_id
+                if binds_brief
+                else workflow_run.decision_brief_id
+            ),
             exploration_session_id=session_id,
             user_id=user_id,
             updated_at=_now(),

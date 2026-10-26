@@ -1,28 +1,7 @@
-"""IDE-first investment research task contracts."""
+"""Single-asset research templates, task factory and execution services."""
 
-from .decision_models import (
-    DecisionContextRequirement,
-    DecisionContextStatus,
-    DecisionIntent,
-    DecisionLane,
-    PositionState,
-    ResearchDecisionBrief,
-    required_user_context,
-)
-from .models import (
-    AssetResearchProfile,
-    ResearchHorizon,
-    ResearchOutputDepth,
-    ResearchQuestionType,
-    ResearchTaskSpec,
-)
 from .profiles import (
-    PROFILE_CYCLICAL_RESOURCE,
-    PROFILE_EXCHANGE_FUND,
-    PROFILE_FINANCIAL_INSTITUTION,
-    PROFILE_HIGH_GROWTH_UNPROFITABLE,
-    PROFILE_OPEN_FUND,
-    PROFILE_ORDINARY_COMPANY,
+    AssetResearchProfile,
     ResearchProfileRegistry,
     default_profile_registry,
     default_research_profiles,
@@ -35,27 +14,11 @@ from .profile_assignment import (
 )
 
 __all__ = [
-    "DecisionContextRequirement",
-    "DecisionContextStatus",
-    "DecisionIntent",
-    "DecisionLane",
-    "PROFILE_CYCLICAL_RESOURCE",
-    "PROFILE_EXCHANGE_FUND",
-    "PROFILE_FINANCIAL_INSTITUTION",
-    "PROFILE_HIGH_GROWTH_UNPROFITABLE",
-    "PROFILE_OPEN_FUND",
-    "PROFILE_ORDINARY_COMPANY",
     "AssetResearchProfile",
-    "PositionState",
-    "ResearchDecisionBrief",
-    "ResearchHorizon",
-    "ResearchOutputDepth",
     "ResearchProfileRegistry",
     "ResearchProfileAssignment",
     "ResearchProfileAssignmentService",
-    "ResearchQuestionType",
     "ResearchTaskFactory",
-    "ResearchTaskSpec",
     "ResearchExecutionGap",
     "CycleResearchExecutionOptions",
     "CyclicalResourceResearchExecutionService",
@@ -72,7 +35,6 @@ __all__ = [
     "SQLiteResearchProfileAssignmentRepository",
     "default_profile_registry",
     "default_research_profiles",
-    "required_user_context",
 ]
 
 

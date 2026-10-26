@@ -92,6 +92,38 @@ class SQLiteDataStore:
                     PRIMARY KEY (symbol, trade_date, source)
                 );
 
+                CREATE TABLE IF NOT EXISTS stock_total_return_bars (
+                    symbol TEXT NOT NULL,
+                    trade_date TEXT NOT NULL,
+                    open REAL,
+                    high REAL,
+                    low REAL,
+                    close REAL,
+                    preclose REAL,
+                    volume REAL,
+                    amount REAL,
+                    source TEXT NOT NULL,
+                    raw_json TEXT,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (symbol, trade_date, source)
+                );
+
+                CREATE TABLE IF NOT EXISTS fund_exchange_total_return_bars (
+                    symbol TEXT NOT NULL,
+                    trade_date TEXT NOT NULL,
+                    open REAL,
+                    high REAL,
+                    low REAL,
+                    close REAL,
+                    preclose REAL,
+                    volume REAL,
+                    amount REAL,
+                    source TEXT NOT NULL,
+                    raw_json TEXT,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (symbol, trade_date, source)
+                );
+
                 CREATE TABLE IF NOT EXISTS fund_nav_daily (
                     symbol TEXT NOT NULL,
                     nav_date TEXT NOT NULL,
@@ -331,6 +363,36 @@ class SQLiteDataStore:
         """Insert or update index daily bars."""
 
         return self._upsert_daily_bars("index_daily_bars", bars)
+
+    def upsert_total_return_bars(
+        self,
+        table: str,
+        bars: Iterable[DailyBar],
+    ) -> int:
+        """Insert or update bars that carry the exchange reference close."""
+
+        _require_total_return_table(table)
+        return self._upsert_daily_bars(table, bars, with_preclose=True)
+
+    def get_total_return_bars(
+        self,
+        table: str,
+        symbol: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        source: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Read bars that carry the exchange reference close."""
+
+        _require_total_return_table(table)
+        return self._get_daily_bars(
+            table,
+            symbol,
+            start_date,
+            end_date,
+            source,
+            with_preclose=True,
+        )
 
     def upsert_fund_nav_daily(self, navs: Iterable[FundNav]) -> int:
         """Insert or update open-end fund NAV records."""
@@ -1330,7 +1392,13 @@ class SQLiteDataStore:
             cursor = conn.execute(sql, params)
         return cursor.rowcount
 
-    def _upsert_daily_bars(self, table: str, bars: Iterable[DailyBar]) -> int:
+    def _upsert_daily_bars(
+        self,
+        table: str,
+        bars: Iterable[DailyBar],
+        *,
+        with_preclose: bool = False,
+    ) -> int:
         rows = [
             {
                 "symbol": bar.symbol,
@@ -1339,24 +1407,35 @@ class SQLiteDataStore:
                 "high": bar.high,
                 "low": bar.low,
                 "close": bar.close,
+                "preclose": bar.preclose,
                 "volume": bar.volume,
                 "amount": bar.amount,
                 "source": bar.source,
-                "raw_json": json.dumps(bar.raw, ensure_ascii=False, sort_keys=True),
+                "raw_json": json.dumps(
+                    bar.raw,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    default=str,
+                ),
             }
             for bar in bars
         ]
         if not rows:
             return 0
+        preclose_column = ", preclose" if with_preclose else ""
+        preclose_value = ", :preclose" if with_preclose else ""
+        preclose_update = (
+            "preclose = excluded.preclose," if with_preclose else ""
+        )
 
         with self._connect() as conn:
             conn.executemany(
                 f"""
                 INSERT INTO {table} (
-                    symbol, trade_date, open, high, low, close,
+                    symbol, trade_date, open, high, low, close{preclose_column},
                     volume, amount, source, raw_json
                 ) VALUES (
-                    :symbol, :trade_date, :open, :high, :low, :close,
+                    :symbol, :trade_date, :open, :high, :low, :close{preclose_value},
                     :volume, :amount, :source, :raw_json
                 )
                 ON CONFLICT(symbol, trade_date, source) DO UPDATE SET
@@ -1364,6 +1443,7 @@ class SQLiteDataStore:
                     high = excluded.high,
                     low = excluded.low,
                     close = excluded.close,
+                    {preclose_update}
                     volume = excluded.volume,
                     amount = excluded.amount,
                     raw_json = excluded.raw_json,
@@ -1380,6 +1460,8 @@ class SQLiteDataStore:
         start_date: str | None,
         end_date: str | None,
         source: str | None,
+        *,
+        with_preclose: bool = False,
     ) -> list[dict[str, Any]]:
         conditions = ["symbol = ?"]
         params: list[Any] = [symbol]
@@ -1394,7 +1476,8 @@ class SQLiteDataStore:
             params.append(source)
 
         sql = f"""
-            SELECT symbol, trade_date, open, high, low, close, volume, amount, source, raw_json
+            SELECT symbol, trade_date, open, high, low, close,
+                {"preclose, " if with_preclose else ""}volume, amount, source, raw_json
             FROM {table}
             WHERE {" AND ".join(conditions)}
             ORDER BY trade_date ASC, source ASC
@@ -1407,3 +1490,13 @@ class SQLiteDataStore:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
+
+
+TOTAL_RETURN_BAR_TABLES = frozenset(
+    {"stock_total_return_bars", "fund_exchange_total_return_bars"}
+)
+
+
+def _require_total_return_table(table: str) -> None:
+    if table not in TOTAL_RETURN_BAR_TABLES:
+        raise ValueError(f"Unsupported total-return bar table: {table}")

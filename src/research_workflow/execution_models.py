@@ -19,11 +19,10 @@ from src.fundamental_analysis import (
     FundamentalMetricResult,
     FundamentalMetricSet,
 )
+from src.research_contracts import ResearchTaskSpec
 from src.research_evidence import ResearchEvidenceBundle
 from src.research_visualization import ChartArtifact
 from src.strategy import StrategyResult
-
-from .models import ResearchTaskSpec
 
 
 class ResearchExecutionStatus(str, Enum):
@@ -48,13 +47,14 @@ class ResearchExecutionOptions:
         "mootdx",
         "tencent",
         "sina",
+        "ths",
     )
     disclosure_sources: tuple[str, ...] = ("cninfo",)
     research_sources: tuple[str, ...] = ("eastmoney",)
     provider_timeout_seconds: float = 90.0
     risk_parameters: RiskMetricParameters = field(
         default_factory=lambda: RiskMetricParameters(
-            rolling_windows=(5, 10),
+            rolling_windows=(5, 20, 60),
             price_adjustment="none",
         )
     )

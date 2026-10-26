@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from src.data_src.common import normalize_date_compact, to_optional_float
@@ -58,6 +59,9 @@ class CsIndexDataSource:
             trade_date = _compact_date(row.get("tradeDate"))
             close = to_optional_float(row.get("close"))
             if not trade_date or close is None:
+                continue
+            # The first row can repeat the base close on the requested (non-trading) start date.
+            if date.fromisoformat(trade_date).weekday() >= 5:
                 continue
             bars.append(
                 DailyBar(

@@ -8,7 +8,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any
 
-from src.research_workflow import (
+from src.research_contracts import (
     ResearchHorizon,
     ResearchQuestionType,
     ResearchTaskSpec,

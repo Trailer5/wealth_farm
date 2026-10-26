@@ -319,6 +319,24 @@ class SQLiteResearchWorkflowRepository:
             json.loads(row["payload_json"])
         )
 
+    def list_final_publications(
+        self,
+    ) -> tuple[FinalDecisionPublicationAttestation, ...]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT payload_json
+                FROM final_decision_publications
+                ORDER BY published_at, report_id
+                """
+            ).fetchall()
+        return tuple(
+            FinalDecisionPublicationAttestation.from_dict(
+                json.loads(row["payload_json"])
+            )
+            for row in rows
+        )
+
     def delete_handoff_for_run(
         self,
         workflow_run_id: str,

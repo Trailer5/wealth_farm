@@ -7,7 +7,7 @@ from src.master_data import (
     ASSET_TYPE_OPEN_FUND,
     ASSET_TYPE_STOCK,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,

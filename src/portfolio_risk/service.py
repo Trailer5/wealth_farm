@@ -107,6 +107,24 @@ class PortfolioRiskService:
             mandate_id,
         )
 
+    def list_mandates(
+        self,
+        context: UserContext,
+    ) -> list[InvestmentMandate]:
+        """Return the mandates recorded for the current user."""
+
+        self.research_state.list_holdings(context)
+        return self.repository.list_mandates(context.user_id)
+
+    def list_constraint_snapshots(
+        self,
+        context: UserContext,
+    ) -> list[PortfolioConstraintSnapshot]:
+        """Return the constraint snapshots recorded for the current user."""
+
+        self.research_state.list_holdings(context)
+        return self.repository.list_constraint_snapshots(context.user_id)
+
     def save_constraint_snapshot(
         self,
         context: UserContext,

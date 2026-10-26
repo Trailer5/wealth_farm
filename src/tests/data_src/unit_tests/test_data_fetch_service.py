@@ -8,6 +8,7 @@ from src.data_access import (
     DATASET_STOCK_FINANCIAL_INDICATORS,
     DATASET_STOCK_INCOME_STATEMENTS,
 )
+from src.data_src.common import DataSourceError
 from src.data_src.models import (
     DailyBar,
     FundEstimate,
@@ -18,6 +19,108 @@ from src.data_src.models import (
 )
 from src.data_src.service import DataFetchService, compare_daily_bars
 from src.data_store import SQLiteDataStore
+from src.master_data import (
+    ASSET_TYPE_EXCHANGE_FUND,
+    ASSET_TYPE_INDEX,
+    ASSET_TYPE_OPEN_FUND,
+    ASSET_TYPE_STOCK,
+)
+
+
+class ExchangeListingSource:
+    def __init__(self, listings, *, fail=False):
+        self.listings = listings
+        self.fail = fail
+
+    def get_exchange_listings(self, symbol):
+        if self.fail:
+            raise DataSourceError("BaoStock session dropped")
+        return [item for item in self.listings if item.symbol.endswith(symbol)]
+
+
+class FundCatalogSource:
+    def __init__(self, funds):
+        self.funds = funds
+
+    def get_fund_names(self):
+        return self.funds
+
+
+def _security(symbol, name, security_type, exchange=None):
+    return SecurityInfo(
+        symbol=symbol,
+        name=name,
+        security_type=security_type,
+        exchange=exchange,
+        source="unit-test:identity",
+    )
+
+
+class IdentityLookupTest(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.listings = [
+            _security("sh.000001", "上证综合指数", "2", "sh"),
+            _security("sz.000001", "平安银行", "1", "sz"),
+            _security("sh.518880", "华安黄金ETF", "5", "sh"),
+        ]
+        self.funds = [
+            _security("000001", "华夏成长混合", "混合型-灵活"),
+            _security("518880", "黄金ETF华安", "指数型-其他"),
+        ]
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def _service(self, *, fail=False):
+        return DataFetchService(
+            store=SQLiteDataStore(Path(self.temp_dir.name) / "ids.sqlite3"),
+            akshare_source=FundCatalogSource(self.funds),
+            baostock_source=ExchangeListingSource(self.listings, fail=fail),
+        )
+
+    def _types(self, service, symbol):
+        return sorted(
+            item.asset_type
+            for item in service.master_data.find_assets(standard_symbol=symbol)
+        )
+
+    def test_every_product_sharing_a_code_is_registered(self):
+        service = self._service()
+
+        service.fetch_and_store_identities("000001")
+
+        self.assertEqual(
+            self._types(service, "000001"),
+            sorted([ASSET_TYPE_INDEX, ASSET_TYPE_STOCK, ASSET_TYPE_OPEN_FUND]),
+        )
+
+    def test_listed_etf_is_not_duplicated_as_open_fund(self):
+        service = self._service()
+
+        service.fetch_and_store_identities("518880")
+
+        self.assertEqual(
+            self._types(service, "518880"),
+            [ASSET_TYPE_EXCHANGE_FUND],
+        )
+
+    def test_requested_type_limits_the_registered_identity(self):
+        service = self._service()
+
+        service.fetch_and_store_identities(
+            "000001",
+            asset_type=ASSET_TYPE_OPEN_FUND,
+        )
+
+        self.assertEqual(self._types(service, "000001"), [ASSET_TYPE_OPEN_FUND])
+
+    def test_failed_source_registers_nothing(self):
+        service = self._service(fail=True)
+
+        with self.assertRaises(DataSourceError):
+            service.fetch_and_store_identities("000001")
+        self.assertEqual(self._types(service, "000001"), [])
 
 
 class FakeDailySource:

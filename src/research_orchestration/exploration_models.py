@@ -8,7 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from src.research_workflow import (
+from src.research_contracts import (
     DecisionLane,
     ResearchHorizon,
     ResearchTaskSpec,
@@ -920,6 +920,23 @@ class ResearchExplorationSession:
             raise ValueError(
                 "exploration findings must not exceed task as_of_date"
             )
+
+    def unresolved_blocking_query_gaps(
+        self,
+    ) -> tuple[ExplorationQueryGap, ...]:
+        """Blocking gaps whose question was not later answered with evidence."""
+
+        answered = {
+            query_id
+            for question in self.questions
+            if question.status is QuestionStatus.ANSWERED
+            for query_id in question.query_ids
+        }
+        return tuple(
+            gap
+            for gap in self.query_gaps
+            if gap.blocking and gap.query_id not in answered
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {

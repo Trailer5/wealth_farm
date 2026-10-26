@@ -6,11 +6,14 @@ from typing import Any, NoReturn
 
 from src.data_access import (
     DATASET_EXCHANGE_FUND_DAILY_BARS,
+    DATASET_EXCHANGE_FUND_TOTAL_RETURN_BARS,
     DATASET_INDEX_DAILY_BARS,
     DATASET_OPEN_FUND_NAV,
     DATASET_STOCK_DAILY_BARS,
+    DATASET_STOCK_TOTAL_RETURN_BARS,
     AssetInput,
     DataAccessRequest,
+    DataAccessResponse,
     DataAccessService,
 )
 from src.factor_engineering import SQLiteFactorRepository
@@ -172,35 +175,31 @@ class BenchmarkAnalysisService:
                 f"Unknown benchmark_asset_id: "
                 f"{relation.benchmark_asset_id}"
             )
-        asset_dataset = _dataset_for_asset_type(asset.asset_type)
-        benchmark_dataset = _dataset_for_asset_type(
+        asset_datasets = _datasets_for_asset_type(asset.asset_type)
+        benchmark_datasets = _datasets_for_asset_type(
             benchmark.asset_type
         )
         effective_end = min(end_date, as_of_date)
-        asset_response = self.data_access.get(
-            DataAccessRequest(
-                asset=AssetInput(asset_id=asset.asset_id),
-                dataset=asset_dataset,
-                start_date=start_date,
-                end_date=effective_end,
-                as_of_date=as_of_date,
-                allow_remote=allow_remote,
-                allow_stale_on_error=True,
-                provider_timeout_seconds=provider_timeout_seconds,
-            )
+        asset_response = self._get_series(
+            asset.asset_id,
+            asset_datasets,
+            start_date=start_date,
+            end_date=effective_end,
+            as_of_date=as_of_date,
+            allow_remote=allow_remote,
+            provider_timeout_seconds=provider_timeout_seconds,
         )
-        benchmark_response = self.data_access.get(
-            DataAccessRequest(
-                asset=AssetInput(asset_id=benchmark.asset_id),
-                dataset=benchmark_dataset,
-                start_date=start_date,
-                end_date=effective_end,
-                as_of_date=as_of_date,
-                allow_remote=allow_remote,
-                allow_stale_on_error=True,
-                provider_timeout_seconds=provider_timeout_seconds,
-            )
+        benchmark_response = self._get_series(
+            benchmark.asset_id,
+            benchmark_datasets,
+            start_date=start_date,
+            end_date=effective_end,
+            as_of_date=as_of_date,
+            allow_remote=allow_remote,
+            provider_timeout_seconds=provider_timeout_seconds,
         )
+        asset_dataset = asset_response.dataset
+        benchmark_dataset = benchmark_response.dataset
         if not asset_response.complete:
             raise BenchmarkComponentUnavailableError(
                 "Asset daily data source is incomplete"
@@ -232,6 +231,40 @@ class BenchmarkAnalysisService:
             list(result.values)
         )
         return result
+
+    def _get_series(
+        self,
+        asset_id: str,
+        datasets: tuple[str, ...],
+        *,
+        start_date: str,
+        end_date: str,
+        as_of_date: str,
+        allow_remote: bool,
+        provider_timeout_seconds: float,
+    ) -> DataAccessResponse:
+        """First complete series in preference order; the last one is returned as is."""
+
+        for index, dataset in enumerate(datasets):
+            request = DataAccessRequest(
+                asset=AssetInput(asset_id=asset_id),
+                dataset=dataset,
+                start_date=start_date,
+                end_date=end_date,
+                as_of_date=as_of_date,
+                allow_remote=allow_remote,
+                allow_stale_on_error=True,
+                provider_timeout_seconds=provider_timeout_seconds,
+            )
+            if index == len(datasets) - 1:
+                return self.data_access.get(request)
+            try:
+                response = self.data_access.get(request)
+            except Exception:  # noqa: BLE001 - fall back to the next basis
+                continue
+            if response.complete and response.records:
+                return response
+        raise AssertionError("datasets must not be empty")
 
     def compare_composite(
         self,
@@ -369,17 +402,23 @@ def _raise_coverage_error(exc: ValueError) -> NoReturn:
     raise exc
 
 
-def _dataset_for_asset_type(asset_type: str) -> str:
+def _datasets_for_asset_type(asset_type: str) -> tuple[str, ...]:
+    """Total-return bars first; unadjusted bars only when they are unavailable."""
+
     mapping = {
-        ASSET_TYPE_STOCK: DATASET_STOCK_DAILY_BARS,
-        ASSET_TYPE_EXCHANGE_FUND: (
-            DATASET_EXCHANGE_FUND_DAILY_BARS
+        ASSET_TYPE_STOCK: (
+            DATASET_STOCK_TOTAL_RETURN_BARS,
+            DATASET_STOCK_DAILY_BARS,
         ),
-        ASSET_TYPE_INDEX: DATASET_INDEX_DAILY_BARS,
+        ASSET_TYPE_EXCHANGE_FUND: (
+            DATASET_EXCHANGE_FUND_TOTAL_RETURN_BARS,
+            DATASET_EXCHANGE_FUND_DAILY_BARS,
+        ),
+        ASSET_TYPE_INDEX: (DATASET_INDEX_DAILY_BARS,),
     }
-    dataset = mapping.get(asset_type)
-    if dataset is None:
+    datasets = mapping.get(asset_type)
+    if datasets is None:
         raise ValueError(
             f"Unsupported benchmark asset_type: {asset_type}"
         )
-    return dataset
+    return datasets

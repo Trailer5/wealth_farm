@@ -17,6 +17,14 @@ from src.master_data import Asset
 DATASET_STOCK_DAILY_BARS = "stock_daily_bars"
 DATASET_EXCHANGE_FUND_DAILY_BARS = "fund_exchange_daily_bars"
 DATASET_INDEX_DAILY_BARS = "index_daily_bars"
+# Unadjusted bars plus the exchange reference previous close (ex-rights).
+DATASET_STOCK_TOTAL_RETURN_BARS = "stock_total_return_bars"
+DATASET_EXCHANGE_FUND_TOTAL_RETURN_BARS = "fund_exchange_total_return_bars"
+TOTAL_RETURN_DATASET_BY_BARS = {
+    DATASET_STOCK_DAILY_BARS: DATASET_STOCK_TOTAL_RETURN_BARS,
+    DATASET_EXCHANGE_FUND_DAILY_BARS: DATASET_EXCHANGE_FUND_TOTAL_RETURN_BARS,
+}
+TOTAL_RETURN_BAR_DATASETS = frozenset(TOTAL_RETURN_DATASET_BY_BARS.values())
 DATASET_DISCLOSURES = "disclosures"
 DATASET_RESEARCH_REPORTS = "research_reports"
 DATASET_OPEN_FUND_NAV = "open_fund_nav"
@@ -63,6 +71,9 @@ class DataAccessRequest:
     remote_sources: tuple[str, ...] = ()
     parameters: dict[str, Any] = field(default_factory=dict)
     provider_timeout_seconds: float = 30.0
+    # "concurrent" calls every remote source at once and merges by priority;
+    # "sequential" stops at the first source that returns records.
+    fetch_mode: str = "concurrent"
 
 
 @dataclass(frozen=True)

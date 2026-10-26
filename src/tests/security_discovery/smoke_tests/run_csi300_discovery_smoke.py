@@ -29,10 +29,8 @@ def main() -> int:
         ResearchUniverseService,
         SQLiteResearchUniverseRepository,
     )
-    from src.research_workflow import (
-        PROFILE_ORDINARY_COMPANY,
-        ResearchTaskFactory,
-    )
+    from src.research_contracts import PROFILE_ORDINARY_COMPANY
+    from src.research_workflow import ResearchTaskFactory
     from src.security_discovery import (
         DiscoveryMemberInput,
         SQLiteSecurityDiscoveryRepository,

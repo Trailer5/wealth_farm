@@ -7,13 +7,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
+from src.research_contracts import ResearchTaskSpec
 from src.research_workflow import (
     ResearchExecutionGap,
     ResearchExecutionResult,
     ResearchExecutionStatus,
     ResearchPhaseResult,
     ResearchPhaseStatus,
-    ResearchTaskSpec,
     ResearchWindows,
 )
 

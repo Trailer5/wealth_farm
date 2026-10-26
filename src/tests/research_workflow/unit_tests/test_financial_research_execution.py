@@ -8,6 +8,7 @@ from unittest.mock import Mock
 from src.data_access import (
     DATASET_STOCK_DAILY_BARS,
     DATASET_STOCK_FINANCIAL_INDICATORS,
+    DATASET_STOCK_TOTAL_RETURN_BARS,
     DataAccessResponse,
 )
 from src.factor_engineering import (
@@ -28,13 +29,15 @@ from src.master_data import (
     SQLiteMasterDataRepository,
 )
 from src.research_visualization import ChartArtifact
-from src.research_workflow import (
-    FinancialInstitutionResearchExecutionService,
+from src.research_contracts import (
     PROFILE_FINANCIAL_INSTITUTION,
-    ResearchExecutionOptions,
-    ResearchExecutionStatus,
     ResearchHorizon,
     ResearchQuestionType,
+)
+from src.research_workflow import (
+    FinancialInstitutionResearchExecutionService,
+    ResearchExecutionOptions,
+    ResearchExecutionStatus,
     ResearchTaskFactory,
 )
 from src.strategy import (
@@ -121,7 +124,11 @@ class FinancialResearchExecutionTest(unittest.TestCase):
             DATASET_STOCK_FINANCIAL_INDICATORS,
         )
         data_access = Mock()
-        data_access.get.side_effect = [bars, indicators]
+        data_access.get.side_effect = [
+            bars,
+            _response(self.bank, DATASET_STOCK_TOTAL_RETURN_BARS),
+            indicators,
+        ]
         factors = Mock()
         factors.compute_from_response.return_value = []
         factors.compute_risk_from_response.return_value = _risk(

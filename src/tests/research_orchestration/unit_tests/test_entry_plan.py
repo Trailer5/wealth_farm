@@ -28,7 +28,7 @@ from src.research_orchestration.entry_models import entry_plan_id
 from src.research_orchestration.suitability_models import (
     suitability_assessment_id,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_OPEN_FUND,

@@ -36,11 +36,15 @@ from src.research_orchestration import (
     SuitabilityClaimBlock,
     SuitabilityClaimKind,
     SuitabilityClaimState,
+    SuitabilityConfidence,
     TimingConditionState,
     final_decision_report_filename,
 )
+from src.research_orchestration.final_decision_models import (
+    final_decision_report_id,
+)
 from src.research_visualization import ReportArtifactService
-from src.research_workflow import (
+from src.research_contracts import (
     DecisionIntent,
     DecisionLane,
     PositionState,
@@ -72,6 +76,7 @@ def _inputs() -> dict[str, object]:
         asset_id="stock:test",
         profile_id="ordinary_company",
         as_of_date=AS_OF,
+        benchmark_asset_id="index:test",
     )
     handoff = SimpleNamespace(
         handoff_id="handoff:test",
@@ -146,6 +151,7 @@ def _inputs() -> dict[str, object]:
         as_of_date=AS_OF,
         time_horizon=ResearchHorizon.LONG,
         action=SuitabilityAction.CONSIDER,
+        confidence=SuitabilityConfidence.SUPPORTED,
         thesis=thesis,
         expected_return_sources=(_claim("收益来自现金流改善。"),),
         priced_expectations=(_claim("当前定价隐含温和改善。"),),
@@ -164,6 +170,7 @@ def _inputs() -> dict[str, object]:
         state=TimingConditionState.WATCH,
         evidence_refs=(EVIDENCE_URL,),
         limitations=("信号仅在有效窗口内适用。",),
+        valid_from=AS_OF,
         valid_until="2026-09-30",
         observability_key="valuation_and_operations",
     )
@@ -207,6 +214,7 @@ def _inputs() -> dict[str, object]:
         as_of_date=AS_OF,
         horizon=ResearchHorizon.LONG,
         status=PositionPlanStatus.USER_CONTEXT_REQUIRED,
+        action=PositionAction.UNAVAILABLE,
         mandate_id=None,
         portfolio_snapshot_id=None,
         constraint_snapshot_id=None,
@@ -345,6 +353,57 @@ class FinalDecisionReportTests(unittest.TestCase):
             self.assertNotIn(value, markdown)
         self.assertFalse(report.monitoring_plan.alert_rule_refs)
         self.assertEqual(len(report.monitoring_plan.conditions), 2)
+
+    def test_renderer_shows_each_limitation_once_and_labels_falsification(
+        self,
+    ):
+        report = FinalDecisionReportAssemblyService(
+            _FakePortfolioRisk()
+        ).assemble(**_inputs())
+        payload = report.to_dict()
+        payload["thesis"]["limitations"] = ["证伪条件：毛利率下降", "限制甲"]
+        for section in payload["decision_sections"]:
+            section["limitations"] = (
+                ["证伪条件：毛利率下降", "限制甲", "限制乙"]
+                if section["lane"] == "suitability"
+                else ["限制甲", "限制乙", "限制丙"]
+            )
+        payload["report_id"] = final_decision_report_id(payload)
+        markdown = FinalDecisionReportRenderer().render(
+            FinalDecisionResearchReport.from_dict(payload)
+        )
+
+        self.assertIn("  - 证伪条件：毛利率下降", markdown)
+        self.assertNotIn("限制：证伪条件", markdown)
+        for text in ("限制甲", "限制乙", "限制丙", "证伪条件：毛利率下降"):
+            self.assertEqual(markdown.count(text), 1, text)
+
+    def test_holding_review_uses_holding_wording(self):
+        report = FinalDecisionReportAssemblyService(
+            _FakePortfolioRisk()
+        ).assemble(**_inputs())
+        payload = report.to_dict()
+        payload["user_boundary"]["decision_intent"] = (
+            DecisionIntent.REVIEW_HOLDING.value
+        )
+        payload["user_boundary"]["missing_context"] = ["组合角色"]
+        payload["report_id"] = final_decision_report_id(payload)
+        holding = FinalDecisionResearchReport.from_dict(payload)
+
+        markdown = FinalDecisionReportRenderer().render(holding)
+        review = FinalDecisionReportReviewer().review_markdown(
+            holding,
+            markdown,
+        )
+
+        self.assertIn("## 是否继续持有", markdown)
+        self.assertIn("**持有多少：", markdown)
+        self.assertIn("补齐后才能计算仓位：组合角色", markdown)
+        self.assertNotIn("## 是否值得买", markdown)
+        self.assertNotIn("用户确认的假设", markdown)
+        codes = {item.code for item in review.findings}
+        self.assertNotIn("final_report_section_missing", codes)
+        self.assertNotIn("decision_summary_missing", codes)
 
     def test_report_content_id_rejects_tampering(self):
         report = FinalDecisionReportAssemblyService().assemble(
@@ -492,6 +551,9 @@ class FinalDecisionReportTests(unittest.TestCase):
             run_status=ResearchRunStatus.PARTIAL,
             partial_gaps=(
                 SimpleNamespace(
+                    code="research_evidence_coverage_incomplete",
+                ),
+                SimpleNamespace(
                     code="automatic_gap_to_query_loop",
                 ),
             ),
@@ -521,7 +583,8 @@ class FinalDecisionReportTests(unittest.TestCase):
             ResearchRunStatus.PARTIAL,
         )
         self.assertIn("基础包状态：部分完成", markdown)
-        self.assertIn("不会自动把缺口转成查询", markdown)
+        self.assertIn("证据来源的覆盖区间不完整", markdown)
+        self.assertNotIn("不会自动把缺口转成查询", markdown)
         self.assertTrue(review.passed, review.findings)
 
     def test_final_filename_is_scoped_by_publication_key(self):

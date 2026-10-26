@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
@@ -28,10 +28,22 @@ class ResearchProfileCapability:
     evidence_requirements: tuple[str, ...]
     candidate_questions: tuple[str, ...]
     candidate_hypotheses: tuple[str, ...]
+    # Lane -> unsupported capability that blocks it for this profile.
+    unsupported_lanes: tuple[tuple[DecisionLane, str], ...] = ()
 
     def __post_init__(self) -> None:
         _text(self.profile_id, "profile_id")
         _unique(self.supported_questions, "supported_questions")
+        lanes = [lane for lane, _ in self.unsupported_lanes]
+        if len(set(lanes)) != len(lanes):
+            raise ValueError("unsupported_lanes must not repeat a lane")
+        for lane, capability in self.unsupported_lanes:
+            if not isinstance(lane, DecisionLane):
+                raise TypeError("unsupported_lanes lane must be DecisionLane")
+            if capability not in self.unsupported_capabilities:
+                raise ValueError(
+                    "unsupported_lanes capability must be declared unsupported"
+                )
         for values, name in (
             (
                 self.automated_capabilities,
@@ -72,6 +84,7 @@ class ResearchCapabilityView:
         ...,
     ]
     unsupported_capabilities: tuple[str, ...]
+    lane_unsupported_capabilities: tuple[str, ...]
     public_entrypoints: tuple[str, ...]
     evidence_requirements: tuple[str, ...]
     candidate_questions: tuple[str, ...]
@@ -98,6 +111,9 @@ class ResearchCapabilityView:
             ],
             "unsupported_capabilities": list(
                 self.unsupported_capabilities
+            ),
+            "lane_unsupported_capabilities": list(
+                self.lane_unsupported_capabilities
             ),
             "public_entrypoints": list(self.public_entrypoints),
             "evidence_requirements": list(
@@ -167,11 +183,15 @@ class ResearchCapabilityRegistry:
             unsupported.append(
                 f"baseline_question:{question_type.value}"
             )
+        lane_blockers = tuple(
+            capability
+            for lane_item, capability in profile.unsupported_lanes
+            if lane_item is decision_lane
+        )
         lane_automated = lane.automated_capabilities
         if (
             decision_lane is DecisionLane.POSITION_SIZING
-            and "open_fund_position_sizing"
-            in profile.unsupported_capabilities
+            and lane_blockers
         ):
             lane_automated = tuple(
                 item
@@ -195,6 +215,7 @@ class ResearchCapabilityRegistry:
             unsupported_capabilities=_merge(
                 tuple(unsupported),
             ),
+            lane_unsupported_capabilities=lane_blockers,
             public_entrypoints=profile.public_entrypoints,
             evidence_requirements=_merge(
                 profile.evidence_requirements,
@@ -311,6 +332,15 @@ _LANE_CAPABILITIES = {
         ),
     ),
 }
+
+
+def hypothesis_decision_lane(statement: str) -> DecisionLane | None:
+    """Return the decision lane that declares a candidate hypothesis."""
+
+    for lane, capability in _LANE_CAPABILITIES.items():
+        if lane is not None and statement in capability.candidate_hypotheses:
+            return lane
+    return None
 
 
 def default_capability_registry() -> ResearchCapabilityRegistry:
@@ -509,6 +539,13 @@ def default_capability_registry() -> ResearchCapabilityRegistry:
                 ),
                 candidate_hypotheses=(
                     "历史超额收益有可解释且可持续的来源。",
+                ),
+                unsupported_lanes=(
+                    (DecisionLane.TIMING, "open_fund_timing_execution"),
+                    (
+                        DecisionLane.POSITION_SIZING,
+                        "open_fund_position_sizing",
+                    ),
                 ),
             ),
         )

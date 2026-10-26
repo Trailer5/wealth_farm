@@ -13,10 +13,14 @@ from .models import (
     DATASET_RESEARCH_REPORTS,
     DATASET_STOCK_BALANCE_SHEETS,
     DATASET_STOCK_CASH_FLOW_STATEMENTS,
+    DATASET_EXCHANGE_FUND_TOTAL_RETURN_BARS,
     DATASET_STOCK_DAILY_BARS,
     DATASET_STOCK_FINANCIAL_INDICATORS,
     DATASET_STOCK_INCOME_STATEMENTS,
+    DATASET_STOCK_TOTAL_RETURN_BARS,
     FUND_DATASETS,
+    TOTAL_RETURN_BAR_DATASETS,
+    TOTAL_RETURN_DATASET_BY_BARS,
     AssetInput,
     DataAccessRequest,
     DataAccessResponse,
@@ -28,11 +32,25 @@ from .service import (
     DataAccessService,
 )
 from .sqlite_repository import SQLiteDataAccessRepository
+from .total_return import (
+    PRICE_BASIS_PRICE,
+    PRICE_BASIS_TOTAL_RETURN,
+    adjusted_nav_levels,
+    forward_adjusted_bars,
+)
 from .trading_calendar import TradingCalendarService
 
 __all__ = [
     "DATASET_STOCK_DAILY_BARS",
     "DATASET_EXCHANGE_FUND_DAILY_BARS",
+    "DATASET_STOCK_TOTAL_RETURN_BARS",
+    "DATASET_EXCHANGE_FUND_TOTAL_RETURN_BARS",
+    "TOTAL_RETURN_BAR_DATASETS",
+    "TOTAL_RETURN_DATASET_BY_BARS",
+    "PRICE_BASIS_PRICE",
+    "PRICE_BASIS_TOTAL_RETURN",
+    "adjusted_nav_levels",
+    "forward_adjusted_bars",
     "DATASET_DISCLOSURES",
     "DATASET_OPEN_FUND_NAV",
     "DATASET_FUND_ESTIMATES",

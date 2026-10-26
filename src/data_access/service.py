@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from datetime import date
+from functools import partial
 
 from src.data_src.common import (
     infer_a_share_exchange,
     normalize_a_share_code,
     to_date_string,
 )
+from src.data_src.fan_out import fan_out
 from src.data_src.service import DataFetchService
 from src.financial_data import (
     FINANCIAL_DATASETS,
@@ -23,6 +25,7 @@ from src.master_data import (
     ASSET_TYPE_INDEX,
     ASSET_TYPE_OPEN_FUND,
     ASSET_TYPE_STOCK,
+    SW_INDEX_EXCHANGE,
     Asset,
     MasterDataService,
 )
@@ -39,6 +42,9 @@ from .models import (
     DATASET_OPEN_FUND_NAV,
     DATASET_RESEARCH_REPORTS,
     DATASET_STOCK_DAILY_BARS,
+    DATASET_STOCK_TOTAL_RETURN_BARS,
+    DATASET_EXCHANGE_FUND_TOTAL_RETURN_BARS,
+    TOTAL_RETURN_BAR_DATASETS,
     AssetInput,
     DataCoverage,
     DataAccessRequest,
@@ -46,8 +52,12 @@ from .models import (
     FUND_DATASETS,
 )
 from .sqlite_repository import SQLiteDataAccessRepository
+from .total_return import PRICE_BASIS_TOTAL_RETURN, forward_adjusted_bars
 from .trading_calendar import TradingCalendarService
 
+_MAX_LEADING_GAP_DAYS = 15
+# After the first source answers, wait this long for the others to cross-check.
+_FAN_OUT_GRACE_SECONDS = 10.0
 
 class AssetResolutionRequiredError(ValueError):
     """Raised when a data request does not resolve to one canonical asset."""
@@ -132,8 +142,7 @@ class DataAccessService:
                 end_date=effective_end,
                 max_age_seconds=None,
             )
-        remote_sources = self._remote_sources(request)
-        preferred_source = remote_sources[0]
+        remote_sources = self._remote_sources(request, asset)
         sqlite_records = self.repository.get_records(
             asset,
             request.dataset,
@@ -174,7 +183,7 @@ class DataAccessService:
         records = _merge_daily_bars(
             daily_records=daily_records,
             sqlite_records=sqlite_records,
-            preferred_source=preferred_source,
+            source_priority=remote_sources,
             prefer_sqlite=sqlite_coverage is not None or daily_coverage is None,
         )
         if coverage is not None:
@@ -215,15 +224,8 @@ class DataAccessService:
             )
 
         try:
-            fetch_result, successful_source, attempted_sources, provider_errors = (
-                self._fetch_with_fallback(asset, request, remote_sources)
-            )
-            coverage = self.repository.mark_coverage(
-                asset_id=asset.asset_id,
-                dataset=request.dataset,
-                start_date=request.start_date,
-                end_date=request.end_date,
-                source=successful_source,
+            successful_sources, attempted_sources, provider_errors = (
+                self._fetch_sources(asset, request, remote_sources)
             )
             sqlite_records = self.repository.get_records(
                 asset,
@@ -231,12 +233,35 @@ class DataAccessService:
                 request.start_date,
                 request.end_date,
             )
+            coverage_start = self._fetched_coverage_start(
+                request,
+                sqlite_records,
+                request_metadata,
+            )
+            coverage = self.repository.mark_coverage(
+                asset_id=asset.asset_id,
+                dataset=request.dataset,
+                start_date=coverage_start,
+                end_date=request.end_date,
+                source=successful_sources[0],
+            )
+            priority = successful_sources + tuple(
+                item for item in remote_sources if item not in successful_sources
+            )
             records = _merge_daily_bars(
                 daily_records=daily_records,
                 sqlite_records=sqlite_records,
-                preferred_source=successful_source,
+                source_priority=priority,
                 prefer_sqlite=True,
             )
+            request_metadata["successful_sources"] = list(successful_sources)
+            conflicts = _source_conflicts(
+                sqlite_records,
+                total_return=request.dataset in TOTAL_RETURN_BAR_DATASETS,
+            )
+            if conflicts:
+                request_metadata["source_conflict_count"] = len(conflicts)
+                request_metadata["source_conflicts"] = conflicts[:10]
             return self._response(
                 asset=asset,
                 request=request,
@@ -291,6 +316,42 @@ class DataAccessService:
                     else {}
                 ),
             ) from exc
+
+    def _fetched_coverage_start(
+        self,
+        request: DataAccessRequest,
+        records: list[dict[str, object]],
+        metadata: dict[str, object],
+    ) -> str:
+        """Do not mark a leading range the provider did not return as covered."""
+
+        dates = sorted(
+            str(item.get("trade_date"))
+            for item in records
+            if item.get("trade_date")
+        )
+        if not dates:
+            return request.start_date
+        if self.trading_calendar is not None:
+            expected = self.trading_calendar.first_trading_date(
+                request.start_date,
+                request.end_date,
+            )
+            truncated = expected is not None and dates[0] > expected
+        else:
+            # Without a calendar, tolerate the longest exchange holiday.
+            expected = None
+            truncated = (
+                date.fromisoformat(dates[0])
+                - date.fromisoformat(request.start_date)
+            ).days > _MAX_LEADING_GAP_DAYS
+        if not truncated:
+            return request.start_date
+        metadata["leading_gap"] = {
+            "expected_first_date": expected or request.start_date,
+            "first_record_date": dates[0],
+        }
+        return dates[0]
 
     def _get_fund_data(
         self,
@@ -978,7 +1039,9 @@ class DataAccessService:
     def _resolve_asset(self, asset_input: AssetInput, dataset: str) -> Asset:
         expected_asset_type = {
             DATASET_STOCK_DAILY_BARS: ASSET_TYPE_STOCK,
+            DATASET_STOCK_TOTAL_RETURN_BARS: ASSET_TYPE_STOCK,
             DATASET_EXCHANGE_FUND_DAILY_BARS: ASSET_TYPE_EXCHANGE_FUND,
+            DATASET_EXCHANGE_FUND_TOTAL_RETURN_BARS: ASSET_TYPE_EXCHANGE_FUND,
             DATASET_INDEX_DAILY_BARS: ASSET_TYPE_INDEX,
             DATASET_RESEARCH_REPORTS: ASSET_TYPE_STOCK,
             **{
@@ -1052,12 +1115,15 @@ class DataAccessService:
                     )
         asset_type_hint = asset_input.asset_type_hint
         if asset_type_hint is None and (
-            dataset == DATASET_STOCK_DAILY_BARS
+            dataset in {DATASET_STOCK_DAILY_BARS, DATASET_STOCK_TOTAL_RETURN_BARS}
             or dataset in FINANCIAL_DATASETS
             or dataset == DATASET_RESEARCH_REPORTS
         ):
             asset_type_hint = "股票"
-        if asset_type_hint is None and dataset == DATASET_EXCHANGE_FUND_DAILY_BARS:
+        if asset_type_hint is None and dataset in {
+            DATASET_EXCHANGE_FUND_DAILY_BARS,
+            DATASET_EXCHANGE_FUND_TOTAL_RETURN_BARS,
+        }:
             asset_type_hint = "ETF"
         if asset_type_hint is None and dataset == DATASET_INDEX_DAILY_BARS:
             asset_type_hint = "指数"
@@ -1077,6 +1143,48 @@ class DataAccessService:
                 f"Asset identity requires review: {resolution.reason}"
             )
         return resolution.asset
+
+    def _fetch_sources(
+        self,
+        asset: Asset,
+        request: DataAccessRequest,
+        remote_sources: tuple[str, ...],
+    ) -> tuple[tuple[str, ...], tuple[str, ...], dict[str, str]]:
+        """Successful sources in priority order, attempted sources, and errors."""
+
+        if request.fetch_mode == "sequential":
+            _, source, attempted, errors = self._fetch_with_fallback(
+                asset,
+                request,
+                remote_sources,
+            )
+            return (source,), attempted, errors
+        outcomes = fan_out(
+            {
+                source: partial(self._fetch_remote, asset, request, source)
+                for source in remote_sources
+            },
+            accept=lambda result: result.fetched_count > 0,
+            grace_seconds=_FAN_OUT_GRACE_SECONDS,
+        )
+        successful = []
+        errors: dict[str, str] = {}
+        for source, outcome in outcomes.items():
+            if isinstance(outcome, Exception):
+                errors[source] = f"{type(outcome).__name__}: {outcome}"
+            elif outcome.fetched_count <= 0:
+                errors[source] = (
+                    f"DataAccessFetchError: Remote source {source} returned no records"
+                )
+            else:
+                successful.append(source)
+        if not successful:
+            raise DataAccessFetchError(
+                f"All remote sources failed for {request.dataset}: "
+                f"{', '.join(remote_sources)}",
+                provider_errors=errors,
+            )
+        return tuple(successful), remote_sources, errors
 
     def _fetch_with_fallback(
         self,
@@ -1122,6 +1230,15 @@ class DataAccessService:
                 symbol=asset.standard_symbol,
                 start_date=request.start_date,
                 end_date=request.end_date,
+                source=source,
+                timeout_seconds=request.provider_timeout_seconds,
+            )
+        if request.dataset in TOTAL_RETURN_BAR_DATASETS:
+            return self.fetch_service.fetch_and_store_total_return_bars(
+                symbol=asset.standard_symbol,
+                start_date=request.start_date,
+                end_date=request.end_date,
+                fund=request.dataset == DATASET_EXCHANGE_FUND_TOTAL_RETURN_BARS,
                 source=source,
                 timeout_seconds=request.provider_timeout_seconds,
             )
@@ -1173,6 +1290,13 @@ class DataAccessService:
             "provider_errors": provider_errors or {},
         }
         metadata.update(extra_metadata or {})
+        if request.dataset in TOTAL_RETURN_BAR_DATASETS:
+            records = forward_adjusted_bars(records)
+            metadata["price_basis"] = PRICE_BASIS_TOTAL_RETURN
+            metadata["price_basis_note"] = (
+                "OHLC 按交易所前收盘价链接前复权，收盘比值等于含分红再投资的日总回报；"
+                "最后一条保持实际成交价，unadjusted_close 为未复权收盘价。"
+            )
         return DataAccessResponse(
             asset=asset,
             dataset=request.dataset,
@@ -1194,6 +1318,7 @@ class DataAccessService:
             DATASET_INDEX_DAILY_BARS,
             DATASET_DISCLOSURES,
             DATASET_RESEARCH_REPORTS,
+            *TOTAL_RETURN_BAR_DATASETS,
             *FINANCIAL_DATASETS,
             *FUND_DATASETS,
         }:
@@ -1215,23 +1340,36 @@ class DataAccessService:
             raise ValueError("max_age_seconds must not be negative")
         if request.provider_timeout_seconds <= 0:
             raise ValueError("provider_timeout_seconds must be positive")
+        if request.fetch_mode not in {"concurrent", "sequential"}:
+            raise ValueError("fetch_mode must be concurrent or sequential")
 
-    def _remote_sources(self, request: DataAccessRequest) -> tuple[str, ...]:
+    def _remote_sources(
+        self,
+        request: DataAccessRequest,
+        asset: Asset | None = None,
+    ) -> tuple[str, ...]:
         if request.remote_sources:
             return request.remote_sources
         if request.dataset in FINANCIAL_DATASETS:
             return ("akshare",)
         if request.dataset == DATASET_INDEX_DAILY_BARS:
+            if asset is not None and asset.exchange == SW_INDEX_EXCHANGE:
+                return ("sw",)
             return (
                 "csindex",
                 "tencent",
                 "sina",
+                "ths",
                 "eastmoney",
                 "akshare",
             )
+        if request.dataset == DATASET_STOCK_TOTAL_RETURN_BARS:
+            return ("baostock", "sina", "ths")
+        if request.dataset == DATASET_EXCHANGE_FUND_TOTAL_RETURN_BARS:
+            return ("baostock", "ths", "akshare")
         if request.dataset == DATASET_EXCHANGE_FUND_DAILY_BARS:
-            return ("mootdx", "tencent", "sina", "baostock", "akshare")
-        return ("mootdx", "tencent", "sina", "baostock", "akshare")
+            return ("mootdx", "tencent", "sina", "ths", "baostock", "akshare")
+        return ("mootdx", "tencent", "sina", "ths", "baostock", "akshare")
 
 
 def _choose_coverage(
@@ -1278,9 +1416,15 @@ def _merge_daily_bars(
     *,
     daily_records: list[dict[str, object]],
     sqlite_records: list[dict[str, object]],
-    preferred_source: str,
+    source_priority: tuple[str, ...],
     prefer_sqlite: bool,
 ) -> list[dict[str, object]]:
+    """One bar per date: backend first, then the earliest source in priority."""
+
+    ranks = {
+        source: len(source_priority) - index
+        for index, source in enumerate(source_priority)
+    }
     selected: dict[str, tuple[tuple[int, int, str], dict[str, object]]] = {}
     batches = (
         (daily_records, 0 if prefer_sqlite else 10),
@@ -1290,14 +1434,73 @@ def _merge_daily_bars(
         for record in records:
             trade_date = str(record.get("trade_date", ""))
             source = str(record.get("source", ""))
-            source_score = 1 if (
-                source == preferred_source or source.startswith(f"{preferred_source}:")
-            ) else 0
+            source_score = ranks.get(_source_name(source), 0)
             score = (backend_score, source_score, source)
             current = selected.get(trade_date)
             if current is None or score > current[0]:
                 selected[trade_date] = (score, record)
     return [selected[key][1] for key in sorted(selected)]
+
+
+def _source_name(record_source: str) -> str:
+    return record_source.split(":", 1)[0]
+
+
+# Sources round differently; larger gaps mean one of them is wrong.
+_PRICE_CONFLICT_TOLERANCE = 0.005
+_RETURN_CONFLICT_TOLERANCE = 0.002
+
+
+def _source_conflicts(
+    records: list[dict[str, object]],
+    *,
+    total_return: bool,
+) -> list[dict[str, object]]:
+    """Dates where two sources disagree on the close (or daily total return)."""
+
+    by_date: dict[str, dict[str, float]] = {}
+    for record in records:
+        close = _positive_number(record.get("close"))
+        if close is None:
+            continue
+        if total_return:
+            preclose = _positive_number(record.get("preclose"))
+            if preclose is None:
+                continue
+            value = close / preclose
+        else:
+            value = close
+        by_date.setdefault(str(record.get("trade_date")), {})[
+            _source_name(str(record.get("source", "")))
+        ] = value
+    tolerance = (
+        _RETURN_CONFLICT_TOLERANCE if total_return else _PRICE_CONFLICT_TOLERANCE
+    )
+    conflicts = []
+    for trade_date in sorted(by_date):
+        values = by_date[trade_date]
+        if len(values) < 2:
+            continue
+        low, high = min(values.values()), max(values.values())
+        if high / low - 1 > tolerance:
+            conflicts.append(
+                {
+                    "trade_date": trade_date,
+                    "field": "close/preclose" if total_return else "close",
+                    "values": {
+                        name: round(value, 6) for name, value in values.items()
+                    },
+                }
+            )
+    return conflicts
+
+
+def _positive_number(value: object) -> float | None:
+    try:
+        number = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
 
 
 def _backends(

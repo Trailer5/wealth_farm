@@ -116,12 +116,60 @@ class TencentExchangeFundDataSource:
                     high=to_optional_float(row[3]),
                     low=to_optional_float(row[4]),
                     volume=_scale(to_optional_float(row[5]), 100.0),
-                    amount=to_optional_float(row[6]) if len(row) > 6 else None,
+                    # fqkline puts a dividend-event dict, not the amount, in column 7.
+                    amount=(
+                        to_optional_float(row[6])
+                        if len(row) > 6 and not isinstance(row[6], dict)
+                        else None
+                    ),
                     source=f"{self.source}:kline",
                     raw={"row": list(row)},
                 )
             )
         return bars
+
+    def get_stock_quote_valuations(
+        self,
+        exchange_symbols: list[str],
+        *,
+        batch_size: int = 60,
+    ) -> list[dict[str, Any]]:
+        """Latest price and valuation for many stocks, e.g. ``sh600519``."""
+
+        records = []
+        for start in range(0, len(exchange_symbols), batch_size):
+            batch = exchange_symbols[start : start + batch_size]
+            text = self.http.get_text(f"{self.QUOTE_URL}{','.join(batch)}")
+            for line in text.split(";"):
+                match = re.search(r'v_([a-z]{2})(\d{6})="(.*)"', line)
+                if not match or not match.group(3):
+                    continue
+                fields = match.group(3).split("~")
+                quote_time = _field(fields, 30) or ""
+                records.append(
+                    {
+                        "symbol": match.group(2),
+                        "exchange": match.group(1),
+                        "close": to_optional_float(_field(fields, 3)),
+                        "pre_close": to_optional_float(_field(fields, 4)),
+                        "pct_change": to_optional_float(_field(fields, 32)),
+                        "amount": _scale(to_optional_float(_field(fields, 37)), 10000.0),
+                        "turnover_rate_percent": to_optional_float(_field(fields, 38)),
+                        # Field 39 matches Eastmoney PE(TTM), 53 static PE, 46 PB (checked 2026-10-26).
+                        "pe_ttm": to_optional_float(_field(fields, 39)),
+                        "pe_static": to_optional_float(_field(fields, 53)),
+                        "pb": to_optional_float(_field(fields, 46)),
+                        "float_market_cap": _scale(to_optional_float(_field(fields, 44)), 1e8),
+                        "market_cap": _scale(to_optional_float(_field(fields, 45)), 1e8),
+                        "quote_date": (
+                            f"{quote_time[:4]}-{quote_time[4:6]}-{quote_time[6:8]}"
+                            if len(quote_time) >= 8
+                            else None
+                        ),
+                        "source": f"{self.source}:quote",
+                    }
+                )
+        return records
 
     def _spot_from_line(self, line: str) -> dict[str, Any]:
         match = re.search(r'v_([a-z]{2}\d{6})="(.*)"', line)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_ORDINARY_COMPANY,
     ResearchHorizon,
     ResearchQuestionType,

@@ -60,12 +60,14 @@ def main() -> int:
         ChartRenderer,
         ReportArtifactService,
     )
-    from src.research_workflow import (
+    from src.research_contracts import (
         PROFILE_CYCLICAL_RESOURCE,
-        CycleResearchExecutionOptions,
-        CyclicalResourceResearchExecutionService,
         ResearchHorizon,
         ResearchQuestionType,
+    )
+    from src.research_workflow import (
+        CycleResearchExecutionOptions,
+        CyclicalResourceResearchExecutionService,
         ResearchTaskFactory,
     )
     from src.strategy import (

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from hashlib import sha256
 from typing import Any, Protocol
 from urllib.parse import urlparse
@@ -20,7 +21,7 @@ from src.data_access import (
     DataAccessRequest,
 )
 from src.peer_analysis import PeerComparisonStatus
-from src.research_workflow import PROFILE_OPEN_FUND
+from src.research_contracts import PROFILE_OPEN_FUND
 from src.user_space import UserContext
 
 from .capabilities import ResearchCapabilityRegistry
@@ -211,6 +212,9 @@ class DataAccessQueryHandler:
             "dataset": response.dataset,
             "effective_end_date": effective_end,
             "record_count": len(response.records),
+            "coverage_start": response.coverage_start,
+            "coverage_end": response.coverage_end,
+            "latest_records": _record_preview(response.records),
             "sources": list(response.sources),
             "complete": response.complete,
             "stale": response.stale,
@@ -313,6 +317,24 @@ class ResearchEvidenceQueryHandler:
         metadata = {
             "evidence_count": len(bundle.evidence),
             "event_count": len(bundle.events),
+            "items": [
+                {
+                    "evidence_id": item.evidence_id,
+                    "evidence_type": item.evidence_type,
+                    "tier": item.tier.value,
+                    "title": item.title,
+                    "event_date": item.event_date,
+                    "source": item.source,
+                    "source_url": item.source_url,
+                }
+                for item in sorted(
+                    bundle.evidence,
+                    key=lambda value: value.event_date,
+                    reverse=True,
+                )[:_LIST_LIMIT]
+            ],
+            "events": _event_payloads(bundle.events),
+            "list_limit": _LIST_LIMIT,
             "document_states": [
                 {
                     "document_id": item.document_id,
@@ -365,8 +387,19 @@ class ResearchEvidenceQueryHandler:
             evidence_tier=evidence_tier,
             metadata=metadata,
             gap_kind=ExplorationGapKind.REMOTE_FAILURE,
-            gap_code="research_evidence_partial",
-            gap_message="Evidence bundle contains source errors.",
+            gap_code=(
+                "research_evidence_partial"
+                if bundle.errors
+                else "research_evidence_coverage_incomplete"
+            ),
+            gap_message=(
+                "Evidence bundle contains source errors."
+                if bundle.errors
+                else (
+                    "Evidence coverage is incomplete for the "
+                    "requested range; no source error was reported."
+                )
+            ),
         )
 
 
@@ -452,6 +485,7 @@ class BenchmarkQueryHandler:
                 "benchmark_kind": result.benchmark_kind.value,
                 "observation_count": len(result.aligned.dates),
                 "metric_count": len(result.metrics),
+                **_benchmark_values(result),
             },
         )
 
@@ -609,6 +643,7 @@ class BenchmarkQueryHandler:
                 "benchmark_kind": result.benchmark_kind.value,
                 "observation_count": len(result.aligned.dates),
                 "metric_count": len(result.metrics),
+                **_benchmark_values(result),
                 "effective_end_date": end_date,
                 "sources": list(nav_response.sources),
                 "nav_complete": nav_response.complete,
@@ -688,6 +723,8 @@ class EventKnowledgeQueryHandler:
                 "event_ids": [
                     item.event_id for item in events
                 ],
+                "events": _event_payloads(events),
+                "list_limit": _LIST_LIMIT,
                 "effective_end_date": effective_end,
             },
         )
@@ -725,6 +762,33 @@ class PeerAnalysisQueryHandler:
             ],
             "metric_names": [
                 item.metric_name
+                for item in bundle.comparisons
+            ],
+            "comparisons": [
+                {
+                    "metric_name": item.metric_name,
+                    "status": item.status.value,
+                    "target_value": (
+                        _scalar(item.target.value)
+                        if item.target is not None
+                        else None
+                    ),
+                    "unit": (
+                        item.target.unit
+                        if item.target is not None
+                        else None
+                    ),
+                    "sample_count": item.sample_count,
+                    "median": _scalar(item.median),
+                    "minimum": _scalar(item.minimum),
+                    "maximum": _scalar(item.maximum),
+                    "target_percentile": _scalar(
+                        item.target_percentile
+                    ),
+                    "target_vs_median": _scalar(
+                        item.target_vs_median
+                    ),
+                }
                 for item in bundle.comparisons
             ],
         }
@@ -770,8 +834,23 @@ class PeerAnalysisQueryHandler:
 
 
 class IndustryAnalysisQueryHandler:
-    def __init__(self, service: object) -> None:
+    def __init__(
+        self,
+        service: object,
+        *,
+        profile_assignment: object | None = None,
+    ) -> None:
         self.service = service
+        self.profile_assignment = profile_assignment
+
+    def _assign_from_shenwan(self, asset_id: str, as_of_date: str):
+        assign = getattr(self.service, "assign_from_shenwan", None)
+        if assign is None:
+            return None
+        try:
+            return assign(asset_id=asset_id, as_of_date=as_of_date)
+        except (KeyError, ValueError, RuntimeError, OSError):
+            return None
 
     def execute(
         self,
@@ -786,6 +865,65 @@ class IndustryAnalysisQueryHandler:
             as_of_date=plan.as_of_date,
         )
         if industry is None:
+            shenwan = self._assign_from_shenwan(session.task.asset_id, plan.as_of_date)
+            if shenwan is not None:
+                assignment, peer_set, peers = shenwan
+                return ResearchQueryHandlerOutput(
+                    outcome=ResearchQueryOutcome.SUCCESS,
+                    summary=(
+                        f"Resolved Shenwan industry {assignment.industry_name} "
+                        f"({assignment.industry_code}) with "
+                        f"{len(peers['peers'])} current peers."
+                    ),
+                    evidence_refs=(_query_evidence_ref(plan),),
+                    evidence_tier=EvidenceTier.DERIVED,
+                    metadata={
+                        "industry_code": assignment.industry_code,
+                        "industry_name": assignment.industry_name,
+                        "classification_source": assignment.classification_source,
+                        "path": peers["path"],
+                        "peer_industry": peers["peer_industry"],
+                        "peer_set_id": peer_set.peer_set_id if peer_set else None,
+                        "peers": peers["peers"][:_LIST_LIMIT],
+                        "peer_count": len(peers["peers"]),
+                        "note": peers["note"],
+                        "effective_date": assignment.effective_date,
+                    },
+                )
+            assignment = (
+                self.profile_assignment.get_assignment(
+                    session.task.asset_id,
+                    as_of_date=plan.as_of_date,
+                )
+                if self.profile_assignment is not None
+                else None
+            )
+            if assignment is not None and assignment.industry_name:
+                return ResearchQueryHandlerOutput(
+                    outcome=ResearchQueryOutcome.PARTIAL,
+                    summary=(
+                        "Resolved industry name "
+                        f"{assignment.industry_name} from the research "
+                        "profile assignment; no peer industry code."
+                    ),
+                    evidence_refs=(_query_evidence_ref(plan),),
+                    evidence_tier=EvidenceTier.DERIVED,
+                    metadata={
+                        "industry_code": None,
+                        "industry_name": assignment.industry_name,
+                        "classification_source": assignment.source,
+                        "classification_basis": "profile_assignment",
+                        "profile_id": assignment.profile_id,
+                        "effective_date": assignment.effective_date,
+                    },
+                    gap_kind=ExplorationGapKind.BUSINESS_EMPTY,
+                    gap_code="peer_industry_assignment_missing",
+                    gap_message=(
+                        "Only the profile classification industry name "
+                        "is available; peer comparison needs a peer "
+                        "industry assignment first."
+                    ),
+                )
             return _business_empty_output(
                 plan,
                 "No effective industry assignment is available.",
@@ -1198,6 +1336,7 @@ def default_query_router(
     peer_analysis: object,
     research_state: object,
     portfolio_risk: object,
+    profile_assignment: object | None = None,
 ) -> ResearchQueryRouter:
     return ResearchQueryRouter(
         {
@@ -1223,7 +1362,10 @@ def default_query_router(
                 EventKnowledgeQueryHandler(event_knowledge)
             ),
             ResearchQueryRoute.INDUSTRY_ANALYSIS: (
-                IndustryAnalysisQueryHandler(peer_analysis)
+                IndustryAnalysisQueryHandler(
+                    peer_analysis,
+                    profile_assignment=profile_assignment,
+                )
             ),
             ResearchQueryRoute.PEER_ANALYSIS: (
                 PeerAnalysisQueryHandler(peer_analysis)
@@ -1323,7 +1465,7 @@ def _question_lanes(
     session: ResearchExplorationSession,
     question: ExplorationQuestion,
 ) -> tuple[Any, ...]:
-    from src.research_workflow import DecisionLane
+    from src.research_contracts import DecisionLane
 
     mapping = {
         ExplorationTrack.SUITABILITY: DecisionLane.SUITABILITY,
@@ -1505,3 +1647,58 @@ def _string_tuple(value: object) -> tuple[str, ...]:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+_LIST_LIMIT = 20
+_PREVIEW_LIMIT = 5
+
+
+def _scalar(value: object) -> object:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, Decimal):
+        return float(value)
+    return str(value)
+
+
+def _record_preview(records) -> list[dict[str, object]]:
+    return [
+        {
+            str(key): _scalar(value)
+            for key, value in dict(record).items()
+            if not isinstance(value, (dict, list, tuple))
+        }
+        for record in tuple(records)[-_PREVIEW_LIMIT:]
+    ]
+
+
+def _event_payloads(events) -> list[dict[str, object]]:
+    return [
+        {
+            "event_id": item.event_id,
+            "event_type": item.event_type,
+            "event_date": item.event_date,
+            "title": item.title,
+            "summary": item.summary[:200],
+            "source": item.source,
+            "source_url": item.source_url,
+            "confidence": item.confidence,
+        }
+        for item in sorted(
+            events,
+            key=lambda value: value.event_date,
+            reverse=True,
+        )[:_LIST_LIMIT]
+    ]
+
+
+def _benchmark_values(result) -> dict[str, object]:
+    dates = tuple(result.aligned.dates)
+    return {
+        "start_date": dates[0] if dates else None,
+        "end_date": dates[-1] if dates else None,
+        "metrics": {
+            item.factor_name: _scalar(item.value)
+            for item in result.metrics
+        },
+    }

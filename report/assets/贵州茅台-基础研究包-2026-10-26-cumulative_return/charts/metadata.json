@@ -1,0 +1,32 @@
+{
+  "as_of_date": "2026-10-26",
+  "asset_id": "asset:c38734ee-ecc4-40c7-baf3-a548e091f55f",
+  "asset_name": "贵州茅台",
+  "benchmark_asset_id": null,
+  "chart_type": "cumulative_return",
+  "currency": null,
+  "files": {
+    "data": "cumulative_return-617364407fca.data.json",
+    "png": "cumulative_return-617364407fca.png",
+    "svg": "cumulative_return-617364407fca.svg"
+  },
+  "input_digest": "617364407fca618f2b6c1995a9578be76fa07588a53d1d3d92603e2c26b24fb9",
+  "parameters": {
+    "factor_names": [
+      "cumulative_return"
+    ],
+    "input_end_date": "2026-10-23",
+    "input_start_date": "2024-10-28"
+  },
+  "point_count": 483,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:258f5d2e-5c01-4496-8e52-d4aa4821f930",
+  "title": "Cumulative Return (2024-10-28 to 2026-10-23)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Cumulative Return"
+}

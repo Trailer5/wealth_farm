@@ -6,7 +6,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from src.research_workflow import ResearchDecisionBrief
+from src.research_contracts import ResearchDecisionBrief
 
 from .models import (
     AnalysisReport,

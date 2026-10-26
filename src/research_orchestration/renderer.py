@@ -84,8 +84,30 @@ class ResearchReportRenderer:
             self._claim_lines(getattr(report, "conclusions", ()), report)
         )
         for section in getattr(report, "fact_sections", ()):
-            lines.extend(("", f"## {self._sanitize(section.title, report)}"))
-            for fact in section.facts:
+            lines.extend(
+                ("", f"## {self._sanitize(section.title, report)}")
+            )
+            facts = tuple(section.facts)
+            limited = [fact for fact in facts if fact.limitations]
+            shared = (
+                limited[0].limitations
+                if len(limited) > 1
+                and all(
+                    fact.limitations == limited[0].limitations
+                    for fact in limited
+                )
+                and all(
+                    fact.kind is ResearchFactKind.REPORTED
+                    for fact in facts
+                    if not fact.limitations
+                )
+                else ()
+            )
+            lines.extend(
+                f"- 本节口径：{self._sanitize(item, report)}"
+                for item in shared
+            )
+            for fact in facts:
                 value = self._sanitize(fact.value, report)
                 unit = (
                     self._sanitize(fact.unit, report)
@@ -104,6 +126,7 @@ class ResearchReportRenderer:
                 lines.extend(
                     f"  - 限制：{self._sanitize(item, report)}"
                     for item in fact.limitations
+                    if not shared
                 )
         chart_values = tuple(charts)
         if chart_values:
@@ -178,7 +201,7 @@ class ResearchReportRenderer:
                 for gap in gaps
             )
         else:
-            lines.append("- 暂无已识别缺口。")
+            lines.append("- 暂无执行缺口；能力边界见各节口径与限制。")
         return "\n".join(lines).strip() + "\n"
 
     def render_blocked(

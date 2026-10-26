@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from src.data_access import (
     DATASET_EXCHANGE_FUND_DAILY_BARS,
     DATASET_FUND_ALLOCATION,
@@ -16,16 +18,54 @@ from src.master_data import (
     ASSET_TYPE_STOCK,
     Asset,
 )
+from src.research_contracts import (
+    PROFILE_CYCLICAL_RESOURCE,
+    PROFILE_EXCHANGE_FUND,
+    PROFILE_FINANCIAL_INSTITUTION,
+    PROFILE_HIGH_GROWTH_UNPROFITABLE,
+    PROFILE_OPEN_FUND,
+    PROFILE_ORDINARY_COMPANY,
+)
 
-from .models import AssetResearchProfile
 
+@dataclass(frozen=True)
+class AssetResearchProfile:
+    """Data and metric contract for one class of research assets."""
 
-PROFILE_ORDINARY_COMPANY = "ordinary_company"
-PROFILE_FINANCIAL_INSTITUTION = "financial_institution"
-PROFILE_CYCLICAL_RESOURCE = "cyclical_resource"
-PROFILE_HIGH_GROWTH_UNPROFITABLE = "high_growth_unprofitable"
-PROFILE_EXCHANGE_FUND = "exchange_fund"
-PROFILE_OPEN_FUND = "open_fund"
+    profile_id: str
+    display_name: str
+    supported_asset_types: tuple[str, ...]
+    required_datasets: tuple[str, ...]
+    required_metrics: tuple[str, ...]
+    forbidden_metrics: tuple[str, ...] = ()
+    default_benchmark_role: str | None = None
+    benchmark_required: bool = False
+    major_risks: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _require_text(self.profile_id, "profile_id")
+        _require_text(self.display_name, "display_name")
+        _require_nonempty_unique(
+            self.supported_asset_types,
+            "supported_asset_types",
+        )
+        _require_nonempty_unique(
+            self.required_datasets,
+            "required_datasets",
+        )
+        _require_unique(self.required_metrics, "required_metrics")
+        _require_unique(self.forbidden_metrics, "forbidden_metrics")
+        overlap = set(self.required_metrics) & set(
+            self.forbidden_metrics
+        )
+        if overlap:
+            raise ValueError(
+                "Metrics cannot be both required and forbidden: "
+                f"{sorted(overlap)}"
+            )
+
+    def supports_asset_type(self, asset_type: str) -> bool:
+        return asset_type in self.supported_asset_types
 
 
 class ResearchProfileRegistry:
@@ -117,6 +157,7 @@ def default_research_profiles() -> tuple[
                 "fcf_yield",
             ),
             default_benchmark_role="broad_market",
+            benchmark_required=True,
             major_risks=company_risks,
         ),
         AssetResearchProfile(
@@ -135,6 +176,7 @@ def default_research_profiles() -> tuple[
             ),
             forbidden_metrics=("ev_ebitda", "fcf_yield"),
             default_benchmark_role="financial_sector",
+            benchmark_required=True,
             major_risks=(
                 "credit_quality",
                 "liquidity",
@@ -158,6 +200,7 @@ def default_research_profiles() -> tuple[
                 "commodity_sensitivity",
             ),
             default_benchmark_role="industry_cycle",
+            benchmark_required=True,
             major_risks=(
                 "commodity_cycle",
                 "capacity_expansion",
@@ -180,6 +223,7 @@ def default_research_profiles() -> tuple[
             ),
             forbidden_metrics=("pe_ttm", "dividend_yield"),
             default_benchmark_role="growth_style",
+            benchmark_required=True,
             major_risks=(
                 "cash_runway",
                 "dilution",
@@ -210,6 +254,7 @@ def default_research_profiles() -> tuple[
                 "fcf_yield",
             ),
             default_benchmark_role="underlying_index",
+            benchmark_required=True,
             major_risks=(
                 "tracking_error",
                 "liquidity",
@@ -255,3 +300,27 @@ def default_research_profiles() -> tuple[
 
 def default_profile_registry() -> ResearchProfileRegistry:
     return ResearchProfileRegistry(default_research_profiles())
+
+
+def _require_text(value: str, field_name: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must not be blank")
+
+
+def _require_unique(
+    values: tuple[str, ...],
+    field_name: str,
+) -> None:
+    for value in values:
+        _require_text(value, field_name)
+    if len(set(values)) != len(values):
+        raise ValueError(f"{field_name} must not contain duplicates")
+
+
+def _require_nonempty_unique(
+    values: tuple[str, ...],
+    field_name: str,
+) -> None:
+    if not values:
+        raise ValueError(f"{field_name} must not be empty")
+    _require_unique(values, field_name)

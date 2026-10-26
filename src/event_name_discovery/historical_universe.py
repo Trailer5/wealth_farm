@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date, timedelta
 
-from src.research_workflow import PROFILE_ORDINARY_COMPANY
+from src.research_contracts import PROFILE_ORDINARY_COMPANY
 
 from .models import AssetNameSnapshot
 

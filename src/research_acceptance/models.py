@@ -7,7 +7,7 @@ from datetime import date
 from enum import Enum
 from typing import Any
 
-from src.research_workflow import ResearchTaskSpec
+from src.research_contracts import ResearchTaskSpec
 
 
 class AcceptanceStatus(str, Enum):

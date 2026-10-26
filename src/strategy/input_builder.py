@@ -11,7 +11,7 @@ from src.fundamental_analysis import (
     MetricStatus,
 )
 from src.research_evidence import ResearchEvidenceBundle
-from src.research_workflow import ResearchHorizon
+from src.research_contracts import ResearchHorizon
 
 from .models import (
     StrategyInput,

@@ -1,0 +1,33 @@
+{
+  "as_of_date": "2026-10-26",
+  "asset_id": "asset:ef50058c-db3b-4d70-bee9-44386959b1e7",
+  "asset_name": "平安银行",
+  "benchmark_asset_id": null,
+  "chart_type": "rolling_risk",
+  "currency": null,
+  "files": {
+    "data": "rolling_risk-2a1ebb123431.data.json",
+    "png": "rolling_risk-2a1ebb123431.png",
+    "svg": "rolling_risk-2a1ebb123431.svg"
+  },
+  "input_digest": "2a1ebb12343171b28bcd27933d7253d9f95bebdc894d7054fd03ecdc1a2fa556",
+  "parameters": {
+    "factor_names": [
+      "rolling_annualized_volatility_60d",
+      "rolling_sharpe_60d"
+    ],
+    "input_end_date": "2026-10-23",
+    "input_start_date": "2025-01-21"
+  },
+  "point_count": 423,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:30b91e34-4cc8-4480-8a5d-eb5e84831bd0",
+  "title": "Rolling Risk Metrics (2025-01-21 to 2026-10-23)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Rolling Risk Metrics"
+}

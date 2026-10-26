@@ -6,9 +6,14 @@ import re
 from datetime import date
 from pathlib import PurePosixPath
 
-from src.research_workflow import DecisionLane, ResearchDecisionBrief
+from src.research_contracts import (
+    DecisionIntent,
+    DecisionLane,
+    ResearchDecisionBrief,
+)
 
 from .final_decision import final_report_gap_message
+from .gap_messages import AGENT_ONLY_GAP_CODES
 from .entry_models import EntryPlan
 from .exploration_models import (
     ExplorationStatus,
@@ -21,7 +26,11 @@ from .final_decision_models import (
     FinalStatementKind,
     MonitoringPlanStatus,
 )
-from .final_decision_renderer import FinalDecisionReportRenderer
+from .final_decision_renderer import (
+    DECISION_HEADINGS,
+    HOLDING_DECISION_HEADINGS,
+    FinalDecisionReportRenderer,
+)
 from .position_models import PositionPlan, PositionPlanStatus
 from .review import ReviewFinding, ReviewResult
 from .suitability_models import SuitabilityAction, SuitabilityAssessment
@@ -32,9 +41,6 @@ _REQUIRED_HEADINGS = (
     "## 决策摘要",
     "## 用户目标与适用边界",
     "## 标的与核心论文",
-    "## 是否值得买",
-    "## 何时行动",
-    "## 购买多少",
     "## 三情景",
     "## 最强反方",
     "## 失效、退出与复查",
@@ -266,6 +272,7 @@ class FinalDecisionReportReviewer:
                 *handoff.partial_gaps,
                 *handoff.capability_gaps,
             )
+            if item.code not in AGENT_ONLY_GAP_CODES
         }
         if not gap_messages.issubset(set(report.key_unknowns)):
             findings.append(
@@ -284,14 +291,27 @@ class FinalDecisionReportReviewer:
         prior: ReviewResult | None = None,
     ) -> ReviewResult:
         findings = list(prior.findings if prior else ())
-        if any(heading not in markdown for heading in _REQUIRED_HEADINGS):
+        holding = (
+            report.user_boundary.decision_intent
+            is DecisionIntent.REVIEW_HOLDING
+        )
+        headings = (
+            *_REQUIRED_HEADINGS,
+            *(HOLDING_DECISION_HEADINGS if holding else DECISION_HEADINGS),
+        )
+        if any(heading not in markdown for heading in headings):
             findings.append(
                 ReviewFinding(
                     "final_report_section_missing",
                     "Final Markdown must contain all ten sections.",
                 )
             )
-        for label in ("是否购买", "何时购买", "购买多少"):
+        summary_labels = (
+            ("是否继续持有", "何时调整", "持有多少")
+            if holding
+            else ("是否购买", "何时购买", "购买多少")
+        )
+        for label in summary_labels:
             if f"**{label}：" not in markdown:
                 findings.append(
                     ReviewFinding(

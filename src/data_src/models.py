@@ -20,6 +20,24 @@ class DailyBar:
     amount: float | None
     source: str
     raw: dict[str, Any] = field(default_factory=dict)
+    # Exchange reference close of the previous day, after any ex-rights adjustment.
+    preclose: float | None = None
+
+
+@dataclass(frozen=True)
+class MacroObservation:
+    """One value of a macro or rate series as reported by one source."""
+
+    series_id: str
+    # "YYYY-MM" monthly, "YYYY-Qn" quarterly, "YYYY-MM-DD" daily or event dates.
+    period: str
+    period_end: str
+    value: float
+    unit: str
+    source: str
+    # Only when the source states when the value became public.
+    published_at: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

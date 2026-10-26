@@ -13,7 +13,7 @@ from src.research_visualization import (
     PublishedReport,
     ReportArtifactService,
 )
-from src.research_workflow import ResearchDecisionBrief
+from src.research_contracts import ResearchDecisionBrief
 
 from .entry_models import EntryPlan
 from .exploration_models import ResearchExplorationSession
@@ -25,6 +25,10 @@ from .final_decision import (
 from .final_decision_models import FinalDecisionResearchReport
 from .final_decision_renderer import FinalDecisionReportRenderer
 from .final_decision_review import FinalDecisionReportReviewer
+from .ledger_projection import (
+    LedgerRecordingOutcome,
+    project_final_decision,
+)
 from .monitoring_models import FinalDecisionPublicationAttestation
 from .position_models import PositionPlan
 from .review import ReviewFinding, ReviewResult
@@ -39,6 +43,7 @@ class FinalDecisionPublishResult:
     markdown: str
     filename: str
     published: PublishedReport | None
+    ledger: LedgerRecordingOutcome | None = None
 
     @property
     def report_path(self) -> Path | None:
@@ -56,6 +61,13 @@ class FinalPublicationRecorderProtocol(Protocol):
     ) -> object: ...
 
 
+class FinalDecisionLedgerRecorderProtocol(Protocol):
+    def record(
+        self,
+        attestation: FinalDecisionPublicationAttestation,
+    ) -> LedgerRecordingOutcome: ...
+
+
 class FinalDecisionReportService:
     """Assemble, review, render, re-review, then publish."""
 
@@ -69,6 +81,9 @@ class FinalDecisionReportService:
         publication_recorder: (
             FinalPublicationRecorderProtocol | None
         ) = None,
+        ledger_recorder: (
+            FinalDecisionLedgerRecorderProtocol | None
+        ) = None,
     ) -> None:
         self.publisher = publisher
         self.assembly = (
@@ -77,6 +92,7 @@ class FinalDecisionReportService:
         self.renderer = renderer or FinalDecisionReportRenderer()
         self.reviewer = reviewer or FinalDecisionReportReviewer()
         self.publication_recorder = publication_recorder
+        self.ledger_recorder = ledger_recorder
 
     def assemble_and_publish(
         self,
@@ -142,48 +158,54 @@ class FinalDecisionReportService:
                 filename=filename,
                 published=None,
             )
+        judgements = project_final_decision(
+            report=report,
+            suitability=suitability,
+            entry_plan=entry_plan,
+            position_plan=position_plan,
+            benchmark_asset_id=handoff.task.benchmark_asset_id,
+        )
         published = self.publisher._publish_reviewed_final_markdown(
             filename=filename,
             content=markdown,
         )
+        attestation = FinalDecisionPublicationAttestation(
+            report_id=report.report_id,
+            user_id=report.user_id,
+            workflow_run_id=report.workflow_run_id,
+            session_id=report.session_id,
+            decision_brief_id=report.decision_brief_id,
+            baseline_handoff_id=report.handoff_id,
+            monitoring_plan_id=report.monitoring_plan.plan_id,
+            asset_id=report.asset_id,
+            profile_id=report.profile_id,
+            as_of_date=report.as_of_date,
+            report_path=str(published.report_path.resolve()),
+            markdown_digest=_file_digest(published.report_path),
+            monitoring_plan_payload_json=_canonical_json(
+                report.monitoring_plan.to_dict()
+            ),
+            judgements_payload_json=_canonical_json(
+                judgements.to_dict()
+            ),
+            published_at=datetime.now(timezone.utc).isoformat(),
+        )
         if self.publication_recorder is not None:
             self.publication_recorder.record_final_publication(
-                FinalDecisionPublicationAttestation(
-                    report_id=report.report_id,
-                    user_id=report.user_id,
-                    workflow_run_id=report.workflow_run_id,
-                    session_id=report.session_id,
-                    decision_brief_id=report.decision_brief_id,
-                    baseline_handoff_id=report.handoff_id,
-                    monitoring_plan_id=(
-                        report.monitoring_plan.plan_id
-                    ),
-                    asset_id=report.asset_id,
-                    profile_id=report.profile_id,
-                    as_of_date=report.as_of_date,
-                    report_path=str(
-                        published.report_path.resolve()
-                    ),
-                    markdown_digest=_file_digest(
-                        published.report_path
-                    ),
-                    monitoring_plan_payload_json=json.dumps(
-                        report.monitoring_plan.to_dict(),
-                        ensure_ascii=False,
-                        sort_keys=True,
-                        separators=(",", ":"),
-                    ),
-                    published_at=datetime.now(
-                        timezone.utc
-                    ).isoformat(),
-                )
+                attestation
             )
+        ledger = (
+            self.ledger_recorder.record(attestation)
+            if self.ledger_recorder is not None
+            else None
+        )
         return FinalDecisionPublishResult(
             report=report,
             review=review,
             markdown=markdown,
             filename=filename,
             published=published,
+            ledger=ledger,
         )
 
 
@@ -303,3 +325,12 @@ def _chart_metadata_matches(
 
 def _file_digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _canonical_json(payload: dict) -> str:
+    return json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )

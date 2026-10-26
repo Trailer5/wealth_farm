@@ -78,11 +78,12 @@ class OpenFundStandardMetricCalculator:
         if not normalized:
             raise ValueError("No positive official NAV observations")
         nav_basis = _nav_basis(normalized)
-        return_semantics = (
-            "accumulated_nav_change_not_reinvested_total_return"
-            if nav_basis == "accumulated_nav"
-            else "unit_nav_change_excludes_cash_distributions"
-        )
+        return_semantics = {
+            "adjusted_nav": "adjusted_nav_change_reinvested_total_return",
+            "accumulated_nav": (
+                "accumulated_nav_change_not_reinvested_total_return"
+            ),
+        }.get(nav_basis, "unit_nav_change_excludes_cash_distributions")
         observations = [
             (value_date, values[nav_basis])
             for value_date, values in normalized
@@ -213,6 +214,7 @@ def _normalized_navs(
             "accumulated_nav": _positive_float(
                 record.get("accumulated_nav")
             ),
+            "adjusted_nav": _positive_float(record.get("adjusted_nav")),
         }
     return sorted(by_date.items())
 
@@ -220,11 +222,9 @@ def _normalized_navs(
 def _nav_basis(
     observations: list[tuple[date, dict[str, float | None]]],
 ) -> str:
-    if all(
-        values["accumulated_nav"] is not None
-        for _, values in observations
-    ):
-        return "accumulated_nav"
+    for basis in ("adjusted_nav", "accumulated_nav"):
+        if all(values[basis] is not None for _, values in observations):
+            return basis
     return "unit_nav"
 
 

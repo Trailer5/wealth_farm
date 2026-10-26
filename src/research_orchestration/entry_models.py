@@ -9,7 +9,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,

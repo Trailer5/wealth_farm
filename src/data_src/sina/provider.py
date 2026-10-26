@@ -78,7 +78,9 @@ class SinaExchangeFundDataSource:
         end = _parse_date(end_date)
         if start > end:
             raise ValueError("start_date must not be after end_date")
-        count = max(20, int((end - start).days * 5 / 7) + 15)
+        # datalen counts back from the latest bar, so it must reach the start.
+        days_back = max((date.today() - start).days, (end - start).days)
+        count = max(20, int(days_back * 5 / 7) + 15)
         if count > 1023:
             raise ValueError(
                 "Sina baseline provider supports up to 1023 daily bars"

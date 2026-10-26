@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -22,13 +23,15 @@ from src.master_data import (
     SQLiteMasterDataRepository,
 )
 from src.research_visualization import ChartArtifact
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
+    ResearchHorizon,
+    ResearchQuestionType,
+)
+from src.research_workflow import (
     CycleResearchExecutionOptions,
     CyclicalResourceResearchExecutionService,
     ResearchExecutionStatus,
-    ResearchHorizon,
-    ResearchQuestionType,
     ResearchTaskFactory,
 )
 from src.strategy import (
@@ -107,7 +110,10 @@ class CycleResearchExecutionTest(unittest.TestCase):
     def _service(self):
         bars = _bars(self.asset)
         data_access = Mock()
-        data_access.get.return_value = bars
+        data_access.get.side_effect = lambda request: replace(
+            bars,
+            dataset=request.dataset,
+        )
         data_access.get_financial_bundle.return_value = (
             SimpleNamespace(sources=("akshare",))
         )

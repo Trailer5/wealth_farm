@@ -10,10 +10,12 @@ from src.master_data import (
     MasterDataService,
     SQLiteMasterDataRepository,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_FINANCIAL_INSTITUTION,
     PROFILE_ORDINARY_COMPANY,
+)
+from src.research_workflow import (
     ResearchProfileAssignmentService,
     SQLiteResearchProfileAssignmentRepository,
 )
@@ -153,6 +155,39 @@ class ProfileAssignmentTest(unittest.TestCase):
         self.assertEqual(
             profile_map[self.assets["601899"].asset_id],
             PROFILE_ORDINARY_COMPANY,
+        )
+
+    def test_csrc_industry_names_use_the_same_rules(self):
+        records = [
+            StockIndustryInfo(
+                symbol,
+                name,
+                industry,
+                "baostock:query_stock_industry",
+            )
+            for symbol, name, industry in (
+                ("000001", "平安银行", "J66货币金融服务"),
+                ("600519", "贵州茅台", "C15酒、饮料和精制茶制造业"),
+                ("601899", "紫金矿业", "B09有色金属矿采选业"),
+            )
+        ]
+
+        assignments = self.service.classify_industries(
+            records,
+            asset_by_symbol={
+                symbol: asset.asset_id
+                for symbol, asset in self.assets.items()
+            },
+            effective_date="2026-08-03",
+        )
+
+        self.assertEqual(
+            [item.profile_id for item in assignments],
+            [
+                PROFILE_FINANCIAL_INSTITUTION,
+                PROFILE_ORDINARY_COMPANY,
+                PROFILE_CYCLICAL_RESOURCE,
+            ],
         )
 
 

@@ -18,11 +18,17 @@ from .service import (
     BenchmarkCoverageError,
     BenchmarkDefinitionIncompleteError,
 )
-from .resolver import DefaultBenchmarkResolver
+from .resolver import (
+    BROAD_MARKET_FALLBACK_ROLES,
+    BROAD_MARKET_SYMBOL,
+    DefaultBenchmarkResolver,
+)
 from .sqlite_repository import SQLiteBenchmarkRepository
 
 __all__ = [
     "BENCHMARK_CALCULATION_VERSION",
+    "BROAD_MARKET_FALLBACK_ROLES",
+    "BROAD_MARKET_SYMBOL",
     "AlignedReturnSeries",
     "BenchmarkAnalysisService",
     "BenchmarkCalculationResult",

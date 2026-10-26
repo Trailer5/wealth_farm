@@ -10,11 +10,11 @@ from decimal import Decimal
 from typing import Mapping, Protocol
 from zoneinfo import ZoneInfo
 
-from src.research_workflow import (
+from src.research_contracts import (
     ResearchHorizon,
     ResearchQuestionType,
-    ResearchTaskFactory,
 )
+from src.research_workflow import ResearchTaskFactory
 
 from .evidence import assess_evidence
 from .matcher import MATCHER_VERSION, EventNameMatcher

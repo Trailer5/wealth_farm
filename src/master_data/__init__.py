@@ -12,6 +12,7 @@ from .models import (
     RESOLUTION_DISMISSED,
     RESOLUTION_MATCHED,
     RESOLUTION_UNRESOLVED,
+    SW_INDEX_EXCHANGE,
     Asset,
     AssetIdentifier,
     AssetIdentifierRebinding,
@@ -21,7 +22,7 @@ from .models import (
     AssetSourceObservation,
     StoredAssetObservation,
 )
-from .resolver import MasterDataResolver
+from .resolver import MasterDataResolver, normalize_asset_type
 from .service import MasterDataService
 from .sqlite_repository import IdentityMappingConflictError, SQLiteMasterDataRepository
 
@@ -37,6 +38,7 @@ __all__ = [
     "RESOLUTION_DISMISSED",
     "RESOLUTION_MATCHED",
     "RESOLUTION_UNRESOLVED",
+    "SW_INDEX_EXCHANGE",
     "Asset",
     "AssetIdentifier",
     "AssetIdentifierRebinding",
@@ -49,4 +51,5 @@ __all__ = [
     "MasterDataService",
     "IdentityMappingConflictError",
     "SQLiteMasterDataRepository",
+    "normalize_asset_type",
 ]

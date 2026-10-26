@@ -4,7 +4,7 @@ from pathlib import Path
 
 from src.master_data import MasterDataService, SQLiteMasterDataRepository
 from src.research_state import ResearchStateService, SQLiteResearchStateRepository
-from src.research_workflow import (
+from src.research_contracts import (
     DecisionContextRequirement,
     DecisionContextStatus,
     DecisionIntent,

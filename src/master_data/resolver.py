@@ -356,15 +356,16 @@ def normalize_asset_type(asset_type_hint: str | None) -> str:
     if asset_type_hint is None:
         return ASSET_TYPE_UNKNOWN
     value = str(asset_type_hint).strip().lower()
+    # BaoStock security type codes: 1 stock, 2 index, 5 ETF.
     if value in {"stock", "a_share", "a-share", "1", "股票"}:
         return ASSET_TYPE_STOCK
-    if value == ASSET_TYPE_EXCHANGE_FUND:
+    if value in {ASSET_TYPE_EXCHANGE_FUND, "5"}:
         return ASSET_TYPE_EXCHANGE_FUND
     if value == ASSET_TYPE_OPEN_FUND:
         return ASSET_TYPE_OPEN_FUND
     if "etf" in value or "lof" in value or "封闭" in value or "封基" in value:
         return ASSET_TYPE_EXCHANGE_FUND
-    if value in {"index", "指数"}:
+    if value in {"index", "指数", "2"}:
         return ASSET_TYPE_INDEX
     if any(
         token in value

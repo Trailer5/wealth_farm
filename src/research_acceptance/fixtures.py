@@ -15,16 +15,16 @@ from src.master_data import (
     Asset,
     MasterDataService,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
     PROFILE_ORDINARY_COMPANY,
     ResearchHorizon,
     ResearchQuestionType,
-    ResearchTaskFactory,
     ResearchTaskSpec,
 )
+from src.research_workflow import ResearchTaskFactory
 
 
 PLAN15_ACCEPTANCE_VERSION = "plan15_v1"

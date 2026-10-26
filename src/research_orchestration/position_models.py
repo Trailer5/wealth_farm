@@ -11,7 +11,7 @@ from enum import Enum
 from typing import Any
 
 from src.portfolio_risk import PositionBudgetInput
-from src.research_workflow import PositionState, ResearchHorizon
+from src.research_contracts import PositionState, ResearchHorizon
 
 
 ZERO = Decimal("0")

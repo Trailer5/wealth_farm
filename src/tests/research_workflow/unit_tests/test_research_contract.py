@@ -11,16 +11,18 @@ from src.master_data import (
     MasterDataService,
     SQLiteMasterDataRepository,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
     PROFILE_ORDINARY_COMPANY,
-    AssetResearchProfile,
     ResearchHorizon,
     ResearchOutputDepth,
     ResearchQuestionType,
-    ResearchTaskFactory,
     ResearchTaskSpec,
+)
+from src.research_workflow import (
+    AssetResearchProfile,
+    ResearchTaskFactory,
     default_profile_registry,
 )
 

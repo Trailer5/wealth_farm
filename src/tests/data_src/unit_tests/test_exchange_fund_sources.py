@@ -1,5 +1,6 @@
 import unittest
 import tempfile
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -77,6 +78,11 @@ class FakeCsIndexHttp:
             "msg": "Success",
             "data": [
                 {
+                    "tradeDate": "20260725",
+                    "indexCode": "930734",
+                    "close": 101,
+                },
+                {
                     "tradeDate": "20260724",
                     "indexCode": "930734",
                     "indexNameCnAll": (
@@ -130,6 +136,7 @@ class FakeSinaHttp:
         return 'var hq_str_sh510300="沪深300ETF,4.0,3.96,4.05,4.1,3.9,4.0,4.0,100,400,0,0";'
 
     def get_json(self, url, params=None):
+        self.params = params
         return [
             {
                 "day": "2026-07-24",
@@ -173,6 +180,7 @@ class ExchangeFundProviderTest(unittest.TestCase):
 
         self.assertEqual(http.params["startDate"], "20260701")
         self.assertEqual(http.params["endDate"], "20260724")
+        self.assertEqual(len(bars), 1)
         self.assertEqual(bars[0].trade_date, "2026-07-24")
         self.assertEqual(bars[0].close, 101.0)
         self.assertEqual(bars[0].source, "csindex:index_perf")
@@ -255,7 +263,8 @@ class ExchangeFundProviderTest(unittest.TestCase):
         self.assertEqual(rows[0]["latest"], 4.05)
 
     def test_sina_provider_daily_bars(self):
-        source = SinaExchangeFundDataSource(FakeSinaHttp())
+        http = FakeSinaHttp()
+        source = SinaExchangeFundDataSource(http)
 
         bars = source.get_etf_daily_bars(
             "510300",
@@ -267,6 +276,11 @@ class ExchangeFundProviderTest(unittest.TestCase):
         self.assertEqual(bars[0].close, 4.701)
         self.assertEqual(bars[0].volume, 10000)
         self.assertEqual(bars[0].source, "sina:kline")
+        # datalen counts back from the latest bar; a past window must still reach its start.
+        self.assertGreaterEqual(
+            http.params["datalen"],
+            int((date.today() - date(2026, 7, 1)).days * 5 / 7),
+        )
 
     def test_service_routes_exchange_fund_spot_sources(self):
         service = DataFetchService(

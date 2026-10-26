@@ -12,6 +12,7 @@ from src.data_src.baostock import BaoStockDataSource
 from src.data_src.bse import BseDisclosureDataSource
 from src.data_src.cninfo import CninfoDataSource
 from src.data_src.common import (
+    DataSourceError,
     normalize_a_share_code,
     to_akshare_symbol,
 )
@@ -46,6 +47,11 @@ from src.data_src.sina import SinaExchangeFundDataSource
 from src.data_src.sse import SseDisclosureDataSource
 from src.data_src.szse import SzseDisclosureDataSource
 from src.data_src.tencent import TencentExchangeFundDataSource
+from src.data_src.ths import ThsDataSource
+from src.data_src.total_return_bars import (
+    sina_stock_total_return_bars,
+    ths_tdx_total_return_bars,
+)
 from src.data_src.process_executor import run_provider_task
 from src.document_processing import (
     FinancialFieldExtractor,
@@ -54,7 +60,15 @@ from src.document_processing import (
     PDFTextExtractor,
     TesseractOCRTextExtractor,
 )
-from src.master_data import MasterDataService, SQLiteMasterDataRepository
+from src.master_data import (
+    ASSET_TYPE_EXCHANGE_FUND,
+    ASSET_TYPE_INDEX,
+    ASSET_TYPE_OPEN_FUND,
+    ASSET_TYPE_STOCK,
+    MasterDataService,
+    SQLiteMasterDataRepository,
+    normalize_asset_type,
+)
 
 
 DEFAULT_EXCHANGE_FUND_SPOT_SOURCES = ["eastmoney", "tencent", "sina", "akshare"]
@@ -169,6 +183,8 @@ class DataFetchService:
                 start_date,
                 end_date,
             )
+        if source == "ths":
+            return ThsDataSource().get_a_share_daily_bars(symbol, start_date, end_date)
         raise ValueError(f"Unsupported A-share daily bar source: {source}")
 
     def fetch_trade_calendar(
@@ -288,6 +304,8 @@ class DataFetchService:
                 start_date,
                 end_date,
             )
+        if source == "ths":
+            return ThsDataSource().get_etf_daily_bars(symbol, start_date, end_date)
         raise ValueError(f"Unsupported ETF daily bar source: {source}")
 
     def fetch_exchange_fund_spot(
@@ -463,6 +481,93 @@ class DataFetchService:
             stored_count=stored_count,
         )
 
+    def fetch_total_return_bars(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+        *,
+        fund: bool,
+        source: str = "baostock",
+    ) -> list[DailyBar]:
+        """Fetch unadjusted bars that carry the exchange reference close."""
+
+        if source == "baostock":
+            return self.baostock.get_a_share_daily_bars(symbol, start_date, end_date)
+        if source == "sina" and not fund:
+            return sina_stock_total_return_bars(
+                symbol,
+                start_date,
+                end_date,
+                sina=self.sina,
+                akshare=self.akshare,
+            )
+        if source == "akshare" and fund:
+            return self.akshare.get_etf_total_return_bars(
+                symbol,
+                start_date,
+                end_date,
+            )
+        if source == "ths":
+            return ths_tdx_total_return_bars(
+                symbol,
+                start_date,
+                end_date,
+                mootdx=self.mootdx,
+            )
+        raise ValueError(f"Unsupported total-return bar source: {source}")
+
+    def fetch_and_store_total_return_bars(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+        *,
+        fund: bool,
+        source: str = "baostock",
+        timeout_seconds: float | None = None,
+    ) -> FetchResult:
+        """Fetch total-return bars and persist them to SQLite."""
+
+        self.initialize()
+        fetched_bars = (
+            run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_total_return_bars",
+                {
+                    "source": source,
+                    "symbol": symbol,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "fund": fund,
+                },
+                timeout_seconds=timeout_seconds,
+            )
+            if timeout_seconds is not None
+            else self.fetch_total_return_bars(
+                symbol,
+                start_date,
+                end_date,
+                fund=fund,
+                source=source,
+            )
+        )
+        bars = [
+            replace(bar, symbol=normalize_a_share_code(bar.symbol))
+            for bar in fetched_bars
+            if bar.preclose is not None
+        ]
+        stored_count = self.store.upsert_total_return_bars(
+            "fund_exchange_total_return_bars" if fund else "stock_total_return_bars",
+            bars,
+        )
+        return FetchResult(
+            symbol=normalize_a_share_code(symbol),
+            source=source,
+            fetched_count=len(bars),
+            stored_count=stored_count,
+        )
+
     def fetch_index_daily_bars(
         self,
         symbol: str,
@@ -524,6 +629,19 @@ class DataFetchService:
             )
         if source == "akshare":
             return self.akshare.get_index_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+            )
+        if source == "ths":
+            return ThsDataSource().get_index_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+                exchange,
+            )
+        if source == "sw":
+            return self.akshare.get_sw_index_daily_bars(
                 symbol,
                 start_date,
                 end_date,
@@ -596,9 +714,19 @@ class DataFetchService:
         self,
         symbols: list[str],
     ):
-        return self.eastmoney_industry.get_stock_industries(
-            symbols
-        )
+        """Eastmoney industries, with BaoStock CSRC industries for gaps."""
+
+        try:
+            records = list(
+                self.eastmoney_industry.get_stock_industries(symbols)
+            )
+        except (OSError, RuntimeError, ValueError):
+            records = []
+        found = {item.symbol for item in records}
+        missing = [item for item in symbols if item not in found]
+        if missing:
+            records.extend(self.baostock.get_stock_industry_records(missing))
+        return records
 
     def fetch_open_fund_nav_history(
         self,
@@ -719,6 +847,80 @@ class DataFetchService:
             symbol=normalize_a_share_code(symbol) if symbol else "ALL",
             source=source,
             fetched_count=len(securities),
+            stored_count=len(resolutions),
+        )
+
+    def fetch_and_store_identities(
+        self,
+        symbol: str,
+        *,
+        asset_type: str | None = None,
+    ) -> FetchResult:
+        """Register every exchange listing and fund that uses one code.
+
+        Without an asset type both the exchange listing and the fund catalog
+        are consulted, because one code can be an index, a stock and a fund.
+        Raises DataSourceError when any consulted source fails: resolving from
+        a partial lookup could silently pick the wrong product.
+        """
+
+        code = normalize_a_share_code(symbol)
+        exchange_types = {
+            ASSET_TYPE_STOCK,
+            ASSET_TYPE_INDEX,
+            ASSET_TYPE_EXCHANGE_FUND,
+        }
+        try:
+            listings = (
+                self.baostock.get_exchange_listings(code)
+                if asset_type is None or asset_type in exchange_types
+                else []
+            )
+            funds = (
+                [
+                    item
+                    for item in self.akshare.get_fund_names()
+                    if item.symbol.strip() == code
+                ]
+                if asset_type in (None, ASSET_TYPE_OPEN_FUND)
+                else []
+            )
+        except DataSourceError:
+            raise
+        except Exception as exc:  # Provider libraries raise arbitrary errors.
+            raise DataSourceError(
+                f"identity lookup failed for {code}: {exc}"
+            ) from exc
+        listed_etf = any(
+            normalize_asset_type(item.security_type)
+            == ASSET_TYPE_EXCHANGE_FUND
+            for item in listings
+        )
+        # The fund catalog also lists exchange ETFs; keep only one identity.
+        funds = [
+            item
+            for item in funds
+            if not (listed_etf and "ETF" in (item.name or "").upper())
+        ]
+        securities = [
+            item
+            for item in (*listings, *funds)
+            if normalize_asset_type(item.security_type)
+            in (exchange_types | {ASSET_TYPE_OPEN_FUND})
+            and (
+                asset_type is None
+                or normalize_asset_type(item.security_type) == asset_type
+            )
+        ]
+        self.initialize()
+        resolutions = [
+            self.master_data.ingest_security_info(security)
+            for security in securities
+        ]
+        return FetchResult(
+            symbol=code,
+            source="baostock+akshare",
+            fetched_count=len(listings) + len(funds),
             stored_count=len(resolutions),
         )
 

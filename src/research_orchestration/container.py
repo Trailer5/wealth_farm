@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.alerts import AlertService, SQLiteAlertRepository
+from src.analog_history import AnalogHistoryService
 from src.benchmark_analysis import (
     BenchmarkAnalysisService,
     DefaultBenchmarkResolver,
@@ -27,6 +28,9 @@ from src.factor_engineering import (
     SQLiteFactorRepository,
 )
 from src.financial_data import SQLiteFinancialDataRepository
+from src.macro_data import MacroDataService, SQLiteMacroDataRepository
+from src.sector_data import SectorDataService, SQLiteSectorDataRepository
+from src.cross_section import CrossSectionService, SQLiteCrossSectionRepository
 from src.fund_research import (
     ExchangeFundMetricService,
     FundResearchService,
@@ -39,6 +43,8 @@ from src.fundamental_analysis import (
     SQLiteFundamentalMetricRepository,
 )
 from src.master_data import MasterDataService, SQLiteMasterDataRepository
+from src.market_analysis import MarketArchiveService
+from src.macro_state import MacroArchiveService
 from src.peer_analysis import (
     PeerAnalysisService,
     SQLitePeerAnalysisRepository,
@@ -49,19 +55,29 @@ from src.portfolio_risk import (
 )
 from src.research_acceptance import ResearchReportAssemblyService
 from src.research_evidence import ResearchEvidenceService
+from src.research_ledger import (
+    DataAccessPriceSeriesSource,
+    LedgerSettlementService,
+    MacroMetricSeriesSource,
+    ResearchLedgerService,
+    SQLiteResearchLedgerRepository,
+)
 from src.research_state import (
     ResearchStateService,
     SQLiteResearchStateRepository,
 )
 from src.research_visualization import ChartRenderer, ReportArtifactService
-from src.research_workflow import (
-    ETFResearchExecutionService,
-    FinancialInstitutionResearchExecutionService,
+from src.research_routing import QuestionRouter, RecipeExecutor
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
+)
+from src.research_workflow import (
+    ETFResearchExecutionService,
+    FinancialInstitutionResearchExecutionService,
     CyclicalResourceResearchExecutionService,
     OpenFundResearchExecutionService,
     ResearchExecutionService,
@@ -88,6 +104,9 @@ from .exploration_persistence import (
 )
 from .final_decision import FinalDecisionReportAssemblyService
 from .final_decision_pipeline import FinalDecisionReportService
+from .ledger_projection import FinalDecisionLedgerRecorder
+from .state_archive import StateArchiveRecorder
+from .view_recording import ViewRecorder
 from .monitoring import MonitoringHandoffService
 from .pipeline import ResearchOrchestrationPipeline
 from .position import PositionPlanService
@@ -97,6 +116,13 @@ from .query_routing import (
 )
 from .suitability import SuitabilityAssessmentService
 from .request_planner import ResearchRequestPlanner
+from .routing_adapters import (
+    EventDiscoveryRecipeRunner,
+    PlannerSubjectResolver,
+    RegistryLaneSupport,
+    SingleAssetRecipeRunner,
+    UserSpaceContextReader,
+)
 from .sqlite_repository import SQLiteResearchWorkflowRepository
 from .workflow import ResearchWorkflowCoordinator
 
@@ -107,23 +133,38 @@ class ResearchOrchestrationContainer:
 
     master_data: MasterDataService
     data_fetch: DataFetchService
+    data_access: DataAccessService
+    macro_data: MacroDataService
+    sector_data: SectorDataService
+    cross_section: CrossSectionService
+    market_state: StateArchiveRecorder
+    macro_state: StateArchiveRecorder
+    analogs: AnalogHistoryService
     task_factory: ResearchTaskFactory
     request_planner: ResearchRequestPlanner
     new_conversation_acceptance: NewConversationAcceptanceRunner
     capability_registry: ResearchCapabilityRegistry
+    router: QuestionRouter
+    user_context: UserSpaceContextReader
     workflow_coordinator: ResearchWorkflowCoordinator
     user_space: UserSpaceService
+    research_state: ResearchStateService
     exploration: PersistentResearchExplorationService
     queries: ResearchExplorationQueryService
     suitability: SuitabilityAssessmentService
     entry: EntryPlanService
     position: PositionPlanService
     final_decision: FinalDecisionReportService
+    ledger: ResearchLedgerService
+    ledger_recorder: FinalDecisionLedgerRecorder
+    ledger_settlement: LedgerSettlementService
+    view_recorder: ViewRecorder
     alerts: AlertService
     monitoring: MonitoringHandoffService
     portfolio_risk: PortfolioRiskService
     pipeline: ResearchOrchestrationPipeline
     event_name_discovery: EventNameDiscoveryOrchestrationPipeline
+    recipe_executor: RecipeExecutor
 
 
 def create_default_container(
@@ -251,6 +292,7 @@ def create_default_container(
             master_data=master_data,
             benchmark_repository=benchmark_repository,
             fund_repository=fund_repository,
+            identity_bootstrap=data_fetch,
         ),
     )
     profile_assignment = ResearchProfileAssignmentService(
@@ -264,7 +306,8 @@ def create_default_container(
         master_data=master_data,
         task_factory=task_factory,
         profile_assignment=profile_assignment,
-        fund_identity_bootstrap=data_fetch,
+        identity_bootstrap=data_fetch,
+        industry_source=data_fetch,
     )
     new_conversation_acceptance = NewConversationAcceptanceRunner(
         planner=request_planner
@@ -300,16 +343,32 @@ def create_default_container(
         workflow_coordinator=workflow_coordinator,
         user_space=user_space,
     )
+    sector_data = SectorDataService(
+        SQLiteSectorDataRepository(database_path),
+        master_data=master_data,
+        data_access=data_access,
+    )
+    cross_section = CrossSectionService(SQLiteCrossSectionRepository(database_path))
     peer_analysis = PeerAnalysisService(
         master_data=master_data,
         metric_repository=fundamental_repository,
         peer_repository=SQLitePeerAnalysisRepository(
             database_path
         ),
+        sector_data=sector_data,
     )
     portfolio_risk = PortfolioRiskService(
         SQLitePortfolioRepository(database_path),
         research_state,
+    )
+    user_context = UserSpaceContextReader(
+        user_space=user_space,
+        portfolio_risk=portfolio_risk,
+    )
+    router = QuestionRouter(
+        subject_resolver=PlannerSubjectResolver(request_planner),
+        lane_support=RegistryLaneSupport(capability_registry),
+        context_probe=user_context,
     )
     queries = ResearchExplorationQueryService(
         capability_registry=capability_registry,
@@ -325,6 +384,7 @@ def create_default_container(
             peer_analysis=peer_analysis,
             research_state=research_state,
             portfolio_risk=portfolio_risk,
+            profile_assignment=profile_assignment,
         ),
         exploration=exploration,
     )
@@ -332,12 +392,43 @@ def create_default_container(
     entry = EntryPlanService()
     position = PositionPlanService(portfolio_risk)
     report_publisher = ReportArtifactService(Path(report_root))
+    ledger_repository = SQLiteResearchLedgerRepository(database_path)
+    ledger = ResearchLedgerService(ledger_repository)
+    macro_data = MacroDataService(SQLiteMacroDataRepository(database_path))
+    market_state = StateArchiveRecorder(
+        archive=MarketArchiveService(
+            macro_data=macro_data,
+            data_access=data_access,
+        ),
+        ledger=ledger,
+        source_prefix="market_archive",
+    )
+    macro_state = StateArchiveRecorder(
+        archive=MacroArchiveService(macro_data=macro_data),
+        ledger=ledger,
+        source_prefix="macro_archive",
+    )
+    analogs = AnalogHistoryService(macro_data=macro_data, data_access=data_access)
+    metrics = MacroMetricSeriesSource(macro_data=macro_data)
+    ledger_recorder = FinalDecisionLedgerRecorder(
+        ledger=ledger,
+        publications=workflow_coordinator,
+    )
+    ledger_settlement = LedgerSettlementService(
+        repository=ledger_repository,
+        prices=DataAccessPriceSeriesSource(
+            data_access=data_access,
+            master_data=master_data,
+        ),
+        metrics=metrics,
+    )
     final_decision = FinalDecisionReportService(
         publisher=report_publisher,
         assembly=FinalDecisionReportAssemblyService(
             portfolio_risk
         ),
         publication_recorder=workflow_coordinator,
+        ledger_recorder=ledger_recorder,
     )
     monitoring = MonitoringHandoffService(
         alerts=alerts,
@@ -371,24 +462,57 @@ def create_default_container(
             master_data=master_data,
         ),
     )
+    recipe_executor = RecipeExecutor(
+        router=router,
+        single_asset=SingleAssetRecipeRunner(
+            planner=request_planner,
+            pipeline=pipeline,
+            decision_briefs=research_state,
+        ),
+        ledger=ledger,
+        discovery=EventDiscoveryRecipeRunner(event_name_discovery),
+        portfolio=user_context,
+        market=market_state,
+        macro=macro_state,
+        analogs=analogs,
+    )
     return ResearchOrchestrationContainer(
         master_data=master_data,
         data_fetch=data_fetch,
+        data_access=data_access,
+        macro_data=macro_data,
+        sector_data=sector_data,
+        cross_section=cross_section,
+        market_state=market_state,
+        macro_state=macro_state,
+        analogs=analogs,
         task_factory=task_factory,
         request_planner=request_planner,
         new_conversation_acceptance=new_conversation_acceptance,
         capability_registry=capability_registry,
+        router=router,
+        user_context=user_context,
         workflow_coordinator=workflow_coordinator,
         user_space=user_space,
+        research_state=research_state,
         exploration=exploration,
         queries=queries,
         suitability=suitability,
         entry=entry,
         position=position,
         final_decision=final_decision,
+        ledger=ledger,
+        ledger_recorder=ledger_recorder,
+        ledger_settlement=ledger_settlement,
+        view_recorder=ViewRecorder(
+            ledger=ledger,
+            metrics=metrics,
+            master_data=master_data,
+        ),
         alerts=alerts,
         monitoring=monitoring,
         portfolio_risk=portfolio_risk,
         pipeline=pipeline,
         event_name_discovery=event_name_discovery,
+        recipe_executor=recipe_executor,
     )

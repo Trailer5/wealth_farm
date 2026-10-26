@@ -13,13 +13,13 @@ from src.research_evidence import (
     ResearchEvidenceBundle,
     ResearchEvidenceItem,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
     PROFILE_ORDINARY_COMPANY,
     ResearchHorizon,
-    default_profile_registry,
 )
+from src.research_workflow import default_profile_registry
 from src.strategy import (
     StrategyExecutor,
     StrategyInputBuilder,
@@ -266,7 +266,7 @@ class StrategyCatalogTest(unittest.TestCase):
             "etf_tracking_research_supportive",
         )
         self.assertIn(
-            "underlying asset direction",
+            "不判断标的资产方向",
             " ".join(result.limitations),
         )
 

@@ -23,9 +23,11 @@ from src.research_orchestration import (
     NewConversationAcceptanceRunner,
     ResearchRequestPlanner,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_FINANCIAL_INSTITUTION,
+)
+from src.research_workflow import (
     ResearchProfileAssignmentService,
     ResearchTaskFactory,
     SQLiteResearchProfileAssignmentRepository,
@@ -233,7 +235,18 @@ class NewConversationPlanningRunnerTest(unittest.TestCase):
             effective_date="2026-01-01",
             reason="Slice 12 representative cyclical profile",
         )
-        factory = ResearchTaskFactory(self.master)
+        factory = ResearchTaskFactory(
+            self.master,
+            benchmark_resolver=_RecordedBenchmark(
+                _register(
+                    self.master,
+                    "index:000300",
+                    ASSET_TYPE_INDEX,
+                    "000300",
+                    "沪深300",
+                ).asset_id
+            ),
+        )
         self.runner = NewConversationAcceptanceRunner(
             planner=ResearchRequestPlanner(
                 master_data=self.master,
@@ -373,6 +386,18 @@ def _register(
         source=f"slice12-unit-test:{asset_type}",
         raw_symbol=symbol,
     )
+
+
+class _RecordedBenchmark:
+    """Benchmarks the frozen scenarios assume were reviewed beforehand."""
+
+    def __init__(self, index_asset_id):
+        self.index_asset_id = index_asset_id
+
+    def resolve(self, asset, profile, as_of_date):
+        return (
+            self.index_asset_id if profile.benchmark_required else None
+        )
 
 
 if __name__ == "__main__":

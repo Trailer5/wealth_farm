@@ -1,0 +1,2900 @@
+[
+  {
+    "date": "2024-10-28",
+    "values": {
+      "cumulative_return": 0.0
+    }
+  },
+  {
+    "date": "2024-10-29",
+    "values": {
+      "cumulative_return": -0.021329073482428185
+    }
+  },
+  {
+    "date": "2024-10-30",
+    "values": {
+      "cumulative_return": -0.021086261980830634
+    }
+  },
+  {
+    "date": "2024-10-31",
+    "values": {
+      "cumulative_return": -0.023776357827476113
+    }
+  },
+  {
+    "date": "2024-11-01",
+    "values": {
+      "cumulative_return": -0.019968051118210872
+    }
+  },
+  {
+    "date": "2024-11-04",
+    "values": {
+      "cumulative_return": -0.010734824281150135
+    }
+  },
+  {
+    "date": "2024-11-05",
+    "values": {
+      "cumulative_return": 0.007661341853035131
+    }
+  },
+  {
+    "date": "2024-11-06",
+    "values": {
+      "cumulative_return": 0.00383386581469658
+    }
+  },
+  {
+    "date": "2024-11-07",
+    "values": {
+      "cumulative_return": 0.053763578274760526
+    }
+  },
+  {
+    "date": "2024-11-08",
+    "values": {
+      "cumulative_return": 0.028734824281150262
+    }
+  },
+  {
+    "date": "2024-11-11",
+    "values": {
+      "cumulative_return": 0.021092651757188552
+    }
+  },
+  {
+    "date": "2024-11-12",
+    "values": {
+      "cumulative_return": 0.00779552715654952
+    }
+  },
+  {
+    "date": "2024-11-13",
+    "values": {
+      "cumulative_return": 0.008626198083067083
+    }
+  },
+  {
+    "date": "2024-11-14",
+    "values": {
+      "cumulative_return": 0.0056230031948880654
+    }
+  },
+  {
+    "date": "2024-11-15",
+    "values": {
+      "cumulative_return": -0.003833865814696469
+    }
+  },
+  {
+    "date": "2024-11-18",
+    "values": {
+      "cumulative_return": -0.003833865814696469
+    }
+  },
+  {
+    "date": "2024-11-19",
+    "values": {
+      "cumulative_return": -0.014747603833865752
+    }
+  },
+  {
+    "date": "2024-11-20",
+    "values": {
+      "cumulative_return": -0.012900958466453671
+    }
+  },
+  {
+    "date": "2024-11-21",
+    "values": {
+      "cumulative_return": -0.012696485623003073
+    }
+  },
+  {
+    "date": "2024-11-22",
+    "values": {
+      "cumulative_return": -0.03653674121405759
+    }
+  },
+  {
+    "date": "2024-11-25",
+    "values": {
+      "cumulative_return": -0.042447284345047964
+    }
+  },
+  {
+    "date": "2024-11-26",
+    "values": {
+      "cumulative_return": -0.03578274760383382
+    }
+  },
+  {
+    "date": "2024-11-27",
+    "values": {
+      "cumulative_return": -0.029361022364217226
+    }
+  },
+  {
+    "date": "2024-11-28",
+    "values": {
+      "cumulative_return": -0.030031948881789172
+    }
+  },
+  {
+    "date": "2024-11-29",
+    "values": {
+      "cumulative_return": -0.025086261980830638
+    }
+  },
+  {
+    "date": "2024-12-02",
+    "values": {
+      "cumulative_return": -0.025559105431309903
+    }
+  },
+  {
+    "date": "2024-12-03",
+    "values": {
+      "cumulative_return": -0.024447284345047948
+    }
+  },
+  {
+    "date": "2024-12-04",
+    "values": {
+      "cumulative_return": -0.028753993610223683
+    }
+  },
+  {
+    "date": "2024-12-05",
+    "values": {
+      "cumulative_return": -0.03450479233226833
+    }
+  },
+  {
+    "date": "2024-12-06",
+    "values": {
+      "cumulative_return": -0.028108626198083075
+    }
+  },
+  {
+    "date": "2024-12-09",
+    "values": {
+      "cumulative_return": -0.029520766773162954
+    }
+  },
+  {
+    "date": "2024-12-10",
+    "values": {
+      "cumulative_return": -0.011763578274760489
+    }
+  },
+  {
+    "date": "2024-12-11",
+    "values": {
+      "cumulative_return": -0.01878594249201282
+    }
+  },
+  {
+    "date": "2024-12-12",
+    "values": {
+      "cumulative_return": 0.000511182108626107
+    }
+  },
+  {
+    "date": "2024-12-13",
+    "values": {
+      "cumulative_return": -0.029392971246006372
+    }
+  },
+  {
+    "date": "2024-12-16",
+    "values": {
+      "cumulative_return": -0.02415335463258783
+    }
+  },
+  {
+    "date": "2024-12-17",
+    "values": {
+      "cumulative_return": -0.004472843450479269
+    }
+  },
+  {
+    "date": "2024-12-18",
+    "values": {
+      "cumulative_return": 0.0041533546325878135
+    }
+  },
+  {
+    "date": "2024-12-19",
+    "values": {
+      "cumulative_return": -0.00893929712460062
+    }
+  },
+  {
+    "date": "2024-12-20",
+    "values": {
+      "cumulative_return": -0.027476038338658193
+    }
+  },
+  {
+    "date": "2024-12-23",
+    "values": {
+      "cumulative_return": -0.024632587859424904
+    }
+  },
+  {
+    "date": "2024-12-24",
+    "values": {
+      "cumulative_return": -0.016728434504792333
+    }
+  },
+  {
+    "date": "2024-12-25",
+    "values": {
+      "cumulative_return": -0.022364217252396124
+    }
+  },
+  {
+    "date": "2024-12-26",
+    "values": {
+      "cumulative_return": -0.023776357827476113
+    }
+  },
+  {
+    "date": "2024-12-27",
+    "values": {
+      "cumulative_return": -0.023022364217252345
+    }
+  },
+  {
+    "date": "2024-12-30",
+    "values": {
+      "cumulative_return": -0.025559105431309903
+    }
+  },
+  {
+    "date": "2024-12-31",
+    "values": {
+      "cumulative_return": -0.026198083067092703
+    }
+  },
+  {
+    "date": "2025-01-02",
+    "values": {
+      "cumulative_return": -0.049201277955271516
+    }
+  },
+  {
+    "date": "2025-01-03",
+    "values": {
+      "cumulative_return": -0.057507987220447254
+    }
+  },
+  {
+    "date": "2025-01-06",
+    "values": {
+      "cumulative_return": -0.07987220447284349
+    }
+  },
+  {
+    "date": "2025-01-07",
+    "values": {
+      "cumulative_return": -0.0797444089456869
+    }
+  },
+  {
+    "date": "2025-01-08",
+    "values": {
+      "cumulative_return": -0.07827476038338654
+    }
+  },
+  {
+    "date": "2025-01-09",
+    "values": {
+      "cumulative_return": -0.07731629392971251
+    }
+  },
+  {
+    "date": "2025-01-10",
+    "values": {
+      "cumulative_return": -0.08242811501597447
+    }
+  },
+  {
+    "date": "2025-01-13",
+    "values": {
+      "cumulative_return": -0.07732907348242812
+    }
+  },
+  {
+    "date": "2025-01-14",
+    "values": {
+      "cumulative_return": -0.0591054313099042
+    }
+  },
+  {
+    "date": "2025-01-15",
+    "values": {
+      "cumulative_return": -0.05989137380191689
+    }
+  },
+  {
+    "date": "2025-01-16",
+    "values": {
+      "cumulative_return": -0.07579552715654947
+    }
+  },
+  {
+    "date": "2025-01-17",
+    "values": {
+      "cumulative_return": -0.07044728434504788
+    }
+  },
+  {
+    "date": "2025-01-20",
+    "values": {
+      "cumulative_return": -0.057635782747603836
+    }
+  },
+  {
+    "date": "2025-01-21",
+    "values": {
+      "cumulative_return": -0.06188498402555909
+    }
+  },
+  {
+    "date": "2025-01-22",
+    "values": {
+      "cumulative_return": -0.07923322683706069
+    }
+  },
+  {
+    "date": "2025-01-23",
+    "values": {
+      "cumulative_return": -0.0779552715654952
+    }
+  },
+  {
+    "date": "2025-01-24",
+    "values": {
+      "cumulative_return": -0.08242811501597447
+    }
+  },
+  {
+    "date": "2025-01-27",
+    "values": {
+      "cumulative_return": -0.08307348242811496
+    }
+  },
+  {
+    "date": "2025-02-05",
+    "values": {
+      "cumulative_return": -0.103003194888179
+    }
+  },
+  {
+    "date": "2025-02-06",
+    "values": {
+      "cumulative_return": -0.0972268370607029
+    }
+  },
+  {
+    "date": "2025-02-07",
+    "values": {
+      "cumulative_return": -0.08242811501597447
+    }
+  },
+  {
+    "date": "2025-02-10",
+    "values": {
+      "cumulative_return": -0.08529712460063898
+    }
+  },
+  {
+    "date": "2025-02-11",
+    "values": {
+      "cumulative_return": -0.09392971246006387
+    }
+  },
+  {
+    "date": "2025-02-12",
+    "values": {
+      "cumulative_return": -0.0779552715654952
+    }
+  },
+  {
+    "date": "2025-02-13",
+    "values": {
+      "cumulative_return": -0.06385942492012786
+    }
+  },
+  {
+    "date": "2025-02-14",
+    "values": {
+      "cumulative_return": -0.057507987220447254
+    }
+  },
+  {
+    "date": "2025-02-17",
+    "values": {
+      "cumulative_return": -0.059667731629393095
+    }
+  },
+  {
+    "date": "2025-02-18",
+    "values": {
+      "cumulative_return": -0.057507987220447254
+    }
+  },
+  {
+    "date": "2025-02-19",
+    "values": {
+      "cumulative_return": -0.04728434504792334
+    }
+  },
+  {
+    "date": "2025-02-20",
+    "values": {
+      "cumulative_return": -0.058146964856230055
+    }
+  },
+  {
+    "date": "2025-02-21",
+    "values": {
+      "cumulative_return": -0.04906709265175713
+    }
+  },
+  {
+    "date": "2025-02-24",
+    "values": {
+      "cumulative_return": -0.054907348242811516
+    }
+  },
+  {
+    "date": "2025-02-25",
+    "values": {
+      "cumulative_return": -0.07092651757188495
+    }
+  },
+  {
+    "date": "2025-02-26",
+    "values": {
+      "cumulative_return": -0.06708626198083067
+    }
+  },
+  {
+    "date": "2025-02-27",
+    "values": {
+      "cumulative_return": -0.05076038338658151
+    }
+  },
+  {
+    "date": "2025-02-28",
+    "values": {
+      "cumulative_return": -0.04102875399361028
+    }
+  },
+  {
+    "date": "2025-03-03",
+    "values": {
+      "cumulative_return": -0.0498274760383387
+    }
+  },
+  {
+    "date": "2025-03-04",
+    "values": {
+      "cumulative_return": -0.060632587859424936
+    }
+  },
+  {
+    "date": "2025-03-05",
+    "values": {
+      "cumulative_return": -0.06302236421725249
+    }
+  },
+  {
+    "date": "2025-03-06",
+    "values": {
+      "cumulative_return": -0.037712460063897724
+    }
+  },
+  {
+    "date": "2025-03-07",
+    "values": {
+      "cumulative_return": -0.028115015974440882
+    }
+  },
+  {
+    "date": "2025-03-10",
+    "values": {
+      "cumulative_return": -0.026900958466453573
+    }
+  },
+  {
+    "date": "2025-03-11",
+    "values": {
+      "cumulative_return": -0.010428115015974404
+    }
+  },
+  {
+    "date": "2025-03-12",
+    "values": {
+      "cumulative_return": -0.014325878594249275
+    }
+  },
+  {
+    "date": "2025-03-13",
+    "values": {
+      "cumulative_return": -0.01739936102236428
+    }
+  },
+  {
+    "date": "2025-03-14",
+    "values": {
+      "cumulative_return": 0.04026198083067101
+    }
+  },
+  {
+    "date": "2025-03-17",
+    "values": {
+      "cumulative_return": 0.04655591054313102
+    }
+  },
+  {
+    "date": "2025-03-18",
+    "values": {
+      "cumulative_return": 0.037699680511182
+    }
+  },
+  {
+    "date": "2025-03-19",
+    "values": {
+      "cumulative_return": 0.04518210862619809
+    }
+  },
+  {
+    "date": "2025-03-20",
+    "values": {
+      "cumulative_return": 0.024920127795527103
+    }
+  },
+  {
+    "date": "2025-03-21",
+    "values": {
+      "cumulative_return": 0.005591054313099031
+    }
+  },
+  {
+    "date": "2025-03-24",
+    "values": {
+      "cumulative_return": 0.011501597444089517
+    }
+  },
+  {
+    "date": "2025-03-25",
+    "values": {
+      "cumulative_return": 0.006709265175718793
+    }
+  },
+  {
+    "date": "2025-03-26",
+    "values": {
+      "cumulative_return": 0.007028753993610248
+    }
+  },
+  {
+    "date": "2025-03-27",
+    "values": {
+      "cumulative_return": 0.015335463258785875
+    }
+  },
+  {
+    "date": "2025-03-28",
+    "values": {
+      "cumulative_return": 0.012913738019169285
+    }
+  },
+  {
+    "date": "2025-03-31",
+    "values": {
+      "cumulative_return": -0.002555910543130979
+    }
+  },
+  {
+    "date": "2025-04-01",
+    "values": {
+      "cumulative_return": -0.005738019169329034
+    }
+  },
+  {
+    "date": "2025-04-02",
+    "values": {
+      "cumulative_return": -0.010210862619808303
+    }
+  },
+  {
+    "date": "2025-04-03",
+    "values": {
+      "cumulative_return": 0.0024792332268370743
+    }
+  },
+  {
+    "date": "2025-04-07",
+    "values": {
+      "cumulative_return": -0.04153354632587858
+    }
+  },
+  {
+    "date": "2025-04-08",
+    "values": {
+      "cumulative_return": -0.012779552715655007
+    }
+  },
+  {
+    "date": "2025-04-09",
+    "values": {
+      "cumulative_return": -0.015309904153354648
+    }
+  },
+  {
+    "date": "2025-04-10",
+    "values": {
+      "cumulative_return": -0.010223642172523917
+    }
+  },
+  {
+    "date": "2025-04-11",
+    "values": {
+      "cumulative_return": 0.0025431309904153654
+    }
+  },
+  {
+    "date": "2025-04-14",
+    "values": {
+      "cumulative_return": -0.008313099041533545
+    }
+  },
+  {
+    "date": "2025-04-15",
+    "values": {
+      "cumulative_return": -0.004472843450479269
+    }
+  },
+  {
+    "date": "2025-04-16",
+    "values": {
+      "cumulative_return": -0.0037252396166134183
+    }
+  },
+  {
+    "date": "2025-04-17",
+    "values": {
+      "cumulative_return": 0.0031948881789136685
+    }
+  },
+  {
+    "date": "2025-04-18",
+    "values": {
+      "cumulative_return": 0.0006006389776358478
+    }
+  },
+  {
+    "date": "2025-04-21",
+    "values": {
+      "cumulative_return": -0.008945686900958427
+    }
+  },
+  {
+    "date": "2025-04-22",
+    "values": {
+      "cumulative_return": -0.010351437699680499
+    }
+  },
+  {
+    "date": "2025-04-23",
+    "values": {
+      "cumulative_return": -0.008306709265175738
+    }
+  },
+  {
+    "date": "2025-04-24",
+    "values": {
+      "cumulative_return": -0.00814696485623001
+    }
+  },
+  {
+    "date": "2025-04-25",
+    "values": {
+      "cumulative_return": -0.009584664536741228
+    }
+  },
+  {
+    "date": "2025-04-28",
+    "values": {
+      "cumulative_return": -0.009584664536741228
+    }
+  },
+  {
+    "date": "2025-04-29",
+    "values": {
+      "cumulative_return": -0.013418530351437696
+    }
+  },
+  {
+    "date": "2025-04-30",
+    "values": {
+      "cumulative_return": -0.011501597444089406
+    }
+  },
+  {
+    "date": "2025-05-06",
+    "values": {
+      "cumulative_return": -0.009456869009584645
+    }
+  },
+  {
+    "date": "2025-05-07",
+    "values": {
+      "cumulative_return": -0.006389776357827448
+    }
+  },
+  {
+    "date": "2025-05-08",
+    "values": {
+      "cumulative_return": 0.008428115015974402
+    }
+  },
+  {
+    "date": "2025-05-09",
+    "values": {
+      "cumulative_return": 0.016728434504792444
+    }
+  },
+  {
+    "date": "2025-05-12",
+    "values": {
+      "cumulative_return": 0.02523961661341856
+    }
+  },
+  {
+    "date": "2025-05-13",
+    "values": {
+      "cumulative_return": 0.016166134185303438
+    }
+  },
+  {
+    "date": "2025-05-14",
+    "values": {
+      "cumulative_return": 0.04472204472843444
+    }
+  },
+  {
+    "date": "2025-05-15",
+    "values": {
+      "cumulative_return": 0.042817891373801986
+    }
+  },
+  {
+    "date": "2025-05-16",
+    "values": {
+      "cumulative_return": 0.031392971246006374
+    }
+  },
+  {
+    "date": "2025-05-19",
+    "values": {
+      "cumulative_return": 0.008932907348242924
+    }
+  },
+  {
+    "date": "2025-05-20",
+    "values": {
+      "cumulative_return": 0.013418530351437807
+    }
+  },
+  {
+    "date": "2025-05-21",
+    "values": {
+      "cumulative_return": 0.010204472843450496
+    }
+  },
+  {
+    "date": "2025-05-22",
+    "values": {
+      "cumulative_return": 0.009584664536741228
+    }
+  },
+  {
+    "date": "2025-05-23",
+    "values": {
+      "cumulative_return": 0.004856230031948794
+    }
+  },
+  {
+    "date": "2025-05-26",
+    "values": {
+      "cumulative_return": -0.009265175718849883
+    }
+  },
+  {
+    "date": "2025-05-27",
+    "values": {
+      "cumulative_return": -0.013482428115015876
+    }
+  },
+  {
+    "date": "2025-05-28",
+    "values": {
+      "cumulative_return": -0.017891373801916965
+    }
+  },
+  {
+    "date": "2025-05-29",
+    "values": {
+      "cumulative_return": -0.015974440894568676
+    }
+  },
+  {
+    "date": "2025-05-30",
+    "values": {
+      "cumulative_return": -0.027476038338658193
+    }
+  },
+  {
+    "date": "2025-06-03",
+    "values": {
+      "cumulative_return": -0.03578274760383382
+    }
+  },
+  {
+    "date": "2025-06-04",
+    "values": {
+      "cumulative_return": -0.03516932907348236
+    }
+  },
+  {
+    "date": "2025-06-05",
+    "values": {
+      "cumulative_return": -0.03258785942492015
+    }
+  },
+  {
+    "date": "2025-06-06",
+    "values": {
+      "cumulative_return": -0.03745047923322675
+    }
+  },
+  {
+    "date": "2025-06-09",
+    "values": {
+      "cumulative_return": -0.05040894568690102
+    }
+  },
+  {
+    "date": "2025-06-10",
+    "values": {
+      "cumulative_return": -0.05750159744408945
+    }
+  },
+  {
+    "date": "2025-06-11",
+    "values": {
+      "cumulative_return": -0.054313099041533586
+    }
+  },
+  {
+    "date": "2025-06-12",
+    "values": {
+      "cumulative_return": -0.06773162939297128
+    }
+  },
+  {
+    "date": "2025-06-13",
+    "values": {
+      "cumulative_return": -0.08821086261980826
+    }
+  },
+  {
+    "date": "2025-06-16",
+    "values": {
+      "cumulative_return": -0.09118849840255594
+    }
+  },
+  {
+    "date": "2025-06-17",
+    "values": {
+      "cumulative_return": -0.08817891373801912
+    }
+  },
+  {
+    "date": "2025-06-18",
+    "values": {
+      "cumulative_return": -0.08945686900958472
+    }
+  },
+  {
+    "date": "2025-06-19",
+    "values": {
+      "cumulative_return": -0.08881789137380192
+    }
+  },
+  {
+    "date": "2025-06-20",
+    "values": {
+      "cumulative_return": -0.08711821086261973
+    }
+  },
+  {
+    "date": "2025-06-23",
+    "values": {
+      "cumulative_return": -0.09265175718849838
+    }
+  },
+  {
+    "date": "2025-06-24",
+    "values": {
+      "cumulative_return": -0.08166134185303509
+    }
+  },
+  {
+    "date": "2025-06-25",
+    "values": {
+      "cumulative_return": -0.0825175718849841
+    }
+  },
+  {
+    "date": "2025-06-26",
+    "values": {
+      "cumulative_return": -0.09265175718849838
+    }
+  },
+  {
+    "date": "2025-06-27",
+    "values": {
+      "cumulative_return": -0.10345686900958473
+    }
+  },
+  {
+    "date": "2025-06-30",
+    "values": {
+      "cumulative_return": -0.09934824281150156
+    }
+  },
+  {
+    "date": "2025-07-01",
+    "values": {
+      "cumulative_return": -0.10217252396166143
+    }
+  },
+  {
+    "date": "2025-07-02",
+    "values": {
+      "cumulative_return": -0.099297124600639
+    }
+  },
+  {
+    "date": "2025-07-03",
+    "values": {
+      "cumulative_return": -0.09546325878594253
+    }
+  },
+  {
+    "date": "2025-07-04",
+    "values": {
+      "cumulative_return": -0.0912332268370607
+    }
+  },
+  {
+    "date": "2025-07-07",
+    "values": {
+      "cumulative_return": -0.0985942492012779
+    }
+  },
+  {
+    "date": "2025-07-08",
+    "values": {
+      "cumulative_return": -0.09513738019169338
+    }
+  },
+  {
+    "date": "2025-07-09",
+    "values": {
+      "cumulative_return": -0.09336741214057498
+    }
+  },
+  {
+    "date": "2025-07-10",
+    "values": {
+      "cumulative_return": -0.08849840255591057
+    }
+  },
+  {
+    "date": "2025-07-11",
+    "values": {
+      "cumulative_return": -0.08817891373801912
+    }
+  },
+  {
+    "date": "2025-07-14",
+    "values": {
+      "cumulative_return": -0.09035143769968057
+    }
+  },
+  {
+    "date": "2025-07-15",
+    "values": {
+      "cumulative_return": -0.09840255591054314
+    }
+  },
+  {
+    "date": "2025-07-16",
+    "values": {
+      "cumulative_return": -0.09838338658146961
+    }
+  },
+  {
+    "date": "2025-07-17",
+    "values": {
+      "cumulative_return": -0.09498402555910546
+    }
+  },
+  {
+    "date": "2025-07-18",
+    "values": {
+      "cumulative_return": -0.08178913738019167
+    }
+  },
+  {
+    "date": "2025-07-21",
+    "values": {
+      "cumulative_return": -0.0779552715654952
+    }
+  },
+  {
+    "date": "2025-07-22",
+    "values": {
+      "cumulative_return": -0.06391054313099043
+    }
+  },
+  {
+    "date": "2025-07-23",
+    "values": {
+      "cumulative_return": -0.05718849840255591
+    }
+  },
+  {
+    "date": "2025-07-24",
+    "values": {
+      "cumulative_return": -0.04696485623003199
+    }
+  },
+  {
+    "date": "2025-07-25",
+    "values": {
+      "cumulative_return": -0.07028753993610226
+    }
+  },
+  {
+    "date": "2025-07-28",
+    "values": {
+      "cumulative_return": -0.08072843450479228
+    }
+  },
+  {
+    "date": "2025-07-29",
+    "values": {
+      "cumulative_return": -0.08051118210862618
+    }
+  },
+  {
+    "date": "2025-07-30",
+    "values": {
+      "cumulative_return": -0.07384025559105423
+    }
+  },
+  {
+    "date": "2025-07-31",
+    "values": {
+      "cumulative_return": -0.09158466453674119
+    }
+  },
+  {
+    "date": "2025-08-01",
+    "values": {
+      "cumulative_return": -0.09456869009584667
+    }
+  },
+  {
+    "date": "2025-08-04",
+    "values": {
+      "cumulative_return": -0.09329073482428119
+    }
+  },
+  {
+    "date": "2025-08-05",
+    "values": {
+      "cumulative_return": -0.08770607028753996
+    }
+  },
+  {
+    "date": "2025-08-06",
+    "values": {
+      "cumulative_return": -0.09017252396166131
+    }
+  },
+  {
+    "date": "2025-08-07",
+    "values": {
+      "cumulative_return": -0.09115015974440899
+    }
+  },
+  {
+    "date": "2025-08-08",
+    "values": {
+      "cumulative_return": -0.09203194888178912
+    }
+  },
+  {
+    "date": "2025-08-11",
+    "values": {
+      "cumulative_return": -0.07667731629392971
+    }
+  },
+  {
+    "date": "2025-08-12",
+    "values": {
+      "cumulative_return": -0.08176357827476044
+    }
+  },
+  {
+    "date": "2025-08-13",
+    "values": {
+      "cumulative_return": -0.09261980830670924
+    }
+  },
+  {
+    "date": "2025-08-14",
+    "values": {
+      "cumulative_return": -0.08818530351437703
+    }
+  },
+  {
+    "date": "2025-08-15",
+    "values": {
+      "cumulative_return": -0.09132268370607033
+    }
+  },
+  {
+    "date": "2025-08-18",
+    "values": {
+      "cumulative_return": -0.08722044728434508
+    }
+  },
+  {
+    "date": "2025-08-19",
+    "values": {
+      "cumulative_return": -0.08115015974440898
+    }
+  },
+  {
+    "date": "2025-08-20",
+    "values": {
+      "cumulative_return": -0.07348242811501593
+    }
+  },
+  {
+    "date": "2025-08-21",
+    "values": {
+      "cumulative_return": -0.0746006389776358
+    }
+  },
+  {
+    "date": "2025-08-22",
+    "values": {
+      "cumulative_return": -0.06456869009584665
+    }
+  },
+  {
+    "date": "2025-08-25",
+    "values": {
+      "cumulative_return": -0.047712460063897844
+    }
+  },
+  {
+    "date": "2025-08-26",
+    "values": {
+      "cumulative_return": -0.05328434504792334
+    }
+  },
+  {
+    "date": "2025-08-27",
+    "values": {
+      "cumulative_return": -0.07476038338658142
+    }
+  },
+  {
+    "date": "2025-08-28",
+    "values": {
+      "cumulative_return": -0.07597444089456873
+    }
+  },
+  {
+    "date": "2025-08-29",
+    "values": {
+      "cumulative_return": -0.054313099041533586
+    }
+  },
+  {
+    "date": "2025-09-01",
+    "values": {
+      "cumulative_return": -0.056805111821086274
+    }
+  },
+  {
+    "date": "2025-09-02",
+    "values": {
+      "cumulative_return": -0.047092651757188575
+    }
+  },
+  {
+    "date": "2025-09-03",
+    "values": {
+      "cumulative_return": -0.053961661341853095
+    }
+  },
+  {
+    "date": "2025-09-04",
+    "values": {
+      "cumulative_return": -0.059003194888178845
+    }
+  },
+  {
+    "date": "2025-09-05",
+    "values": {
+      "cumulative_return": -0.052396166134185296
+    }
+  },
+  {
+    "date": "2025-09-08",
+    "values": {
+      "cumulative_return": -0.040747603833865775
+    }
+  },
+  {
+    "date": "2025-09-09",
+    "values": {
+      "cumulative_return": -0.03833865814696491
+    }
+  },
+  {
+    "date": "2025-09-10",
+    "values": {
+      "cumulative_return": -0.027469648562300275
+    }
+  },
+  {
+    "date": "2025-09-11",
+    "values": {
+      "cumulative_return": -0.026517571884984048
+    }
+  },
+  {
+    "date": "2025-09-12",
+    "values": {
+      "cumulative_return": -0.03130990415335466
+    }
+  },
+  {
+    "date": "2025-09-15",
+    "values": {
+      "cumulative_return": -0.03188498402555917
+    }
+  },
+  {
+    "date": "2025-09-16",
+    "values": {
+      "cumulative_return": -0.04154632587859419
+    }
+  },
+  {
+    "date": "2025-09-17",
+    "values": {
+      "cumulative_return": -0.04600638977635785
+    }
+  },
+  {
+    "date": "2025-09-18",
+    "values": {
+      "cumulative_return": -0.06200638977635775
+    }
+  },
+  {
+    "date": "2025-09-19",
+    "values": {
+      "cumulative_return": -0.061999999999999944
+    }
+  },
+  {
+    "date": "2025-09-22",
+    "values": {
+      "cumulative_return": -0.07134185303514384
+    }
+  },
+  {
+    "date": "2025-09-23",
+    "values": {
+      "cumulative_return": -0.07513099041533544
+    }
+  },
+  {
+    "date": "2025-09-24",
+    "values": {
+      "cumulative_return": -0.078594249201278
+    }
+  },
+  {
+    "date": "2025-09-25",
+    "values": {
+      "cumulative_return": -0.08051118210862618
+    }
+  },
+  {
+    "date": "2025-09-26",
+    "values": {
+      "cumulative_return": -0.08306709265175716
+    }
+  },
+  {
+    "date": "2025-09-29",
+    "values": {
+      "cumulative_return": -0.06654313099041542
+    }
+  },
+  {
+    "date": "2025-09-30",
+    "values": {
+      "cumulative_return": -0.07732268370607032
+    }
+  },
+  {
+    "date": "2025-10-09",
+    "values": {
+      "cumulative_return": -0.08192971246006386
+    }
+  },
+  {
+    "date": "2025-10-10",
+    "values": {
+      "cumulative_return": -0.08626198083067094
+    }
+  },
+  {
+    "date": "2025-10-13",
+    "values": {
+      "cumulative_return": -0.0931629392971246
+    }
+  },
+  {
+    "date": "2025-10-14",
+    "values": {
+      "cumulative_return": -0.07283067092651763
+    }
+  },
+  {
+    "date": "2025-10-15",
+    "values": {
+      "cumulative_return": -0.06581469648562299
+    }
+  },
+  {
+    "date": "2025-10-16",
+    "values": {
+      "cumulative_return": -0.05117571884984018
+    }
+  },
+  {
+    "date": "2025-10-17",
+    "values": {
+      "cumulative_return": -0.07028753993610226
+    }
+  },
+  {
+    "date": "2025-10-20",
+    "values": {
+      "cumulative_return": -0.06841533546325873
+    }
+  },
+  {
+    "date": "2025-10-21",
+    "values": {
+      "cumulative_return": -0.06564856230031946
+    }
+  },
+  {
+    "date": "2025-10-22",
+    "values": {
+      "cumulative_return": -0.06792332268370604
+    }
+  },
+  {
+    "date": "2025-10-23",
+    "values": {
+      "cumulative_return": -0.06199361022364214
+    }
+  },
+  {
+    "date": "2025-10-24",
+    "values": {
+      "cumulative_return": -0.07348242811501593
+    }
+  },
+  {
+    "date": "2025-10-27",
+    "values": {
+      "cumulative_return": -0.07961022364217252
+    }
+  },
+  {
+    "date": "2025-10-28",
+    "values": {
+      "cumulative_return": -0.07667731629392971
+    }
+  },
+  {
+    "date": "2025-10-29",
+    "values": {
+      "cumulative_return": -0.08504792332268363
+    }
+  },
+  {
+    "date": "2025-10-30",
+    "values": {
+      "cumulative_return": -0.08834504792332265
+    }
+  },
+  {
+    "date": "2025-10-31",
+    "values": {
+      "cumulative_return": -0.08625559105431313
+    }
+  },
+  {
+    "date": "2025-11-03",
+    "values": {
+      "cumulative_return": -0.08306709265175716
+    }
+  },
+  {
+    "date": "2025-11-04",
+    "values": {
+      "cumulative_return": -0.08690095846645363
+    }
+  },
+  {
+    "date": "2025-11-05",
+    "values": {
+      "cumulative_return": -0.09260063897763582
+    }
+  },
+  {
+    "date": "2025-11-06",
+    "values": {
+      "cumulative_return": -0.08298402555910533
+    }
+  },
+  {
+    "date": "2025-11-07",
+    "values": {
+      "cumulative_return": -0.08413418530351446
+    }
+  },
+  {
+    "date": "2025-11-10",
+    "values": {
+      "cumulative_return": -0.06562300319488823
+    }
+  },
+  {
+    "date": "2025-11-11",
+    "values": {
+      "cumulative_return": -0.06773801916932909
+    }
+  },
+  {
+    "date": "2025-11-12",
+    "values": {
+      "cumulative_return": -0.06380191693290727
+    }
+  },
+  {
+    "date": "2025-11-13",
+    "values": {
+      "cumulative_return": -0.06046006389776348
+    }
+  },
+  {
+    "date": "2025-11-14",
+    "values": {
+      "cumulative_return": -0.06926517571884994
+    }
+  },
+  {
+    "date": "2025-11-17",
+    "values": {
+      "cumulative_return": -0.06006389776357823
+    }
+  },
+  {
+    "date": "2025-11-18",
+    "values": {
+      "cumulative_return": -0.056869009584664565
+    }
+  },
+  {
+    "date": "2025-11-19",
+    "values": {
+      "cumulative_return": -0.060057507987220426
+    }
+  },
+  {
+    "date": "2025-11-20",
+    "values": {
+      "cumulative_return": -0.06254952076677323
+    }
+  },
+  {
+    "date": "2025-11-21",
+    "values": {
+      "cumulative_return": -0.06287539936102238
+    }
+  },
+  {
+    "date": "2025-11-24",
+    "values": {
+      "cumulative_return": -0.07220447284345044
+    }
+  },
+  {
+    "date": "2025-11-25",
+    "values": {
+      "cumulative_return": -0.07690095846645362
+    }
+  },
+  {
+    "date": "2025-11-26",
+    "values": {
+      "cumulative_return": -0.0740255591054313
+    }
+  },
+  {
+    "date": "2025-11-27",
+    "values": {
+      "cumulative_return": -0.07520766773162946
+    }
+  },
+  {
+    "date": "2025-11-28",
+    "values": {
+      "cumulative_return": -0.07316293929712459
+    }
+  },
+  {
+    "date": "2025-12-01",
+    "values": {
+      "cumulative_return": -0.07476038338658142
+    }
+  },
+  {
+    "date": "2025-12-02",
+    "values": {
+      "cumulative_return": -0.08240894568690094
+    }
+  },
+  {
+    "date": "2025-12-03",
+    "values": {
+      "cumulative_return": -0.08683706070287545
+    }
+  },
+  {
+    "date": "2025-12-04",
+    "values": {
+      "cumulative_return": -0.09010862619808302
+    }
+  },
+  {
+    "date": "2025-12-05",
+    "values": {
+      "cumulative_return": -0.08625559105431313
+    }
+  },
+  {
+    "date": "2025-12-08",
+    "values": {
+      "cumulative_return": -0.09378913738019168
+    }
+  },
+  {
+    "date": "2025-12-09",
+    "values": {
+      "cumulative_return": -0.10478594249201278
+    }
+  },
+  {
+    "date": "2025-12-10",
+    "values": {
+      "cumulative_return": -0.10364217252396168
+    }
+  },
+  {
+    "date": "2025-12-11",
+    "values": {
+      "cumulative_return": -0.09776996805111815
+    }
+  },
+  {
+    "date": "2025-12-12",
+    "values": {
+      "cumulative_return": -0.0922364217252396
+    }
+  },
+  {
+    "date": "2025-12-15",
+    "values": {
+      "cumulative_return": -0.08881789137380192
+    }
+  },
+  {
+    "date": "2025-12-16",
+    "values": {
+      "cumulative_return": -0.0913738019169329
+    }
+  },
+  {
+    "date": "2025-12-17",
+    "values": {
+      "cumulative_return": -0.08428115015974447
+    }
+  },
+  {
+    "date": "2025-12-18",
+    "values": {
+      "cumulative_return": -0.08562300319488814
+    }
+  },
+  {
+    "date": "2025-12-19",
+    "values": {
+      "cumulative_return": -0.09904153354632583
+    }
+  },
+  {
+    "date": "2025-12-22",
+    "values": {
+      "cumulative_return": -0.1001533546325879
+    }
+  },
+  {
+    "date": "2025-12-23",
+    "values": {
+      "cumulative_return": -0.10040894568690106
+    }
+  },
+  {
+    "date": "2025-12-24",
+    "values": {
+      "cumulative_return": -0.10485623003194877
+    }
+  },
+  {
+    "date": "2025-12-25",
+    "values": {
+      "cumulative_return": -0.0963769968051118
+    }
+  },
+  {
+    "date": "2025-12-26",
+    "values": {
+      "cumulative_return": -0.09640255591054303
+    }
+  },
+  {
+    "date": "2025-12-29",
+    "values": {
+      "cumulative_return": -0.1041533546325879
+    }
+  },
+  {
+    "date": "2025-12-30",
+    "values": {
+      "cumulative_return": -0.11199999999999999
+    }
+  },
+  {
+    "date": "2025-12-31",
+    "values": {
+      "cumulative_return": -0.12001277955271561
+    }
+  },
+  {
+    "date": "2026-01-05",
+    "values": {
+      "cumulative_return": -0.08881789137380192
+    }
+  },
+  {
+    "date": "2026-01-06",
+    "values": {
+      "cumulative_return": -0.08753354632587862
+    }
+  },
+  {
+    "date": "2026-01-07",
+    "values": {
+      "cumulative_return": -0.09050479233226838
+    }
+  },
+  {
+    "date": "2026-01-08",
+    "values": {
+      "cumulative_return": -0.09757188498402558
+    }
+  },
+  {
+    "date": "2026-01-09",
+    "values": {
+      "cumulative_return": -0.0932268370607029
+    }
+  },
+  {
+    "date": "2026-01-12",
+    "values": {
+      "cumulative_return": -0.09058785942492009
+    }
+  },
+  {
+    "date": "2026-01-13",
+    "values": {
+      "cumulative_return": -0.09840255591054314
+    }
+  },
+  {
+    "date": "2026-01-14",
+    "values": {
+      "cumulative_return": -0.10670287539936107
+    }
+  },
+  {
+    "date": "2026-01-15",
+    "values": {
+      "cumulative_return": -0.11253035143769963
+    }
+  },
+  {
+    "date": "2026-01-16",
+    "values": {
+      "cumulative_return": -0.1169329073482428
+    }
+  },
+  {
+    "date": "2026-01-19",
+    "values": {
+      "cumulative_return": -0.12076677316293927
+    }
+  },
+  {
+    "date": "2026-01-20",
+    "values": {
+      "cumulative_return": -0.12233226837060707
+    }
+  },
+  {
+    "date": "2026-01-21",
+    "values": {
+      "cumulative_return": -0.1367028753993611
+    }
+  },
+  {
+    "date": "2026-01-22",
+    "values": {
+      "cumulative_return": -0.14373162939297124
+    }
+  },
+  {
+    "date": "2026-01-23",
+    "values": {
+      "cumulative_return": -0.14568690095846648
+    }
+  },
+  {
+    "date": "2026-01-26",
+    "values": {
+      "cumulative_return": -0.1424920127795527
+    }
+  },
+  {
+    "date": "2026-01-27",
+    "values": {
+      "cumulative_return": -0.1418466453674121
+    }
+  },
+  {
+    "date": "2026-01-28",
+    "values": {
+      "cumulative_return": -0.1541916932907348
+    }
+  },
+  {
+    "date": "2026-01-29",
+    "values": {
+      "cumulative_return": -0.08132907348242813
+    }
+  },
+  {
+    "date": "2026-01-30",
+    "values": {
+      "cumulative_return": -0.10479233226837059
+    }
+  },
+  {
+    "date": "2026-02-02",
+    "values": {
+      "cumulative_return": -0.08817891373801912
+    }
+  },
+  {
+    "date": "2026-02-03",
+    "values": {
+      "cumulative_return": -0.05755910543130982
+    }
+  },
+  {
+    "date": "2026-02-04",
+    "values": {
+      "cumulative_return": -0.025559105431309903
+    }
+  },
+  {
+    "date": "2026-02-05",
+    "values": {
+      "cumulative_return": -0.006389776357827448
+    }
+  },
+  {
+    "date": "2026-02-06",
+    "values": {
+      "cumulative_return": -0.031942492012779544
+    }
+  },
+  {
+    "date": "2026-02-09",
+    "values": {
+      "cumulative_return": -0.025584664536741242
+    }
+  },
+  {
+    "date": "2026-02-10",
+    "values": {
+      "cumulative_return": -0.03846645367412138
+    }
+  },
+  {
+    "date": "2026-02-11",
+    "values": {
+      "cumulative_return": -0.038766773162939305
+    }
+  },
+  {
+    "date": "2026-02-12",
+    "values": {
+      "cumulative_return": -0.05009584664536748
+    }
+  },
+  {
+    "date": "2026-02-13",
+    "values": {
+      "cumulative_return": -0.050926517571885044
+    }
+  },
+  {
+    "date": "2026-02-24",
+    "values": {
+      "cumulative_return": -0.0627476038338658
+    }
+  },
+  {
+    "date": "2026-02-25",
+    "values": {
+      "cumulative_return": -0.04686261980830664
+    }
+  },
+  {
+    "date": "2026-02-26",
+    "values": {
+      "cumulative_return": -0.06312460063897762
+    }
+  },
+  {
+    "date": "2026-02-27",
+    "values": {
+      "cumulative_return": -0.07027476038338665
+    }
+  },
+  {
+    "date": "2026-03-02",
+    "values": {
+      "cumulative_return": -0.07980191693290739
+    }
+  },
+  {
+    "date": "2026-03-03",
+    "values": {
+      "cumulative_return": -0.08869648562300314
+    }
+  },
+  {
+    "date": "2026-03-04",
+    "values": {
+      "cumulative_return": -0.10467731629392962
+    }
+  },
+  {
+    "date": "2026-03-05",
+    "values": {
+      "cumulative_return": -0.10604472843450485
+    }
+  },
+  {
+    "date": "2026-03-06",
+    "values": {
+      "cumulative_return": -0.1041533546325879
+    }
+  },
+  {
+    "date": "2026-03-09",
+    "values": {
+      "cumulative_return": -0.10734824281150157
+    }
+  },
+  {
+    "date": "2026-03-10",
+    "values": {
+      "cumulative_return": -0.1042300319488817
+    }
+  },
+  {
+    "date": "2026-03-11",
+    "values": {
+      "cumulative_return": -0.10543130990415339
+    }
+  },
+  {
+    "date": "2026-03-12",
+    "values": {
+      "cumulative_return": -0.11054313099041535
+    }
+  },
+  {
+    "date": "2026-03-13",
+    "values": {
+      "cumulative_return": -0.09671565495207657
+    }
+  },
+  {
+    "date": "2026-03-16",
+    "values": {
+      "cumulative_return": -0.06697763578274751
+    }
+  },
+  {
+    "date": "2026-03-17",
+    "values": {
+      "cumulative_return": -0.051118210862619806
+    }
+  },
+  {
+    "date": "2026-03-18",
+    "values": {
+      "cumulative_return": -0.061469648562300305
+    }
+  },
+  {
+    "date": "2026-03-19",
+    "values": {
+      "cumulative_return": -0.07164856230031957
+    }
+  },
+  {
+    "date": "2026-03-20",
+    "values": {
+      "cumulative_return": -0.07667731629392971
+    }
+  },
+  {
+    "date": "2026-03-23",
+    "values": {
+      "cumulative_return": -0.10027476038338667
+    }
+  },
+  {
+    "date": "2026-03-24",
+    "values": {
+      "cumulative_return": -0.10074760383386583
+    }
+  },
+  {
+    "date": "2026-03-25",
+    "values": {
+      "cumulative_return": -0.0988690095846646
+    }
+  },
+  {
+    "date": "2026-03-26",
+    "values": {
+      "cumulative_return": -0.10467731629392962
+    }
+  },
+  {
+    "date": "2026-03-27",
+    "values": {
+      "cumulative_return": -0.09519488817891375
+    }
+  },
+  {
+    "date": "2026-03-30",
+    "values": {
+      "cumulative_return": -0.09265175718849838
+    }
+  },
+  {
+    "date": "2026-03-31",
+    "values": {
+      "cumulative_return": -0.07348242811501593
+    }
+  },
+  {
+    "date": "2026-04-01",
+    "values": {
+      "cumulative_return": -0.06745047923322678
+    }
+  },
+  {
+    "date": "2026-04-02",
+    "values": {
+      "cumulative_return": -0.06716932907348239
+    }
+  },
+  {
+    "date": "2026-04-03",
+    "values": {
+      "cumulative_return": -0.06709265175718848
+    }
+  },
+  {
+    "date": "2026-04-07",
+    "values": {
+      "cumulative_return": -0.07985942492012776
+    }
+  },
+  {
+    "date": "2026-04-08",
+    "values": {
+      "cumulative_return": -0.06388498402555909
+    }
+  },
+  {
+    "date": "2026-04-09",
+    "values": {
+      "cumulative_return": -0.06677955271565494
+    }
+  },
+  {
+    "date": "2026-04-10",
+    "values": {
+      "cumulative_return": -0.07095207667731629
+    }
+  },
+  {
+    "date": "2026-04-13",
+    "values": {
+      "cumulative_return": -0.07775718849840263
+    }
+  },
+  {
+    "date": "2026-04-14",
+    "values": {
+      "cumulative_return": -0.0754632587859424
+    }
+  },
+  {
+    "date": "2026-04-15",
+    "values": {
+      "cumulative_return": -0.06230031948881787
+    }
+  },
+  {
+    "date": "2026-04-16",
+    "values": {
+      "cumulative_return": -0.06527795527156555
+    }
+  },
+  {
+    "date": "2026-04-17",
+    "values": {
+      "cumulative_return": -0.1008051118210862
+    }
+  },
+  {
+    "date": "2026-04-20",
+    "values": {
+      "cumulative_return": -0.09847284345047913
+    }
+  },
+  {
+    "date": "2026-04-21",
+    "values": {
+      "cumulative_return": -0.09775718849840254
+    }
+  },
+  {
+    "date": "2026-04-22",
+    "values": {
+      "cumulative_return": -0.09936102236421729
+    }
+  },
+  {
+    "date": "2026-04-23",
+    "values": {
+      "cumulative_return": -0.09329073482428119
+    }
+  },
+  {
+    "date": "2026-04-24",
+    "values": {
+      "cumulative_return": -0.06805750798722043
+    }
+  },
+  {
+    "date": "2026-04-27",
+    "values": {
+      "cumulative_return": -0.10338658146964852
+    }
+  },
+  {
+    "date": "2026-04-28",
+    "values": {
+      "cumulative_return": -0.10223642172523961
+    }
+  },
+  {
+    "date": "2026-04-29",
+    "values": {
+      "cumulative_return": -0.10468370607028754
+    }
+  },
+  {
+    "date": "2026-04-30",
+    "values": {
+      "cumulative_return": -0.11515015974440901
+    }
+  },
+  {
+    "date": "2026-05-06",
+    "values": {
+      "cumulative_return": -0.12140575079872207
+    }
+  },
+  {
+    "date": "2026-05-07",
+    "values": {
+      "cumulative_return": -0.1239297124600639
+    }
+  },
+  {
+    "date": "2026-05-08",
+    "values": {
+      "cumulative_return": -0.12269009584664536
+    }
+  },
+  {
+    "date": "2026-05-11",
+    "values": {
+      "cumulative_return": -0.1301405750798722
+    }
+  },
+  {
+    "date": "2026-05-12",
+    "values": {
+      "cumulative_return": -0.13447284345047927
+    }
+  },
+  {
+    "date": "2026-05-13",
+    "values": {
+      "cumulative_return": -0.14115654952076684
+    }
+  },
+  {
+    "date": "2026-05-14",
+    "values": {
+      "cumulative_return": -0.14238338658146965
+    }
+  },
+  {
+    "date": "2026-05-15",
+    "values": {
+      "cumulative_return": -0.1482747603833866
+    }
+  },
+  {
+    "date": "2026-05-18",
+    "values": {
+      "cumulative_return": -0.1546325878594249
+    }
+  },
+  {
+    "date": "2026-05-19",
+    "values": {
+      "cumulative_return": -0.15380191693290735
+    }
+  },
+  {
+    "date": "2026-05-20",
+    "values": {
+      "cumulative_return": -0.15974440894568687
+    }
+  },
+  {
+    "date": "2026-05-21",
+    "values": {
+      "cumulative_return": -0.16230031948881785
+    }
+  },
+  {
+    "date": "2026-05-22",
+    "values": {
+      "cumulative_return": -0.17559105431309896
+    }
+  },
+  {
+    "date": "2026-05-25",
+    "values": {
+      "cumulative_return": -0.17835143769968043
+    }
+  },
+  {
+    "date": "2026-05-26",
+    "values": {
+      "cumulative_return": -0.18633865814696482
+    }
+  },
+  {
+    "date": "2026-05-27",
+    "values": {
+      "cumulative_return": -0.16741214057507992
+    }
+  },
+  {
+    "date": "2026-05-28",
+    "values": {
+      "cumulative_return": -0.1846773162939297
+    }
+  },
+  {
+    "date": "2026-05-29",
+    "values": {
+      "cumulative_return": -0.15271565495207673
+    }
+  },
+  {
+    "date": "2026-06-01",
+    "values": {
+      "cumulative_return": -0.1631948881789138
+    }
+  },
+  {
+    "date": "2026-06-02",
+    "values": {
+      "cumulative_return": -0.16471565495207663
+    }
+  },
+  {
+    "date": "2026-06-03",
+    "values": {
+      "cumulative_return": -0.18088817891373798
+    }
+  },
+  {
+    "date": "2026-06-04",
+    "values": {
+      "cumulative_return": -0.18977635782747604
+    }
+  },
+  {
+    "date": "2026-06-05",
+    "values": {
+      "cumulative_return": -0.186670926517572
+    }
+  },
+  {
+    "date": "2026-06-08",
+    "values": {
+      "cumulative_return": -0.19298402555910543
+    }
+  },
+  {
+    "date": "2026-06-09",
+    "values": {
+      "cumulative_return": -0.19744408945686898
+    }
+  },
+  {
+    "date": "2026-06-10",
+    "values": {
+      "cumulative_return": -0.18474121405750787
+    }
+  },
+  {
+    "date": "2026-06-11",
+    "values": {
+      "cumulative_return": -0.1827476038338658
+    }
+  },
+  {
+    "date": "2026-06-12",
+    "values": {
+      "cumulative_return": -0.17449840255591054
+    }
+  },
+  {
+    "date": "2026-06-15",
+    "values": {
+      "cumulative_return": -0.18779552715654957
+    }
+  },
+  {
+    "date": "2026-06-16",
+    "values": {
+      "cumulative_return": -0.19765495207667727
+    }
+  },
+  {
+    "date": "2026-06-17",
+    "values": {
+      "cumulative_return": -0.207667731629393
+    }
+  },
+  {
+    "date": "2026-06-18",
+    "values": {
+      "cumulative_return": -0.22364217252396168
+    }
+  },
+  {
+    "date": "2026-06-22",
+    "values": {
+      "cumulative_return": -0.20676677316293923
+    }
+  },
+  {
+    "date": "2026-06-23",
+    "values": {
+      "cumulative_return": -0.2188817891373802
+    }
+  },
+  {
+    "date": "2026-06-24",
+    "values": {
+      "cumulative_return": -0.22831948881789133
+    }
+  },
+  {
+    "date": "2026-06-25",
+    "values": {
+      "cumulative_return": -0.22549520766773168
+    }
+  },
+  {
+    "date": "2026-06-26",
+    "values": {
+      "cumulative_return": -0.2532715654952076
+    }
+  },
+  {
+    "date": "2026-06-29",
+    "values": {
+      "cumulative_return": -0.23644728434504791
+    }
+  },
+  {
+    "date": "2026-06-30",
+    "values": {
+      "cumulative_return": -0.24249840255591049
+    }
+  },
+  {
+    "date": "2026-07-01",
+    "values": {
+      "cumulative_return": -0.23769329073482426
+    }
+  },
+  {
+    "date": "2026-07-02",
+    "values": {
+      "cumulative_return": -0.23130990415335462
+    }
+  },
+  {
+    "date": "2026-07-03",
+    "values": {
+      "cumulative_return": -0.23677316293929707
+    }
+  },
+  {
+    "date": "2026-07-06",
+    "values": {
+      "cumulative_return": -0.228811501597444
+    }
+  },
+  {
+    "date": "2026-07-07",
+    "values": {
+      "cumulative_return": -0.24038338658146963
+    }
+  },
+  {
+    "date": "2026-07-08",
+    "values": {
+      "cumulative_return": -0.23367412140575083
+    }
+  },
+  {
+    "date": "2026-07-09",
+    "values": {
+      "cumulative_return": -0.24460702875399354
+    }
+  },
+  {
+    "date": "2026-07-10",
+    "values": {
+      "cumulative_return": -0.23004472843450474
+    }
+  },
+  {
+    "date": "2026-07-13",
+    "values": {
+      "cumulative_return": -0.22620447284345047
+    }
+  },
+  {
+    "date": "2026-07-14",
+    "values": {
+      "cumulative_return": -0.22371884984025547
+    }
+  },
+  {
+    "date": "2026-07-15",
+    "values": {
+      "cumulative_return": -0.2006006389776358
+    }
+  },
+  {
+    "date": "2026-07-16",
+    "values": {
+      "cumulative_return": -0.1955335463258786
+    }
+  },
+  {
+    "date": "2026-07-17",
+    "values": {
+      "cumulative_return": -0.19936102236421727
+    }
+  },
+  {
+    "date": "2026-07-20",
+    "values": {
+      "cumulative_return": -0.15175718849840258
+    }
+  },
+  {
+    "date": "2026-07-21",
+    "values": {
+      "cumulative_return": -0.16421725239616614
+    }
+  },
+  {
+    "date": "2026-07-22",
+    "values": {
+      "cumulative_return": -0.16613418530351443
+    }
+  },
+  {
+    "date": "2026-07-23",
+    "values": {
+      "cumulative_return": -0.17443450479233225
+    }
+  },
+  {
+    "date": "2026-07-24",
+    "values": {
+      "cumulative_return": -0.1709840255591054
+    }
+  },
+  {
+    "date": "2026-07-27",
+    "values": {
+      "cumulative_return": -0.176038338658147
+    }
+  },
+  {
+    "date": "2026-07-28",
+    "values": {
+      "cumulative_return": -0.1565495207667732
+    }
+  },
+  {
+    "date": "2026-07-29",
+    "values": {
+      "cumulative_return": -0.1559105431309904
+    }
+  },
+  {
+    "date": "2026-07-30",
+    "values": {
+      "cumulative_return": -0.12986581469648562
+    }
+  },
+  {
+    "date": "2026-07-31",
+    "values": {
+      "cumulative_return": -0.1369968051118211
+    }
+  },
+  {
+    "date": "2026-08-03",
+    "values": {
+      "cumulative_return": -0.1316421725239616
+    }
+  },
+  {
+    "date": "2026-08-04",
+    "values": {
+      "cumulative_return": -0.1512076677316294
+    }
+  },
+  {
+    "date": "2026-08-05",
+    "values": {
+      "cumulative_return": -0.16520766773162932
+    }
+  },
+  {
+    "date": "2026-08-06",
+    "values": {
+      "cumulative_return": -0.16386581469648565
+    }
+  },
+  {
+    "date": "2026-08-07",
+    "values": {
+      "cumulative_return": -0.16343769968051114
+    }
+  },
+  {
+    "date": "2026-08-10",
+    "values": {
+      "cumulative_return": -0.13810862619808317
+    }
+  },
+  {
+    "date": "2026-08-11",
+    "values": {
+      "cumulative_return": -0.13961661341853038
+    }
+  },
+  {
+    "date": "2026-08-12",
+    "values": {
+      "cumulative_return": -0.14185303514377
+    }
+  },
+  {
+    "date": "2026-08-13",
+    "values": {
+      "cumulative_return": -0.134
+    }
+  },
+  {
+    "date": "2026-08-14",
+    "values": {
+      "cumulative_return": -0.1424984025559105
+    }
+  },
+  {
+    "date": "2026-08-17",
+    "values": {
+      "cumulative_return": -0.173744408945687
+    }
+  },
+  {
+    "date": "2026-08-18",
+    "values": {
+      "cumulative_return": -0.1706134185303514
+    }
+  },
+  {
+    "date": "2026-08-19",
+    "values": {
+      "cumulative_return": -0.16429392971246004
+    }
+  },
+  {
+    "date": "2026-08-20",
+    "values": {
+      "cumulative_return": -0.1747603833865815
+    }
+  },
+  {
+    "date": "2026-08-21",
+    "values": {
+      "cumulative_return": -0.18669009584664542
+    }
+  },
+  {
+    "date": "2026-08-24",
+    "values": {
+      "cumulative_return": -0.16635143769968042
+    }
+  },
+  {
+    "date": "2026-08-25",
+    "values": {
+      "cumulative_return": -0.16677316293929711
+    }
+  },
+  {
+    "date": "2026-08-26",
+    "values": {
+      "cumulative_return": -0.1675399361022365
+    }
+  },
+  {
+    "date": "2026-08-27",
+    "values": {
+      "cumulative_return": -0.1742492012779553
+    }
+  },
+  {
+    "date": "2026-08-28",
+    "values": {
+      "cumulative_return": -0.17099041533546322
+    }
+  },
+  {
+    "date": "2026-08-31",
+    "values": {
+      "cumulative_return": -0.16963578274760382
+    }
+  },
+  {
+    "date": "2026-09-01",
+    "values": {
+      "cumulative_return": -0.1696102236421726
+    }
+  },
+  {
+    "date": "2026-09-02",
+    "values": {
+      "cumulative_return": -0.17092651757188504
+    }
+  },
+  {
+    "date": "2026-09-03",
+    "values": {
+      "cumulative_return": -0.1700447284345047
+    }
+  },
+  {
+    "date": "2026-09-04",
+    "values": {
+      "cumulative_return": -0.15015974440894564
+    }
+  },
+  {
+    "date": "2026-09-07",
+    "values": {
+      "cumulative_return": -0.15909904153354637
+    }
+  },
+  {
+    "date": "2026-09-08",
+    "values": {
+      "cumulative_return": -0.16338658146964857
+    }
+  },
+  {
+    "date": "2026-09-09",
+    "values": {
+      "cumulative_return": -0.17515654952076676
+    }
+  },
+  {
+    "date": "2026-09-10",
+    "values": {
+      "cumulative_return": -0.1788306709265175
+    }
+  },
+  {
+    "date": "2026-09-11",
+    "values": {
+      "cumulative_return": -0.18520127795527153
+    }
+  },
+  {
+    "date": "2026-09-14",
+    "values": {
+      "cumulative_return": -0.18341214057507982
+    }
+  },
+  {
+    "date": "2026-09-15",
+    "values": {
+      "cumulative_return": -0.186741214057508
+    }
+  },
+  {
+    "date": "2026-09-16",
+    "values": {
+      "cumulative_return": -0.1961661341853035
+    }
+  },
+  {
+    "date": "2026-09-17",
+    "values": {
+      "cumulative_return": -0.19042811501597445
+    }
+  },
+  {
+    "date": "2026-09-18",
+    "values": {
+      "cumulative_return": -0.19672843450479238
+    }
+  },
+  {
+    "date": "2026-09-21",
+    "values": {
+      "cumulative_return": -0.19963578274760385
+    }
+  },
+  {
+    "date": "2026-09-22",
+    "values": {
+      "cumulative_return": -0.19884984025559105
+    }
+  },
+  {
+    "date": "2026-09-23",
+    "values": {
+      "cumulative_return": -0.20048562300319483
+    }
+  },
+  {
+    "date": "2026-09-24",
+    "values": {
+      "cumulative_return": -0.20958466453674118
+    }
+  },
+  {
+    "date": "2026-09-28",
+    "values": {
+      "cumulative_return": -0.20518849840255582
+    }
+  },
+  {
+    "date": "2026-09-29",
+    "values": {
+      "cumulative_return": -0.21049201277955276
+    }
+  },
+  {
+    "date": "2026-09-30",
+    "values": {
+      "cumulative_return": -0.19576996805111824
+    }
+  },
+  {
+    "date": "2026-10-08",
+    "values": {
+      "cumulative_return": -0.19757827476038337
+    }
+  },
+  {
+    "date": "2026-10-09",
+    "values": {
+      "cumulative_return": -0.19297124600638982
+    }
+  },
+  {
+    "date": "2026-10-12",
+    "values": {
+      "cumulative_return": -0.17699680511182103
+    }
+  },
+  {
+    "date": "2026-10-13",
+    "values": {
+      "cumulative_return": -0.18537380191693287
+    }
+  },
+  {
+    "date": "2026-10-14",
+    "values": {
+      "cumulative_return": -0.17827476038338663
+    }
+  },
+  {
+    "date": "2026-10-15",
+    "values": {
+      "cumulative_return": -0.1610415335463259
+    }
+  },
+  {
+    "date": "2026-10-16",
+    "values": {
+      "cumulative_return": -0.15079872204472844
+    }
+  },
+  {
+    "date": "2026-10-19",
+    "values": {
+      "cumulative_return": -0.15337380191693284
+    }
+  },
+  {
+    "date": "2026-10-20",
+    "values": {
+      "cumulative_return": -0.14895846645367405
+    }
+  },
+  {
+    "date": "2026-10-21",
+    "values": {
+      "cumulative_return": -0.16313738019169322
+    }
+  },
+  {
+    "date": "2026-10-22",
+    "values": {
+      "cumulative_return": -0.15751437699680515
+    }
+  },
+  {
+    "date": "2026-10-23",
+    "values": {
+      "cumulative_return": -0.14696485623003197
+    }
+  }
+]

@@ -60,7 +60,7 @@ from src.master_data import (
     MasterDataService,
     SQLiteMasterDataRepository,
 )
-from src.research_workflow import ResearchTaskSpec
+from src.research_contracts import ResearchTaskSpec
 from src.research_orchestration import (
     EventNameDiscoveryOrchestrationPipeline,
     EventNameDiscoveryRunRequest,

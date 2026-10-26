@@ -27,6 +27,11 @@ from src.master_data import (
     ASSET_TYPE_STOCK,
     MasterDataService,
 )
+from src.research_contracts import (
+    PROFILE_FINANCIAL_INSTITUTION,
+    ResearchHorizon,
+    ResearchTaskSpec,
+)
 from src.research_evidence import ResearchEvidenceService
 from src.research_visualization import (
     ChartRenderer,
@@ -53,10 +58,10 @@ from .execution_service import (
     _complete_phases,
     _derive_windows,
     _error,
+    _rolling_risk_factor_names,
     _status,
 )
-from .models import ResearchHorizon, ResearchTaskSpec
-from .profiles import PROFILE_FINANCIAL_INSTITUTION
+from .return_bars import fetch_total_return_bars, risk_parameters_for
 
 
 class FinancialInstitutionResearchExecutionService:
@@ -174,12 +179,25 @@ class FinancialInstitutionResearchExecutionService:
         factor_values = []
         risk = None
         try:
+            return_bars, basis_gap = fetch_total_return_bars(
+                self.data_access,
+                bars,
+                start_date=windows.bar_start,
+                end_date=windows.bar_end,
+                as_of_date=task.as_of_date,
+                options=config,
+            )
+            if basis_gap is not None:
+                gaps.append(basis_gap)
             factor_values.extend(
-                self.factor_service.compute_from_response(bars)
+                self.factor_service.compute_from_response(return_bars)
             )
             risk = self.factor_service.compute_risk_from_response(
-                bars,
-                parameters=config.risk_parameters,
+                return_bars,
+                parameters=risk_parameters_for(
+                    return_bars,
+                    config.risk_parameters,
+                ),
             )
             factor_values.extend(risk.values)
             phases.append(
@@ -416,10 +434,7 @@ class FinancialInstitutionResearchExecutionService:
                     asset=asset,
                     chart_type=ChartType.ROLLING_RISK,
                     values=list(risk.series),
-                    factor_names=(
-                        "rolling_annualized_volatility_5d",
-                        "rolling_sharpe_5d",
-                    ),
+                    factor_names=_rolling_risk_factor_names(risk.series),
                     source_dataset="risk_daily_v1",
                 ),
             ]

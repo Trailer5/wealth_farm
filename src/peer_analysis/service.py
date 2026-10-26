@@ -9,6 +9,7 @@ from src.fundamental_analysis import (
     SQLiteFundamentalMetricRepository,
 )
 from src.master_data import ASSET_TYPE_STOCK, MasterDataService
+from src.sector_data import CLASSIFICATION, SectorDataService
 
 from .models import (
     IndustryAssignment,
@@ -17,6 +18,7 @@ from .models import (
     PeerMetricComparison,
     PeerMetricValue,
     PeerSet,
+    PeerSetMember,
 )
 from .sqlite_repository import SQLitePeerAnalysisRepository
 
@@ -28,12 +30,72 @@ class PeerAnalysisService:
         master_data: MasterDataService,
         metric_repository: SQLiteFundamentalMetricRepository,
         peer_repository: SQLitePeerAnalysisRepository,
+        sector_data: SectorDataService | None = None,
     ) -> None:
         self.master_data = master_data
         self.metric_repository = metric_repository
         self.peer_repository = peer_repository
+        self.sector_data = sector_data
         self.metric_repository.initialize()
         self.peer_repository.initialize()
+
+    def assign_from_shenwan(
+        self,
+        *,
+        asset_id: str,
+        as_of_date: str,
+        allow_remote: bool = True,
+    ) -> tuple[IndustryAssignment, PeerSet | None, dict[str, object]] | None:
+        """Save the Shenwan level-3 assignment and the default peer set."""
+
+        if self.sector_data is None:
+            return None
+        asset = self._require_stock(asset_id)
+        peers = self.sector_data.peers(asset.standard_symbol, allow_remote=allow_remote)
+        if peers is None:
+            return None
+        l3 = peers["path"]["l3"]
+        assignment = self.assign_industry(
+            IndustryAssignment(
+                asset_id=asset_id,
+                industry_code=str(l3["code"]),
+                industry_name=str(l3["name"]),
+                classification_source=CLASSIFICATION,
+                classification_version="current_members",
+                effective_date=as_of_date,
+            )
+        )
+        industry = peers["peer_industry"]
+        members = []
+        for item in peers["peers"]:
+            resolution = self.master_data.resolve_identifier(
+                source=CLASSIFICATION,
+                raw_symbol=str(item["symbol"]),
+                name=str(item["name"]),
+                asset_type_hint=ASSET_TYPE_STOCK,
+            )
+            if resolution.asset is not None and resolution.asset.asset_id != asset_id:
+                members.append(
+                    PeerSetMember(
+                        asset_id=resolution.asset.asset_id,
+                        included=True,
+                        reason=f"申万{industry['name']}当前成分",
+                    )
+                )
+        peer_set = None
+        if members:
+            peer_set = self.save_peer_set(
+                PeerSet(
+                    peer_set_id=f"peer-set:{CLASSIFICATION}:{industry['code']}:{asset_id}",
+                    target_asset_id=asset_id,
+                    name=f"申万{industry['name']}同行",
+                    source=CLASSIFICATION,
+                    version="current_members",
+                    effective_date=as_of_date,
+                    members=tuple(members),
+                )
+            )
+        return assignment, peer_set, peers
 
     def assign_industry(
         self,

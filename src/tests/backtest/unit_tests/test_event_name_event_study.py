@@ -29,7 +29,7 @@ from src.event_name_discovery import (
     MATCHER_VERSION,
     RelationCheckResult,
 )
-from src.research_workflow import ResearchTaskSpec
+from src.research_contracts import ResearchTaskSpec
 
 
 class FakeTaskFactory:

@@ -16,6 +16,7 @@ from src.data_access import (
     DATASET_FUND_STATUS,
     DATASET_OPEN_FUND_NAV,
     DataAccessResponse,
+    adjusted_nav_levels,
 )
 from src.data_src.common import DataSourceError
 from src.data_quality import DataQualityService
@@ -27,6 +28,12 @@ from src.fund_research import (
     OpenFundHistoricalSummaryCalculator,
 )
 from src.master_data import ASSET_TYPE_OPEN_FUND, MasterDataService
+from src.research_contracts import (
+    PROFILE_OPEN_FUND,
+    ResearchHorizon,
+    ResearchQuestionType,
+    ResearchTaskSpec,
+)
 from src.research_visualization import (
     ChartRenderer,
     ChartType,
@@ -45,10 +52,9 @@ from .execution_service import (
     _complete_phases,
     _derive_windows,
     _error,
+    _rolling_risk_factor_names,
     _status,
 )
-from .models import ResearchHorizon, ResearchQuestionType, ResearchTaskSpec
-from .profiles import PROFILE_OPEN_FUND
 
 
 _WINDOW_DAYS = {
@@ -535,10 +541,7 @@ class OpenFundResearchExecutionService:
                     asset=asset,
                     chart_type=ChartType.ROLLING_RISK,
                     values=list(risk.series),
-                    factor_names=(
-                        "rolling_annualized_volatility_5d",
-                        "rolling_sharpe_5d",
-                    ),
+                    factor_names=_rolling_risk_factor_names(risk.series),
                     source_dataset=DATASET_OPEN_FUND_NAV,
                 ),
             )
@@ -636,8 +639,11 @@ def _nav_response(bundle: FundResearchBundle) -> DataAccessResponse:
             "symbol": record.get("symbol")
             or bundle.asset.standard_symbol,
             "trade_date": nav_date,
-            "close": record.get("unit_nav"),
         }
+    levels = adjusted_nav_levels(by_date.values())
+    for nav_date, record in by_date.items():
+        record["adjusted_nav"] = levels.get(nav_date)
+        record["close"] = levels.get(nav_date, record.get("unit_nav"))
     records = tuple(by_date[value_date] for value_date in sorted(by_date))
     dates = tuple(by_date)
     sources = tuple(
@@ -658,7 +664,7 @@ def _nav_response(bundle: FundResearchBundle) -> DataAccessResponse:
         coverage_end=max(dates) if dates else None,
         complete=bool(records),
         metadata={
-            "record_semantics": "official_unit_nav_as_close",
+            "record_semantics": "adjusted_nav_as_close",
             "as_of_date": bundle.as_of_date,
         },
     )

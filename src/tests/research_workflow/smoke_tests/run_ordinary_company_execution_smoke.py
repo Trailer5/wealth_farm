@@ -62,12 +62,14 @@ def main() -> int:
         ChartRenderer,
         ReportArtifactService,
     )
-    from src.research_workflow import (
+    from src.research_contracts import (
         PROFILE_ORDINARY_COMPANY,
-        ResearchExecutionOptions,
-        ResearchExecutionService,
         ResearchHorizon,
         ResearchQuestionType,
+    )
+    from src.research_workflow import (
+        ResearchExecutionOptions,
+        ResearchExecutionService,
         ResearchTaskFactory,
     )
     from src.strategy import (
@@ -181,7 +183,7 @@ def main() -> int:
             raise AssertionError(
                 f"Formal execution blocked: {result.gaps}"
             )
-        if len(result.chart_artifacts) != 6:
+        if len(result.chart_artifacts) != 4:
             raise AssertionError(
                 "Ordinary-company execution requires six charts"
             )

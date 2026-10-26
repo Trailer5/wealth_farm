@@ -29,14 +29,16 @@ from src.master_data import (
     SQLiteMasterDataRepository,
 )
 from src.research_visualization import ChartArtifact
+from src.research_contracts import (
+    PROFILE_OPEN_FUND,
+    ResearchHorizon,
+    ResearchQuestionType,
+)
 from src.research_workflow import (
     OpenFundResearchExecutionService,
-    PROFILE_OPEN_FUND,
     ResearchExecutionOptions,
     ResearchExecutionStatus,
-    ResearchHorizon,
     ResearchPhaseStatus,
-    ResearchQuestionType,
     ResearchTaskFactory,
 )
 

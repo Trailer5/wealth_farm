@@ -19,11 +19,11 @@ from src.research_universe import (
     ResearchUniverseService,
     SQLiteResearchUniverseRepository,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_FINANCIAL_INSTITUTION,
     PROFILE_ORDINARY_COMPANY,
-    ResearchExecutionOptions,
 )
+from src.research_workflow import ResearchExecutionOptions
 from src.security_discovery import (
     DiscoveryMemberInput,
     DiscoveryMetricPreparationService,

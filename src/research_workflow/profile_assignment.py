@@ -9,11 +9,13 @@ from pathlib import Path
 
 from src.data_src import StockIndustryInfo
 from src.master_data import MasterDataService
-
-from .profiles import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_FINANCIAL_INSTITUTION,
     PROFILE_ORDINARY_COMPANY,
+)
+
+from .profiles import (
     ResearchProfileRegistry,
     default_profile_registry,
 )
@@ -221,6 +223,14 @@ class ResearchProfileAssignmentService:
         self._validate(assignment)
         return self.repository.save(assignment)
 
+    def get_assignment(
+        self,
+        asset_id: str,
+        *,
+        as_of_date: str,
+    ) -> ResearchProfileAssignment | None:
+        return self.repository.get(asset_id, as_of_date=as_of_date)
+
     def profile_map(
         self,
         asset_ids: list[str],
@@ -254,7 +264,16 @@ class ResearchProfileAssignmentService:
 
 def _classify(industry_name: str) -> tuple[str, float, str]:
     value = industry_name.replace("Ⅱ", "").replace("Ⅲ", "")
-    financial = ("银行", "保险", "证券", "多元金融")
+    # Shenwan-style names (Eastmoney) and CSRC names (BaoStock).
+    financial = (
+        "银行",
+        "保险",
+        "证券",
+        "多元金融",
+        "货币金融",
+        "资本市场",
+        "其他金融",
+    )
     cyclical = (
         "工业金属",
         "贵金属",
@@ -264,6 +283,10 @@ def _classify(industry_name: str) -> tuple[str, float, str]:
         "油气开采",
         "炼化",
         "钢铁",
+        "石油和天然气开采",
+        "金属矿采选",
+        "金属冶炼",
+        "燃料加工",
     )
     if any(token in value for token in financial):
         return (

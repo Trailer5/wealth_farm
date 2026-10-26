@@ -44,6 +44,14 @@ class TradingCalendarService:
         trading_dates = self._trading_dates(start_date, target_end)
         return trading_dates[-1] if trading_dates else None
 
+    def first_trading_date(
+        self,
+        start_date: str,
+        end_date: str,
+    ) -> str | None:
+        trading_dates = self._trading_dates(start_date, end_date)
+        return trading_dates[0] if trading_dates else None
+
     def latest_completed_trading_date(
         self,
         *,

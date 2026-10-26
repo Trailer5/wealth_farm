@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
@@ -37,6 +37,7 @@ from .exploration_models import (
     ResearchFinding,
     ResearchFindingKind,
 )
+from .gap_messages import final_report_gap_message
 from .suitability_models import (
     SuitabilityAction,
     SuitabilityAssessment,
@@ -186,11 +187,11 @@ class EntryPlanService:
         limitations = _merge_texts(
             suitability.limitations,
             *(item.limitations for item in emitted_blocks),
-            *((gap.message,) for gap in session.query_gaps),
-        ) or (
-            "Entry timing is bounded by evidence recorded "
-            "through the research cutoff.",
-        )
+            *(
+                (final_report_gap_message(gap.code),)
+                for gap in session.query_gaps
+            ),
+        ) or ("时点判断只基于截止日前已入账的证据。",)
         policy_id = (
             policy.policy_id
             if policy is not None
@@ -386,9 +387,8 @@ class EntryPlanService:
                 f"profile_timing_execution_unsupported:"
                 f"{session.task.profile_id}"
             )
-        for gap in session.query_gaps:
-            if gap.blocking:
-                core.append(f"blocking_query_gap:{gap.code}")
+        for gap in session.unresolved_blocking_query_gaps():
+            core.append(f"blocking_query_gap:{gap.code}")
         for finding in findings:
             if not set(finding.evidence_refs).issubset(
                 recorded_evidence

@@ -103,6 +103,18 @@
 - 同代码歧义必须停在 `needs_clarification`，且只询问资产身份；身份唯一前不能生成任务、workflow、handoff 或报告。
 - 自动断言不评价 Agent 文风、投资准确率或承诺收益。新对话是否能仅依赖 `.agent` 正确执行仍需人工打开独立对话复核，不能由构造一份通过记录代替。
 
+## 问题层验收
+
+`slice12_v1` 只覆盖单标的研究。长期愿景十个代表性问题由 `vision_question_scenarios()` 冻结为 `vision_q_v1`，每个场景固定结构化请求、期望配方、路由状态和各“必须包含”元素的当前状态。重放并输出能力覆盖矩阵：
+
+```text
+python -m src.research_orchestration.cli vision-acceptance
+```
+
+- 元素状态变化（补齐或退化）都会让重放失败，必须同步修改冻结场景和 `docs/long_term/系统模块总图.md`；
+- 重放只检查路由与覆盖，不执行研究、不评价回答质量；
+- 人工复核至少覆盖 Q3、Q8 和一个非标的问题，检查 Agent 是否先路由、是否按缺口说明而不硬套单标的流程、是否遵守“必须避免”。规则见 `docs/modules/治理/代表性研究验收模块.md`。
+
 ## 当前代码边界
 
-Agent 行为和报告契约已冻结；`ResearchDecisionBrief` 已支持按用户和标的持久化、缺失上下文计算及重启恢复；`ResearchRequestPlanner`/`plan-single` 已支持代码到身份、profile 和基础任务草稿；五类 profile 能力注册表、`ResearchWorkflowRun`、`BaselineResearchHandoff`、探索会话与追加式证据账本已可查询、持久化和恢复。问题绑定的 `ResearchQueryPlan` 已能通过公共 service 显式路由、区分远程失败与业务无数据、登记外部官方来源并写入探索账本。适配、时点、仓位、最终报告和经用户确认的本地监测均有确定性对象与程序化 reviewer 或授权门禁；最终报告会冻结证据元数据、三情景、反方、失效和未知并发布独立 Markdown。代表性新对话已有冻结场景、公开规划入口适配和结构验收 runner；它检查实际传入的公开输出，但不会替 Agent 自动生成探索叙事，也不自动评价文字风格或投资准确率。规划结果自动执行与 handoff 缺口静默查询循环仍未实现。
+Agent 行为和报告契约已冻结；`ResearchDecisionBrief` 已支持按用户和标的持久化、缺失上下文计算及重启恢复；`ResearchRequestPlanner`/`plan-single` 已支持代码到身份、profile 和基础任务草稿；五类 profile 能力注册表、`ResearchWorkflowRun`、`BaselineResearchHandoff`、探索会话与追加式证据账本已可查询、持久化和恢复。问题绑定的 `ResearchQueryPlan` 已能通过公共 service 显式路由、区分远程失败与业务无数据、登记外部官方来源并写入探索账本。适配、时点、仓位、最终报告和经用户确认的本地监测均有确定性对象与程序化 reviewer 或授权门禁；最终报告会冻结证据元数据、三情景、反方、失效和未知并发布独立 Markdown。代表性新对话已有冻结场景、公开规划入口适配和结构验收 runner；它检查实际传入的公开输出，但不会替 Agent 自动生成探索叙事，也不自动评价文字风格或投资准确率。问题路由、配方执行（标的配方自动从规划运行到基础研究）和观点账本已接入；handoff 缺口静默查询循环仍未实现。

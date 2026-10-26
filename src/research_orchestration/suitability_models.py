@@ -9,7 +9,7 @@ from datetime import date
 from enum import Enum
 from typing import Any
 
-from src.research_workflow import ResearchHorizon
+from src.research_contracts import ResearchHorizon
 
 
 class SuitabilityAction(str, Enum):

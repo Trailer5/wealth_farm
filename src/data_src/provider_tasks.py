@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 from .akshare import AkShareDataSource
 from .baostock import BaoStockDataSource
 from .bse import BseDisclosureDataSource
@@ -18,6 +20,11 @@ from .sina import SinaExchangeFundDataSource
 from .sse import SseDisclosureDataSource
 from .szse import SzseDisclosureDataSource
 from .tencent import TencentExchangeFundDataSource
+from .ths import ThsDataSource
+from .total_return_bars import (
+    sina_stock_total_return_bars,
+    ths_tdx_total_return_bars,
+)
 
 
 def fetch_a_share_daily_bars(
@@ -54,6 +61,12 @@ def fetch_a_share_daily_bars(
         )
     if source == "sina":
         return SinaExchangeFundDataSource().get_a_share_daily_bars(
+            symbol,
+            start_date,
+            end_date,
+        )
+    if source == "ths":
+        return ThsDataSource().get_a_share_daily_bars(
             symbol,
             start_date,
             end_date,
@@ -99,7 +112,41 @@ def fetch_etf_daily_bars(
             start_date,
             end_date,
         )
+    if source == "ths":
+        return ThsDataSource().get_etf_daily_bars(
+            symbol,
+            start_date,
+            end_date,
+        )
     raise ValueError(f"Unsupported ETF daily source: {source}")
+
+
+def fetch_total_return_bars(
+    *,
+    source: str,
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    fund: bool,
+):
+    if source == "baostock":
+        with BaoStockDataSource() as provider:
+            return provider.get_a_share_daily_bars(
+                symbol,
+                start_date,
+                end_date,
+            )
+    if source == "sina" and not fund:
+        return sina_stock_total_return_bars(symbol, start_date, end_date)
+    if source == "akshare" and fund:
+        return AkShareDataSource().get_etf_total_return_bars(
+            symbol,
+            start_date,
+            end_date,
+        )
+    if source == "ths":
+        return ths_tdx_total_return_bars(symbol, start_date, end_date)
+    raise ValueError(f"Unsupported total-return bar source: {source}")
 
 
 def fetch_etf_nav_history(
@@ -211,6 +258,19 @@ def fetch_index_daily_bars(
             start_date,
             end_date,
         )
+    if source == "ths":
+        return ThsDataSource().get_index_daily_bars(
+            symbol,
+            start_date,
+            end_date,
+            exchange,
+        )
+    if source == "sw":
+        return AkShareDataSource().get_sw_index_daily_bars(
+            symbol,
+            start_date,
+            end_date,
+        )
     raise ValueError(f"Unsupported index daily source: {source}")
 
 
@@ -274,6 +334,117 @@ def fetch_sw_industry_daily_metrics(
         start_date,
         end_date,
     )
+
+
+def fetch_sw_industry_catalog(*, level: int):
+    return AkShareDataSource().get_sw_industry_catalog(level)
+
+
+def fetch_sw_constituents(*, codes: list[str], workers: int = 6):
+    """Constituents of many Shenwan indexes; failures are returned per code."""
+
+    provider = AkShareDataSource()
+    results: dict[str, object] = {}
+
+    def one(code: str) -> None:
+        try:
+            results[code] = provider.get_sw_index_constituents(code)
+        except Exception as exc:  # noqa: BLE001 - reported per code
+            results[code] = f"{type(exc).__name__}: {exc}"
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        list(pool.map(one, codes))
+    return results
+
+
+def fetch_sw_level_metrics(*, category: str, trade_dates: list[str], workers: int = 4):
+    """Shenwan level valuation snapshots on given dates; failures per date."""
+
+    provider = AkShareDataSource()
+    results: dict[str, object] = {}
+
+    def one(trade_date: str) -> None:
+        try:
+            results[trade_date] = provider.get_sw_market_daily_metrics(
+                trade_date,
+                trade_date,
+                category=category,
+            )
+        except Exception as exc:  # noqa: BLE001 - reported per date
+            results[trade_date] = f"{type(exc).__name__}: {exc}"
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        list(pool.map(one, trade_dates))
+    return results
+
+
+def fetch_market_snapshot(*, workers: int = 8):
+    """All listed A shares: Sina prices merged with Tencent valuations."""
+
+    listed = AkShareDataSource().get_a_share_spot_sina()
+    tencent = TencentExchangeFundDataSource()
+    codes = [f"{item['exchange']}{item['symbol']}" for item in listed]
+    batches = [codes[start : start + 60] for start in range(0, len(codes), 60)]
+    valuations: dict[str, dict] = {}
+    errors: list[str] = []
+
+    def one(batch: list[str]) -> None:
+        try:
+            for item in tencent.get_stock_quote_valuations(batch):
+                valuations[item["symbol"]] = item
+        except Exception as exc:  # noqa: BLE001 - reported per batch
+            errors.append(f"{batch[0]}..: {type(exc).__name__}: {exc}")
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        list(pool.map(one, batches))
+    rows = []
+    for item in listed:
+        quote = valuations.get(item["symbol"], {})
+        rows.append(
+            {
+                **item,
+                "close": quote.get("close", item["close"]),
+                "pct_change": quote.get("pct_change", item["pct_change"]),
+                "amount": quote.get("amount", item["amount"]),
+                "turnover_rate_percent": quote.get("turnover_rate_percent"),
+                "pe_ttm": quote.get("pe_ttm"),
+                "pe_static": quote.get("pe_static"),
+                "pb": quote.get("pb"),
+                "market_cap": quote.get("market_cap"),
+                "float_market_cap": quote.get("float_market_cap"),
+                "quote_date": quote.get("quote_date"),
+                "source": item["source"] + ("+tencent:quote" if quote else ""),
+            }
+        )
+    return {"rows": rows, "errors": errors}
+
+
+def fetch_stock_valuation_histories(*, symbols: list[str], workers: int = 6):
+    provider = AkShareDataSource()
+    results: dict[str, object] = {}
+
+    def one(symbol: str) -> None:
+        try:
+            results[symbol] = provider.get_stock_valuation_history(symbol)
+        except Exception as exc:  # noqa: BLE001 - reported per symbol
+            results[symbol] = f"{type(exc).__name__}: {exc}"
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        list(pool.map(one, symbols))
+    return results
+
+
+def fetch_financial_report_cross_section(*, report_period: str):
+    return AkShareDataSource().get_financial_report_cross_section(report_period)
+
+
+def fetch_delisted_a_shares():
+    return AkShareDataSource().get_delisted_a_shares()
+
+
+def fetch_index_members_on(*, index_symbol: str, day: str):
+    with BaoStockDataSource() as provider:
+        return provider.get_index_members_on(index_symbol, day)
 
 
 def fetch_latest_china_cpi_yoy():

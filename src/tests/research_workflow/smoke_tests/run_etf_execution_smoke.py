@@ -52,12 +52,14 @@ def main() -> int:
         ChartRenderer,
         ReportArtifactService,
     )
-    from src.research_workflow import (
-        ETFResearchExecutionService,
+    from src.research_contracts import (
         PROFILE_EXCHANGE_FUND,
-        ResearchExecutionOptions,
         ResearchHorizon,
         ResearchQuestionType,
+    )
+    from src.research_workflow import (
+        ETFResearchExecutionService,
+        ResearchExecutionOptions,
         ResearchTaskFactory,
     )
     from src.strategy import (

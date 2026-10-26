@@ -1,0 +1,31 @@
+{
+  "as_of_date": "2026-10-26",
+  "asset_id": "asset:c38734ee-ecc4-40c7-baf3-a548e091f55f",
+  "asset_name": "贵州茅台",
+  "benchmark_asset_id": null,
+  "chart_type": "price_volume",
+  "currency": "CNY",
+  "files": {
+    "data": "price_volume-f9267e110a61.data.json",
+    "png": "price_volume-f9267e110a61.png",
+    "svg": "price_volume-f9267e110a61.svg"
+  },
+  "input_digest": "f9267e110a613b1174db9f555da8163c062c52754ccc3f21172c0f464ac141e5",
+  "parameters": {
+    "moving_averages": [
+      5,
+      20
+    ]
+  },
+  "point_count": 483,
+  "price_adjustment": "none",
+  "source_datasets": [
+    "stock_daily_bars"
+  ],
+  "task_id": "research:258f5d2e-5c01-4496-8e52-d4aa4821f930",
+  "title": "Price, Volume, and Moving Averages",
+  "unit": "price",
+  "version": "research_chart_v1",
+  "x_label": "Trade date",
+  "y_label": "Price"
+}

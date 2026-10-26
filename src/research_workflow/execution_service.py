@@ -19,14 +19,17 @@ from src.data_quality import DataQualityService
 from src.factor_engineering import FactorService
 from src.fundamental_analysis import FundamentalAnalysisService
 from src.master_data import ASSET_TYPE_INDEX, MasterDataService
+from src.research_contracts import (
+    PROFILE_ORDINARY_COMPANY,
+    ResearchHorizon,
+    ResearchTaskSpec,
+)
 from src.research_evidence import ResearchEvidenceService
 from src.research_visualization import (
     ChartRenderer,
     ChartType,
     build_factor_series_spec,
-    build_financial_trends_spec,
     build_price_volume_spec,
-    build_valuation_history_spec,
 )
 from src.strategy import (
     StrategyExecutor,
@@ -44,8 +47,7 @@ from .execution_models import (
     ResearchPhaseStatus,
     ResearchWindows,
 )
-from .models import ResearchHorizon, ResearchTaskSpec
-from .profiles import PROFILE_ORDINARY_COMPANY
+from .return_bars import fetch_total_return_bars, risk_parameters_for
 
 
 _PHASES = (
@@ -186,12 +188,25 @@ class ResearchExecutionService:
             )
 
         try:
+            return_bars, basis_gap = fetch_total_return_bars(
+                self.data_access,
+                bars,
+                start_date=windows.bar_start,
+                end_date=windows.bar_end,
+                as_of_date=task.as_of_date,
+                options=config,
+            )
+            if basis_gap is not None:
+                gaps.append(basis_gap)
             market_factors = self.factor_service.compute_from_response(
-                bars
+                return_bars
             )
             risk = self.factor_service.compute_risk_from_response(
-                bars,
-                parameters=config.risk_parameters,
+                return_bars,
+                parameters=risk_parameters_for(
+                    return_bars,
+                    config.risk_parameters,
+                ),
             )
             factor_values = [*market_factors, *risk.values]
             phases.append(
@@ -423,10 +438,8 @@ class ResearchExecutionService:
 
         artifacts = ()
         try:
-            if fundamental is None:
-                raise ValueError(
-                    "Fundamental result required for six charts"
-                )
+            # Valuation history and financial trend charts need multi-period
+            # history (roadmap stage 6); one snapshot would mislead.
             specs = [
                 build_price_volume_spec(
                     task=task,
@@ -458,22 +471,8 @@ class ResearchExecutionService:
                     asset=asset,
                     chart_type=ChartType.ROLLING_RISK,
                     values=list(risk.series),
-                    factor_names=(
-                        "rolling_annualized_volatility_5d",
-                        "rolling_sharpe_5d",
-                    ),
+                    factor_names=_rolling_risk_factor_names(risk.series),
                     source_dataset="risk_daily_v1",
-                ),
-                build_valuation_history_spec(
-                    task=task,
-                    asset=asset,
-                    results=list(fundamental.metrics),
-                ),
-                build_financial_trends_spec(
-                    task=task,
-                    asset=asset,
-                    snapshots=[fundamental.snapshot],
-                    metric_results=list(fundamental.metrics),
                 ),
             ]
             artifacts = tuple(
@@ -721,3 +720,20 @@ def _status(phases, gaps) -> ResearchExecutionStatus:
 
 def _error(exc: Exception) -> str:
     return f"{type(exc).__name__}: {exc}"
+
+
+def _rolling_risk_factor_names(series) -> tuple[str, str]:
+    """Prefer the longest rolling window that produced observations."""
+
+    available = {item.factor_name for item in series}
+    for window in (60, 20, 10):
+        names = (
+            f"rolling_annualized_volatility_{window}d",
+            f"rolling_sharpe_{window}d",
+        )
+        if names[0] in available:
+            return names
+    return (
+        "rolling_annualized_volatility_5d",
+        "rolling_sharpe_5d",
+    )

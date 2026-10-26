@@ -1,0 +1,33 @@
+{
+  "as_of_date": "2026-10-26",
+  "asset_id": "asset:c38734ee-ecc4-40c7-baf3-a548e091f55f",
+  "asset_name": "贵州茅台",
+  "benchmark_asset_id": null,
+  "chart_type": "rolling_risk",
+  "currency": null,
+  "files": {
+    "data": "rolling_risk-452edc6b7b03.data.json",
+    "png": "rolling_risk-452edc6b7b03.png",
+    "svg": "rolling_risk-452edc6b7b03.svg"
+  },
+  "input_digest": "452edc6b7b03b7c55236a8268f8c317dad914713f1b3c47af4cf298b560514e4",
+  "parameters": {
+    "factor_names": [
+      "rolling_annualized_volatility_60d",
+      "rolling_sharpe_60d"
+    ],
+    "input_end_date": "2026-10-23",
+    "input_start_date": "2025-01-21"
+  },
+  "point_count": 423,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:258f5d2e-5c01-4496-8e52-d4aa4821f930",
+  "title": "Rolling Risk Metrics (2025-01-21 to 2026-10-23)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Rolling Risk Metrics"
+}

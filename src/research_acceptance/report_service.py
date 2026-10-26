@@ -7,18 +7,40 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from src.benchmark_analysis import (
+    BROAD_MARKET_FALLBACK_ROLES,
+    BROAD_MARKET_SYMBOL,
+)
+from src.data_access import (
+    DATASET_INDEX_DAILY_BARS,
+    DATASET_OPEN_FUND_NAV,
+    TOTAL_RETURN_BAR_DATASETS,
+)
 from src.fund_research import DisclosureExtractionStatus
+from src.fundamental_analysis import MetricStatus
 from src.master_data import ASSET_TYPE_OPEN_FUND, MasterDataService
 from src.peer_analysis import (
     PeerComparisonBundle,
     PeerComparisonStatus,
 )
+from src.research_evidence import EvidenceTier
 from src.research_workflow.execution_models import (
     ResearchExecutionResult,
     ResearchPhaseResult,
     ResearchPhaseStatus,
 )
-from src.research_workflow.models import ResearchQuestionType
+from src.research_workflow.profiles import default_profile_registry
+from src.research_contracts import ResearchQuestionType
+from src.strategy import (
+    ConditionGroup,
+    ConditionOperator,
+    MetricCondition,
+    StrategyRegistry,
+    StrategyResult,
+    StrategyRunStatus,
+    StrategySpec,
+    default_strategy_registry,
+)
 
 from .models import (
     AcceptanceStepResult,
@@ -109,10 +131,14 @@ class ResearchReportAssemblyService:
         *,
         master_data: MasterDataService,
         assembler: RepresentativeResearchAssembler | None = None,
+        strategy_registry: StrategyRegistry | None = None,
     ) -> None:
         self.master_data = master_data
         self.assembler = (
             assembler or RepresentativeResearchAssembler()
+        )
+        self.strategy_registry = (
+            strategy_registry or default_strategy_registry()
         )
 
     def assemble(
@@ -196,9 +222,7 @@ class ResearchReportAssemblyService:
                     ResearchGap(
                         module="strategy",
                         code="strategy_result_missing",
-                        message=(
-                            "Execution produced no strategy result"
-                        ),
+                        message="执行未产生研究规则结果。",
                         blocking=True,
                     )
                 )
@@ -207,15 +231,37 @@ class ResearchReportAssemblyService:
             and execution.task.question_type
             is ResearchQuestionType.UNDERSTANDING
         )
-        scenarios = _scenarios(
+        rule = _RuleView.of(
             strategy,
+            (
+                self.strategy_registry.get(
+                    strategy.strategy_id,
+                    strategy.strategy_version,
+                )
+                if strategy is not None
+                else None
+            ),
+        )
+        scenarios = _scenarios(
+            rule,
             not_applicable=understanding_without_strategy,
         )
         counterargument = _counterargument(
-            strategy,
+            rule,
             not_applicable=understanding_without_strategy,
         )
-        fact_sections = _fact_sections(execution)
+        if execution.fund_bundle is not None:
+            fact_sections = _fact_sections(execution)
+        else:
+            benchmark_name, broad_fallback = self._benchmark_context(
+                execution
+            )
+            fact_sections = _security_fact_sections(
+                execution,
+                rule=rule,
+                benchmark_name=benchmark_name,
+                broad_fallback=broad_fallback,
+            )
         _append_disclosure_gaps(execution, gaps)
         _append_open_fund_fact_matrix_gaps(
             execution,
@@ -223,16 +269,16 @@ class ResearchReportAssemblyService:
             gaps,
         )
         invalidation_condition = (
-            "A hard filter or veto changes on refreshed inputs"
-            if strategy
+            "刷新数据后，硬性门槛或否决条件的判定发生变化"
+            if rule is not None
             else (
                 "刷新后的净值、规模、配置或申赎状态"
                 "发生重大变化"
             )
         )
         invalidation_evidence = (
-            f"Rerun strategy {strategy.strategy_id}"
-            if strategy
+            f"重新运行{rule.name}"
+            if rule is not None
             else "刷新基金数据集与官方披露"
         )
         return self.assembler.assemble(
@@ -252,9 +298,33 @@ class ResearchReportAssemblyService:
                     severity="thesis_break",
                 ),
             ),
-            conclusions=_conclusions(execution, strategy),
+            conclusions=_conclusions(execution, rule),
             gaps=tuple(gaps),
             fact_sections=fact_sections,
+        )
+
+    def _benchmark_context(
+        self,
+        execution: ResearchExecutionResult,
+    ) -> tuple[str | None, bool]:
+        benchmark_id = execution.task.benchmark_asset_id
+        if benchmark_id is None:
+            return None, False
+        benchmark = self.master_data.get_asset(benchmark_id)
+        if benchmark is None:
+            return None, False
+        profile = default_profile_registry().get(
+            execution.task.profile_id
+        )
+        broad_fallback = (
+            profile is not None
+            and profile.default_benchmark_role
+            in BROAD_MARKET_FALLBACK_ROLES
+            and benchmark.standard_symbol == BROAD_MARKET_SYMBOL
+        )
+        return (
+            benchmark.display_name or benchmark.standard_symbol,
+            broad_fallback,
         )
 
 
@@ -378,7 +448,10 @@ def _comparison_step(phase, peer, gaps):
             ResearchGap(
                 module="peer_analysis",
                 code="peer_comparison_incomplete",
-                message=f"Unavailable peer metrics: {unavailable}",
+                message=(
+                    "同行比较中以下指标不可用："
+                    f"{'、'.join(_metric_label(name) for name in unavailable)}。"
+                ),
                 blocking=False,
             )
         )
@@ -401,8 +474,87 @@ def _comparison_step(phase, peer, gaps):
     )
 
 
-def _scenarios(strategy, *, not_applicable=False):
-    if strategy is None:
+_RULE_STATUS_LABELS = {
+    StrategyRunStatus.PASS: "通过",
+    StrategyRunStatus.FAIL: "未通过",
+    StrategyRunStatus.VETOED: "被否决",
+    StrategyRunStatus.INSUFFICIENT_DATA: "数据不足，无法判定",
+}
+
+_PHASE_LABELS = {
+    "bars": "行情",
+    "quality": "数据质量检查",
+    "factors": "因子与风险指标",
+    "fundamental": "基本面指标",
+    "benchmark": "相对基准",
+    "evidence": "公告与研报证据",
+    "charts": "静态图表",
+    "strategy": "研究规则",
+}
+
+
+@dataclass(frozen=True)
+class _RuleView:
+    result: StrategyResult
+    spec: StrategySpec | None
+
+    @classmethod
+    def of(
+        cls,
+        result: StrategyResult | None,
+        spec: StrategySpec | None,
+    ) -> "_RuleView | None":
+        if result is None:
+            return None
+        return cls(result, spec)
+
+    @property
+    def name(self) -> str:
+        return self.spec.name if self.spec is not None else "研究规则"
+
+    @property
+    def status_label(self) -> str:
+        return _RULE_STATUS_LABELS[self.result.status]
+
+    @property
+    def reference(self) -> str:
+        return f"strategy:{self.result.strategy_id}"
+
+    def leaves(self) -> dict[str, MetricCondition]:
+        if self.spec is None:
+            return {}
+        nodes = (
+            *self.spec.hard_filters,
+            *self.spec.vetoes,
+            *(rule.condition for rule in self.spec.score_rules),
+        )
+        return {
+            leaf.condition_id: leaf
+            for node in nodes
+            for leaf in _condition_leaves(node)
+        }
+
+    def describe(
+        self,
+        condition_ids: tuple[str, ...],
+    ) -> tuple[str, ...]:
+        leaves = self.leaves()
+        return tuple(
+            dict.fromkeys(
+                _condition_text(leaves[item])
+                for item in condition_ids
+                if item in leaves
+            )
+        )
+
+
+def _join_conditions(items: tuple[str, ...]) -> str:
+    text = "；".join(items[:3])
+    return f"{text}等" if len(items) > 3 else text
+
+
+def _scenarios(rule, *, not_applicable=False):
+    if rule is None:
         if not_applicable:
             claim = ResearchClaim(
                 kind=ClaimKind.NOT_APPLICABLE,
@@ -414,14 +566,17 @@ def _scenarios(strategy, *, not_applicable=False):
             )
         claim = ResearchClaim(
             kind=ClaimKind.UNKNOWN,
-            text="Scenario unavailable without strategy result.",
+            text="缺少研究规则结果，暂无法生成情景。",
         )
         return tuple(
             ResearchScenario(kind=kind, claims=(claim,))
             for kind in ScenarioKind
         )
-    reference = (
-        f"strategy:{strategy.strategy_id}:{strategy.status.value}"
+    result = rule.result
+    reference = f"{rule.reference}:{result.status.value}"
+    matched = rule.describe(result.matched_conditions)
+    adverse = rule.describe(
+        (*result.vetoed_conditions, *result.failed_conditions)
     )
     return (
         ResearchScenario(
@@ -429,7 +584,12 @@ def _scenarios(strategy, *, not_applicable=False):
             (
                 ResearchClaim(
                     ClaimKind.ASSUMPTION,
-                    "Matched strategy conditions persist.",
+                    (
+                        f"已满足的条件（{_join_conditions(matched)}）"
+                        "在下次刷新后继续成立。"
+                        if matched
+                        else "未满足的条件在后续数据中改善并转为满足。"
+                    ),
                     (reference,),
                 ),
             ),
@@ -439,8 +599,7 @@ def _scenarios(strategy, *, not_applicable=False):
             (
                 ResearchClaim(
                     ClaimKind.FACT,
-                    f"Current strategy status is "
-                    f"{strategy.status.value}.",
+                    f"当前{rule.name}结论：{rule.status_label}。",
                     (reference,),
                 ),
             ),
@@ -450,8 +609,16 @@ def _scenarios(strategy, *, not_applicable=False):
             (
                 ResearchClaim(
                     ClaimKind.ASSUMPTION,
-                    "Failed conditions, vetoes, or documented "
-                    "limitations become material.",
+                    (
+                        "未满足或已触发的条件"
+                        f"（{_join_conditions(adverse)}）继续恶化，"
+                        "或已满足的条件在刷新后失效。"
+                        if adverse
+                        else (
+                            "已满足的条件在刷新后失效，"
+                            "或规则本身的限制变得重要。"
+                        )
+                    ),
                     (reference,),
                 ),
             ),
@@ -459,8 +626,8 @@ def _scenarios(strategy, *, not_applicable=False):
     )
 
 
-def _counterargument(strategy, *, not_applicable=False):
-    if strategy is None:
+def _counterargument(rule, *, not_applicable=False):
+    if rule is None:
         if not_applicable:
             return ResearchClaim(
                 ClaimKind.NOT_APPLICABLE,
@@ -468,30 +635,35 @@ def _counterargument(strategy, *, not_applicable=False):
             )
         return ResearchClaim(
             ClaimKind.UNKNOWN,
-            "Strongest counterargument is unknown without strategy.",
+            "缺少研究规则结果，最强反方暂不可知。",
         )
-    evidence = (
-        *strategy.counterevidence,
-        *strategy.failed_conditions,
-        *strategy.vetoed_conditions,
-    )
-    if evidence:
-        text = f"Strategy counterevidence: {list(evidence)}"
-    elif strategy.limitations:
-        text = f"Key strategy limitation: {strategy.limitations[0]}"
-    else:
+    result = rule.result
+    vetoed = rule.describe(result.vetoed_conditions)
+    failed = rule.describe(result.failed_conditions)
+    if vetoed:
+        text = f"已触发否决条件：{_join_conditions(vetoed)}。"
+        if failed:
+            text += f"另有未满足条件：{_join_conditions(failed)}。"
+    elif failed:
+        text = f"未满足的规则条件：{_join_conditions(failed)}。"
+    elif result.missing_metrics:
         text = (
-            "No machine counterevidence was observed; "
-            "the result remains a research rule."
+            "缺少必需输入："
+            f"{'、'.join(_metric_label(name) for name in result.missing_metrics)}"
+            "，规则结论不完整。"
         )
+    elif result.limitations:
+        text = f"规则本身的主要限制：{result.limitations[0]}"
+    else:
+        text = "规则未发现反向证据；结论仍只是研究规则结果。"
     return ResearchClaim(
         ClaimKind.INFERENCE,
         text,
-        (f"strategy:{strategy.strategy_id}",),
+        (rule.reference,),
     )
 
 
-def _conclusions(execution, strategy):
+def _conclusions(execution, rule):
     if execution.fund_bundle is not None:
         completed = "已取得正式基金净值并完成质量检查。"
         evidence_refs = ["execution:fund-data"]
@@ -516,13 +688,34 @@ def _conclusions(execution, strategy):
                 evidence_refs=("execution:fund-data",),
             ),
         )
+    completed = [
+        _PHASE_LABELS[phase.phase_id]
+        for phase in execution.phases
+        if phase.phase_id in _PHASE_LABELS
+        and phase.status is ResearchPhaseStatus.SUCCESS
+    ]
+    pending = [
+        _PHASE_LABELS[phase.phase_id]
+        for phase in execution.phases
+        if phase.phase_id in _PHASE_LABELS
+        and phase.status
+        in {
+            ResearchPhaseStatus.GAP,
+            ResearchPhaseStatus.FAILED,
+            ResearchPhaseStatus.SKIPPED,
+        }
+    ]
+    collected = (
+        f"自动收集已完成：{'、'.join(completed)}。"
+        if completed
+        else "自动收集未完成任何阶段。"
+    )
+    if pending:
+        collected += f"未完成：{'、'.join(pending)}，详见缺口。"
     return (
         ResearchClaim(
             kind=ClaimKind.FACT,
-            text=(
-                "Formal research execution emitted all "
-                "required phase records."
-            ),
+            text=collected,
             evidence_refs=(
                 f"task:{execution.task.task_id}",
                 "execution:phases",
@@ -532,20 +725,17 @@ def _conclusions(execution, strategy):
             kind=ClaimKind.INFERENCE,
             text=(
                 (
-                    "The strategy result is a research rule "
-                    "outcome, not an investment instruction."
+                    f"{rule.name}结论为“{rule.status_label}”；"
+                    "这是研究规则结果，不是投资指令。"
                 )
-                if strategy
-                else (
-                    "This baseline describes available fund "
-                    "data and is not an investment instruction."
-                )
+                if rule is not None
+                else "本基础包只描述自动收集事实，不构成投资建议。"
             ),
             evidence_refs=(
                 (
-                    f"strategy:{strategy.strategy_id}"
-                    if strategy
-                    else "execution:fund-data"
+                    rule.reference
+                    if rule is not None
+                    else "execution:phases"
                 ),
             ),
         ),
@@ -1275,15 +1465,7 @@ def _risk_facts(
         else:
             value = _number(metric.value, digits=3)
             unit = None
-        limitations = (
-            (
-                "按执行窗口内的日频单位净值计算；"
-                "若发生现金分红，除息会影响该序列，"
-                "不能解释为分红再投资总回报。",
-            )
-            if metric.source_dataset == "open_fund_nav"
-            else ("按执行窗口内的日频正式行情计算",)
-        )
+        limitations = (_return_basis_limitation(metric.source_dataset),)
         facts.append(
             ResearchFact(
                 label=label,
@@ -1343,7 +1525,9 @@ def _open_fund_standard_facts(
                 f"{tolerance}天内最近正式净值。"
             )
         limitations = [window_limit]
-        if result.nav_basis == "accumulated_nav":
+        if result.nav_basis == "adjusted_nav":
+            limitations.append(_ADJUSTED_NAV_LIMITATION)
+        elif result.nav_basis == "accumulated_nav":
             limitations.append(
                 "按累计净值变化计算，不等同于现金分红再投资总回报。"
             )
@@ -1571,6 +1755,723 @@ def _benchmark_facts(
     return tuple(facts)
 
 
+_SECURITY_BAR_LIMITATION = (
+    "按执行窗口内的日频未复权收盘价计算，不含分红；"
+    "窗口内发生送转或拆分时，收益与回撤会失真。"
+)
+_TOTAL_RETURN_LIMITATION = (
+    "按执行窗口内的复权总回报计算（交易所前收盘价链接，"
+    "含分红再投资，已消除送转、拆分和份额折算的影响）。"
+)
+_ADJUSTED_NAV_LIMITATION = (
+    "按执行窗口内的复权净值计算（单位净值与公布的日增长率链接，"
+    "含分红再投资）；缺少日增长率的日期按单位净值变化计算。"
+)
+
+
+def _return_basis_limitation(source_dataset: str) -> str:
+    if source_dataset in TOTAL_RETURN_BAR_DATASETS:
+        return _TOTAL_RETURN_LIMITATION
+    if source_dataset == DATASET_OPEN_FUND_NAV:
+        return _ADJUSTED_NAV_LIMITATION
+    return _SECURITY_BAR_LIMITATION
+
+
+def _benchmark_basis_limitation(source_dataset: str) -> str:
+    asset_dataset, _, benchmark_dataset = source_dataset.partition("|")
+    if asset_dataset not in TOTAL_RETURN_BAR_DATASETS:
+        return "按标的与基准共同交易日的未复权收盘价计算，不含分红；"
+    if benchmark_dataset == DATASET_INDEX_DAILY_BARS:
+        return (
+            "标的按复权总回报计算，基准为价格指数、不含分红，"
+            "超额收益偏高约一个区间股息率；"
+        )
+    return "标的与基准均按复权总回报计算；"
+
+_METRIC_DISPLAY: dict[str, tuple[str, str]] = {
+    "market_cap": ("总市值", "amount"),
+    "enterprise_value": ("企业价值", "amount"),
+    "pe_ttm": ("市盈率（TTM）", "multiple"),
+    "pb": ("市净率", "multiple"),
+    "ps_ttm": ("市销率（TTM）", "multiple"),
+    "pcf_ttm": ("市现率（TTM）", "multiple"),
+    "ev_ebitda": ("EV/EBITDA", "multiple"),
+    "ev_fcf": ("EV/自由现金流", "multiple"),
+    "earnings_yield": ("盈利收益率", "percent"),
+    "fcf_yield": ("自由现金流收益率", "percent"),
+    "dividend_yield": ("股息率", "percent"),
+    "roe": ("ROE", "percent"),
+    "roa": ("ROA", "percent"),
+    "roic": ("ROIC", "percent"),
+    "gross_margin": ("毛利率", "percent"),
+    "operating_margin": ("营业利润率", "percent"),
+    "net_margin": ("净利率", "percent"),
+    "revenue_growth": ("营业收入同比增速", "percent"),
+    "net_profit_growth": ("净利润同比增速", "percent"),
+    "operating_cash_flow_growth": ("经营现金流同比增速", "percent"),
+    "free_cash_flow_growth": ("自由现金流同比增速", "percent"),
+    "debt_to_assets": ("资产负债率", "percent"),
+    "net_debt": ("净负债", "amount"),
+    "interest_coverage": ("利息保障倍数", "multiple"),
+    "capital_adequacy": ("资本充足率", "percent"),
+    "net_interest_margin": ("净息差", "percent"),
+    "non_performing_loan_ratio": ("不良贷款率", "percent"),
+    "annualized_return": ("区间年化收益率", "percent"),
+    "annualized_volatility": ("区间年化波动率", "percent"),
+    "max_drawdown": ("区间最大回撤", "percent"),
+    "excess_total_return": ("相对基准超额收益", "percent"),
+    "tracking_error": ("年化跟踪误差", "percent"),
+    "premium_discount": ("折溢价率", "percent"),
+    "expense_ratio": ("年综合费率", "percent"),
+    "momentum_5": ("5日涨跌幅", "percent"),
+    "return_1d": ("最近一日涨跌幅", "percent"),
+    "commodity_sensitivity": ("商品价格敏感度", "number"),
+}
+_VALUATION_METRICS = (
+    "market_cap",
+    "enterprise_value",
+    "pe_ttm",
+    "pb",
+    "ps_ttm",
+    "pcf_ttm",
+    "ev_ebitda",
+    "earnings_yield",
+    "fcf_yield",
+    "dividend_yield",
+)
+_PROFITABILITY_METRICS = (
+    "roe",
+    "roa",
+    "roic",
+    "gross_margin",
+    "operating_margin",
+    "net_margin",
+)
+_GROWTH_METRICS = (
+    "revenue_growth",
+    "net_profit_growth",
+    "operating_cash_flow_growth",
+    "free_cash_flow_growth",
+)
+_BALANCE_METRICS = (
+    "debt_to_assets",
+    "net_debt",
+    "interest_coverage",
+)
+_BANK_METRICS = (
+    "pb",
+    "roe",
+    "capital_adequacy",
+    "net_interest_margin",
+    "non_performing_loan_ratio",
+)
+_SPECIAL_FACTOR_LIMITATIONS = {
+    "premium_discount": "按行情快照的最新价与 IOPV 计算，是单一时点值。",
+    "expense_ratio": "按官方费率表汇总的年综合费率，不含交易佣金。",
+    "commodity_sensitivity": (
+        "按共同交易日收益回归得到的历史联动系数，"
+        "不代表因果，也不预测商品价格。"
+    ),
+}
+_SECURITY_BENCHMARK_FACTS = (
+    ("asset_total_return", "区间累计收益率（标的）", "percent"),
+    ("benchmark_total_return", "区间累计收益率（基准）", "percent"),
+    ("excess_total_return", "相对基准超额收益", "percent"),
+    ("tracking_error", "年化主动风险（跟踪误差）", "percent"),
+    ("information_ratio", "信息比率", "number"),
+    ("beta", "Beta", "number"),
+    ("correlation", "与基准相关系数", "number"),
+    ("common_observation_count", "共同交易日数", "count"),
+)
+_EVIDENCE_TYPE_LABELS = {
+    "financial_statement": "财务报表",
+    "disclosure": "公告",
+    "business_model_evidence": "商业模式证据",
+    "management_evidence": "管理层证据",
+    "research_event": "研究事件",
+    "research_report": "第三方研报",
+}
+_FLOW_BASIS_LABELS = {
+    "ttm": "滚动十二个月（TTM）口径",
+    "annual": "年度口径",
+    "quarterly": "单季口径",
+}
+_OPERATOR_SYMBOLS = {
+    ConditionOperator.GT: ">",
+    ConditionOperator.GTE: "≥",
+    ConditionOperator.LT: "<",
+    ConditionOperator.LTE: "≤",
+    ConditionOperator.EQ: "=",
+}
+
+
+def _metric_label(name: str) -> str:
+    return _METRIC_DISPLAY.get(name, ("未命名指标", "number"))[0]
+
+
+def _format_metric(name: str, value) -> str:
+    return _format_value(
+        _METRIC_DISPLAY.get(name, ("", "number"))[1],
+        value,
+    )
+
+
+def _format_value(kind: str, value) -> str:
+    number = float(value)
+    if kind == "percent":
+        return f"{_number(number * 100, digits=2)}%"
+    if kind == "multiple":
+        return f"{_number(number, digits=2)}倍"
+    if kind == "amount":
+        return f"{_number(number / 100_000_000, digits=2)}亿元"
+    if kind == "count":
+        return _number(number, digits=0)
+    return _number(number, digits=3)
+
+
+def _condition_leaves(node) -> tuple[MetricCondition, ...]:
+    if isinstance(node, MetricCondition):
+        return (node,)
+    if isinstance(node, ConditionGroup):
+        return tuple(
+            leaf
+            for child in node.children
+            for leaf in _condition_leaves(child)
+        )
+    return ()
+
+
+def _condition_text(condition: MetricCondition) -> str:
+    label = _metric_label(condition.metric_name)
+    lower = _format_metric(condition.metric_name, condition.threshold)
+    if (
+        condition.operator is ConditionOperator.BETWEEN
+        and condition.upper_threshold is not None
+    ):
+        upper = _format_metric(
+            condition.metric_name,
+            condition.upper_threshold,
+        )
+        return f"{label}介于{lower}至{upper}"
+    symbol = _OPERATOR_SYMBOLS.get(condition.operator, "=")
+    return f"{label} {symbol} {lower}"
+
+
+def _security_fact_sections(
+    execution: ResearchExecutionResult,
+    *,
+    rule: _RuleView | None,
+    benchmark_name: str | None,
+    broad_fallback: bool,
+) -> tuple[ResearchFactSection, ...]:
+    sections: list[ResearchFactSection] = []
+
+    def add(section_id: str, title: str, facts) -> None:
+        if facts:
+            sections.append(
+                ResearchFactSection(
+                    section_id=section_id,
+                    title=title,
+                    facts=tuple(facts),
+                )
+            )
+
+    add("market_data", "行情与覆盖", _price_facts(execution))
+    add("risk_metrics", "收益与风险指标", _risk_facts(execution))
+    add(
+        "benchmark_metrics",
+        "相对基准表现",
+        _security_benchmark_facts(
+            execution,
+            benchmark_name=benchmark_name,
+            broad_fallback=broad_fallback,
+        ),
+    )
+    fundamental = execution.fundamental_result
+    if fundamental is not None:
+        snapshot = fundamental.snapshot
+        basis = _FLOW_BASIS_LABELS.get(snapshot.flow_basis, "报告期口径")
+        price_facts = _price_facts(execution)
+        price_date = (
+            price_facts[0].as_of_date
+            if price_facts
+            else snapshot.as_of_date
+        )
+        add(
+            "valuation",
+            "估值",
+            _fundamental_facts(
+                fundamental.metrics,
+                _VALUATION_METRICS,
+                (
+                    f"基于{snapshot.report_period}报告期财报与"
+                    f"截至{price_date}的最新收盘价，流量项为{basis}。",
+                    "仅当前一个时点，尚无历史估值分位；"
+                    "未与同行比较，需要时在探索阶段查询同行。",
+                ),
+            ),
+        )
+        add(
+            "profitability",
+            "盈利能力",
+            _fundamental_facts(
+                fundamental.metrics,
+                _PROFITABILITY_METRICS,
+                (
+                    f"基于{snapshot.report_period}报告期财报，"
+                    f"流量项为{basis}。",
+                    "仅当前一期，未形成多期趋势。",
+                ),
+            ),
+        )
+        add(
+            "growth",
+            "成长",
+            _fundamental_facts(
+                fundamental.metrics,
+                _GROWTH_METRICS,
+                (
+                    f"{snapshot.report_period}报告期相对上年同期计算，"
+                    f"流量项为{basis}。",
+                ),
+            ),
+        )
+        add(
+            "balance_sheet",
+            "资产负债",
+            _fundamental_facts(
+                fundamental.metrics,
+                _BALANCE_METRICS,
+                (f"基于{snapshot.report_period}报告期末资产负债表。",),
+            ),
+        )
+    add(
+        "bank_metrics",
+        "银行经营指标",
+        _fundamental_facts(execution.profile_metrics, _BANK_METRICS, ()),
+    )
+    add("special_metrics", "专项指标", _special_factor_facts(execution))
+    if rule is not None:
+        add(
+            "research_rule",
+            "研究规则检查",
+            _rule_facts(rule, _security_metric_values(execution)),
+        )
+    add("evidence_overview", "公告与研报", _evidence_facts(execution))
+    return tuple(sections)
+
+
+def _price_facts(
+    execution: ResearchExecutionResult,
+) -> list[ResearchFact]:
+    response = execution.bar_response
+    if response is None:
+        return []
+    cutoff = execution.task.as_of_date
+    dated = []
+    for record in response.records:
+        values = dict(record)
+        record_date = _record_date(values)
+        if record_date is not None and record_date <= cutoff:
+            dated.append((values, record_date))
+    if not dated:
+        return []
+    dated.sort(key=lambda item: item[1])
+    latest, latest_date = dated[-1]
+    source = _record_source(latest, response.dataset)
+    facts = []
+    close = _first_value(latest, "close")
+    if close is not None:
+        facts.append(
+            ResearchFact(
+                label="最新收盘价",
+                value=_number(close, digits=3),
+                unit="元",
+                as_of_date=latest_date,
+                kind=ResearchFactKind.REPORTED,
+                evidence_refs=(source,),
+                limitations=("未复权价格。",),
+            )
+        )
+    facts.append(
+        ResearchFact(
+            label="行情覆盖",
+            value=(
+                f"{len(dated)}个交易日，"
+                f"{dated[0][1]}至{latest_date}"
+            ),
+            as_of_date=latest_date,
+            kind=ResearchFactKind.REPORTED,
+            evidence_refs=(source,),
+        )
+    )
+    return facts
+
+
+def _security_benchmark_facts(
+    execution: ResearchExecutionResult,
+    *,
+    benchmark_name: str | None,
+    broad_fallback: bool,
+) -> list[ResearchFact]:
+    result = execution.benchmark_result
+    if result is None or not result.metrics:
+        return []
+    by_name = {item.factor_name: item for item in result.metrics}
+    first = result.metrics[0]
+    limitations = (
+        _benchmark_basis_limitation(first.source_dataset)
+        + f"实际区间为{first.input_start_date}至"
+        f"{first.input_end_date}。",
+    )
+    if broad_fallback:
+        limitations += (
+            "该画像缺少专用行业或风格基准，暂以沪深300"
+            "作为宽基参照；超额收益不代表行业内相对强弱。",
+        )
+    facts = []
+    if benchmark_name:
+        facts.append(
+            ResearchFact(
+                label="比较基准",
+                value=benchmark_name,
+                as_of_date=first.as_of_date,
+                kind=ResearchFactKind.REPORTED,
+                evidence_refs=("master-data:benchmark",),
+            )
+        )
+    for factor_name, label, kind in _SECURITY_BENCHMARK_FACTS:
+        metric = by_name.get(factor_name)
+        if metric is None:
+            continue
+        facts.append(
+            ResearchFact(
+                label=label,
+                value=_format_value(kind, metric.value),
+                unit="个" if kind == "count" else None,
+                as_of_date=metric.as_of_date,
+                kind=ResearchFactKind.DERIVED,
+                evidence_refs=(
+                    f"derived:{metric.source_dataset}:{factor_name}",
+                ),
+                limitations=limitations,
+            )
+        )
+    return facts
+
+
+def _fundamental_facts(
+    metrics,
+    names: tuple[str, ...],
+    limitations: tuple[str, ...],
+) -> list[ResearchFact]:
+    by_name = {}
+    for item in metrics:
+        if (
+            item.status is MetricStatus.AVAILABLE
+            and item.value is not None
+        ):
+            by_name.setdefault(item.metric_name, item)
+    facts = []
+    for name in names:
+        metric = by_name.get(name)
+        if metric is None:
+            continue
+        refs = tuple(
+            sorted(
+                {
+                    entry.source
+                    for entry in metric.inputs
+                    if entry.source
+                }
+            )
+        ) or (f"derived:fundamental:{name}",)
+        facts.append(
+            ResearchFact(
+                label=_metric_label(name),
+                value=_format_metric(name, metric.value),
+                as_of_date=metric.as_of_date,
+                kind=ResearchFactKind.DERIVED,
+                evidence_refs=refs,
+                limitations=limitations
+                or (f"基于{metric.report_period}报告期披露数据。",),
+            )
+        )
+    return facts
+
+
+def _special_factor_facts(
+    execution: ResearchExecutionResult,
+) -> list[ResearchFact]:
+    cutoff = execution.task.as_of_date
+    latest = {}
+    for item in execution.factor_values:
+        if (
+            item.factor_name not in _SPECIAL_FACTOR_LIMITATIONS
+            or item.as_of_date > cutoff
+        ):
+            continue
+        current = latest.get(item.factor_name)
+        if current is None or item.as_of_date >= current.as_of_date:
+            latest[item.factor_name] = item
+    return [
+        ResearchFact(
+            label=_metric_label(name),
+            value=_format_metric(name, latest[name].value),
+            as_of_date=latest[name].as_of_date,
+            kind=ResearchFactKind.DERIVED,
+            evidence_refs=(
+                f"derived:{latest[name].source_dataset}:{name}",
+            ),
+            limitations=(limitation,),
+        )
+        for name, limitation in _SPECIAL_FACTOR_LIMITATIONS.items()
+        if name in latest
+    ]
+
+
+def _security_metric_values(
+    execution: ResearchExecutionResult,
+) -> dict[str, float]:
+    cutoff = execution.task.as_of_date
+    values: dict[str, float] = {}
+    for item in sorted(
+        execution.factor_values,
+        key=lambda value: value.as_of_date,
+    ):
+        if item.as_of_date <= cutoff:
+            values[item.factor_name] = float(item.value)
+    for result in (execution.risk_result, execution.benchmark_result):
+        if result is None:
+            continue
+        for item in result.metrics:
+            values[item.factor_name] = float(item.value)
+    fundamentals = (
+        *(
+            execution.fundamental_result.metrics
+            if execution.fundamental_result is not None
+            else ()
+        ),
+        *execution.profile_metrics,
+    )
+    for item in fundamentals:
+        if (
+            item.status is MetricStatus.AVAILABLE
+            and item.value is not None
+        ):
+            values[item.metric_name] = float(item.value)
+    return values
+
+
+def _rule_facts(
+    rule: _RuleView,
+    values: dict[str, float],
+) -> list[ResearchFact]:
+    result = rule.result
+    reference = (rule.reference,)
+    details = [rule.name]
+    if result.score is not None and rule.spec is not None:
+        details.append(
+            f"得分{_number(result.score, digits=2)}，"
+            f"通过线{_number(rule.spec.passing_score, digits=2)}"
+        )
+    summary = f"{rule.status_label}（{'；'.join(details)}）"
+    facts = [
+        ResearchFact(
+            label="规则结论",
+            value=summary,
+            as_of_date=result.as_of_date,
+            kind=ResearchFactKind.DERIVED,
+            evidence_refs=reference,
+            limitations=(
+                *result.limitations,
+                f"规则结果有效期至{result.valid_until}。",
+            ),
+        )
+    ]
+    spec = rule.spec
+    if spec is not None:
+        matched = set(result.matched_conditions)
+        failed = set(result.failed_conditions)
+        vetoed = set(result.vetoed_conditions)
+        insufficient = (
+            result.status is StrategyRunStatus.INSUFFICIENT_DATA
+        )
+
+        def line(condition, *, veto, weight=None) -> str:
+            current = values.get(condition.metric_name)
+            condition_id = condition.condition_id
+            if condition_id in vetoed:
+                state = "已触发否决"
+            elif condition_id in matched:
+                state = "满足"
+            elif condition_id in failed:
+                state = "未满足"
+            elif current is None:
+                state = "缺少数据"
+            elif veto and not insufficient:
+                state = "未触发"
+            else:
+                state = "未评估"
+            current_text = (
+                _format_metric(condition.metric_name, current)
+                if current is not None
+                else "缺失"
+            )
+            weight_text = (
+                f"，权重{_number(weight * 100, digits=0)}%"
+                if weight is not None
+                else ""
+            )
+            return (
+                f"{_condition_text(condition)}"
+                f"（当前{current_text}，{state}{weight_text}）"
+            )
+
+        groups = (
+            (
+                "硬性门槛",
+                [
+                    line(leaf, veto=False)
+                    for node in spec.hard_filters
+                    for leaf in _condition_leaves(node)
+                ],
+            ),
+            (
+                "否决条件",
+                [
+                    line(leaf, veto=True)
+                    for node in spec.vetoes
+                    for leaf in _condition_leaves(node)
+                ],
+            ),
+            (
+                "评分条件",
+                [
+                    line(leaf, veto=False, weight=item.weight)
+                    for item in spec.score_rules
+                    for leaf in _condition_leaves(item.condition)
+                ],
+            ),
+        )
+        for label, lines in groups:
+            if not lines:
+                continue
+            facts.append(
+                ResearchFact(
+                    label=label,
+                    value="；".join(lines),
+                    as_of_date=result.as_of_date,
+                    kind=ResearchFactKind.DERIVED,
+                    evidence_refs=reference,
+                    limitations=(
+                        "阈值为研究假设，未经回测或同行标准化。",
+                    ),
+                )
+            )
+    missing = [
+        *(_metric_label(name) for name in result.missing_metrics),
+        *(
+            _EVIDENCE_TYPE_LABELS.get(name, "其他证据")
+            for name in result.missing_evidence_types
+        ),
+    ]
+    if missing:
+        facts.append(
+            ResearchFact(
+                label="缺失输入",
+                value="、".join(dict.fromkeys(missing)),
+                as_of_date=result.as_of_date,
+                kind=ResearchFactKind.DERIVED,
+                evidence_refs=reference,
+                limitations=(
+                    "缺失输入不按零值处理；输入不完整时规则无法给出"
+                    "完整结论。",
+                ),
+            )
+        )
+    return facts
+
+
+def _evidence_facts(
+    execution: ResearchExecutionResult,
+) -> list[ResearchFact]:
+    bundle = execution.evidence_bundle
+    if bundle is None:
+        return []
+    cutoff = execution.task.as_of_date
+    items = []
+    for item in bundle.evidence:
+        event_date = str(item.event_date)[:10]
+        try:
+            date.fromisoformat(event_date)
+        except ValueError:
+            continue
+        if event_date <= cutoff:
+            items.append((event_date, item))
+    items.sort(key=lambda entry: entry[0], reverse=True)
+    official = [
+        entry
+        for entry in items
+        if entry[1].tier is EvidenceTier.OFFICIAL
+        and entry[1].evidence_type == "disclosure"
+    ]
+    reports = [
+        entry
+        for entry in items
+        if entry[1].tier is EvidenceTier.THIRD_PARTY
+    ]
+    facts = [
+        ResearchFact(
+            label="证据覆盖",
+            value=(
+                f"官方公告{len(official)}条，第三方研报{len(reports)}条，"
+                f"结构化事件{len(bundle.events)}个"
+                f"（{bundle.start_date}至{bundle.end_date}）"
+            ),
+            as_of_date=cutoff,
+            kind=ResearchFactKind.REPORTED,
+            evidence_refs=tuple(bundle.sources) or ("research-evidence",),
+        )
+    ]
+    for event_date, item in official[:5]:
+        url = str(item.source_url or "")
+        facts.append(
+            ResearchFact(
+                label="公告",
+                value=item.title,
+                as_of_date=event_date,
+                kind=(
+                    ResearchFactKind.OFFICIAL
+                    if url.lower().startswith(("http://", "https://"))
+                    else ResearchFactKind.REPORTED
+                ),
+                evidence_refs=(url or item.evidence_id,),
+            )
+        )
+    for event_date, item in reports[:3]:
+        details = [
+            str(item.metadata.get(key)).strip()
+            for key in ("institution", "rating")
+            if item.metadata.get(key) not in (None, "")
+        ]
+        facts.append(
+            ResearchFact(
+                label="研报",
+                value=(
+                    f"{item.title}（{'，'.join(details)}）"
+                    if details
+                    else item.title
+                ),
+                as_of_date=event_date,
+                kind=ResearchFactKind.REPORTED,
+                evidence_refs=(item.source_url or item.evidence_id,),
+                limitations=("第三方观点，不代表官方披露。",),
+            )
+        )
+    return facts
+
+
 def _fund_record_facts(
     execution: ResearchExecutionResult,
 ) -> tuple[ResearchFact, ...]:
@@ -1719,6 +2620,7 @@ def _latest_record(
 def _record_date(record: dict[str, Any]) -> str | None:
     for key in (
         "nav_date",
+        "trade_date",
         "report_date",
         "observed_at",
         "date",

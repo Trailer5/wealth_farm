@@ -11,12 +11,13 @@ from src.research_state import (
     ExplorationSessionRecord,
     SQLiteResearchStateRepository,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     DecisionLane,
     ResearchDecisionBrief,
 )
 from src.user_space import UserContext, UserSpaceService
 
+from .capabilities import hypothesis_decision_lane
 from .exploration import (
     ExplorationQuestion,
     ExplorationQueryGap,
@@ -575,6 +576,18 @@ def _seed_hypotheses(
         if decision_lanes
         else ExplorationTrack.GENERAL
     )
+    thesis_track = (
+        ExplorationTrack.from_decision_lane(DecisionLane.SUITABILITY)
+        if DecisionLane.SUITABILITY in decision_lanes
+        else default_track
+    )
+
+    def track_for(statement: str) -> ExplorationTrack:
+        lane = hypothesis_decision_lane(statement)
+        if lane is not None and lane in decision_lanes:
+            return ExplorationTrack.from_decision_lane(lane)
+        return thesis_track
+
     statements = (
         handoff.candidate_hypotheses
         or ("基础研究中的主要解释仍需进一步验证。",)
@@ -583,7 +596,7 @@ def _seed_hypotheses(
         ResearchHypothesis(
             hypothesis_id=f"candidate-hypothesis:{index}",
             statement=statement,
-            track=default_track,
+            track=track_for(statement),
             role=HypothesisRole.THESIS,
             expected_observations=(
                 "后续事实应与该假设的因果方向一致。",

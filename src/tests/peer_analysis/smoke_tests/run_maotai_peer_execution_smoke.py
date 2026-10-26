@@ -40,7 +40,6 @@ def main() -> int:
         PeerSetMember,
         SQLitePeerAnalysisRepository,
     )
-    from src.research_workflow import ResearchExecutionOptions
 
     with tempfile.TemporaryDirectory() as temp_dir:
         db_path = Path(temp_dir) / "peer-execution.sqlite3"
@@ -126,9 +125,7 @@ def main() -> int:
             ),
             as_of_date="2026-08-03",
             metric_names=("roe", "roic"),
-            options=ResearchExecutionOptions(
-                provider_timeout_seconds=120,
-            ),
+            provider_timeout_seconds=120,
         )
         if any(
             item.status is not PeerComparisonStatus.AVAILABLE

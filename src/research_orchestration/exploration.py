@@ -8,7 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from src.research_visualization import PublishedReport, ReportArtifactService
-from src.research_workflow import DecisionLane, ResearchTaskSpec
+from src.research_contracts import DecisionLane, ResearchTaskSpec
 
 from .exploration_models import (
     EvidenceTier,

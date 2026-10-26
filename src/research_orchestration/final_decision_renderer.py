@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from src.research_workflow import (
+from src.research_contracts import (
     DecisionIntent,
     DecisionLane,
     PositionState,
@@ -37,13 +37,24 @@ _OUTCOME_LABELS = {
     FinalDecisionOutcome.POSITION_USER_CONTEXT_REQUIRED: (
         "需要用户上下文"
     ),
-    FinalDecisionOutcome.POSITION_UNSUPPORTED: "当前能力不支持",
+    FinalDecisionOutcome.POSITION_UNSUPPORTED: "暂不可用",
 }
 _LANE_LABELS = {
     DecisionLane.SUITABILITY: "是否购买",
     DecisionLane.TIMING: "何时购买",
     DecisionLane.POSITION_SIZING: "购买多少",
 }
+_HOLDING_LANE_LABELS = {
+    DecisionLane.SUITABILITY: "是否继续持有",
+    DecisionLane.TIMING: "何时调整",
+    DecisionLane.POSITION_SIZING: "持有多少",
+}
+DECISION_HEADINGS = ("## 是否值得买", "## 何时行动", "## 购买多少")
+HOLDING_DECISION_HEADINGS = (
+    "## 是否继续持有",
+    "## 何时调整",
+    "## 持有多少",
+)
 _STATEMENT_LABELS = {
     FinalStatementKind.FACT: "事实",
     FinalStatementKind.INFERENCE: "推断",
@@ -77,6 +88,7 @@ _POSITION_LABELS = {
     PositionState.HELD: "已经持有",
     PositionState.UNKNOWN: "尚未确认",
 }
+_LABELED_LIMITATION_PREFIXES = ("证伪条件：", "预期观察：", "未解决冲突：")
 
 
 class FinalDecisionReportRenderer:
@@ -93,6 +105,15 @@ class FinalDecisionReportRenderer:
         sections = {
             item.lane: item for item in report.decision_sections
         }
+        holding = (
+            report.user_boundary.decision_intent
+            is DecisionIntent.REVIEW_HOLDING
+        )
+        lane_labels = _HOLDING_LANE_LABELS if holding else _LANE_LABELS
+        headings = (
+            HOLDING_DECISION_HEADINGS if holding else DECISION_HEADINGS
+        )
+        shown: set[str] = set()
         lines = [
             f"# {self._sanitize(report.asset_name, report)} 完整决策报告",
             "",
@@ -104,7 +125,7 @@ class FinalDecisionReportRenderer:
         for lane in DecisionLane:
             section = sections[lane]
             lines.append(
-                f"- **{_LANE_LABELS[lane]}："
+                f"- **{lane_labels[lane]}："
                 f"{_OUTCOME_LABELS[section.outcome]}。** "
                 f"{self._sanitize(section.summary, report)}"
             )
@@ -137,7 +158,7 @@ class FinalDecisionReportRenderer:
         )
         lines.extend(
             self._named_values(
-                "用户确认的假设",
+                "研究假设",
                 boundary.assumptions,
                 report,
             )
@@ -173,6 +194,7 @@ class FinalDecisionReportRenderer:
                 (report.thesis,),
                 report,
                 citation_numbers,
+                shown,
             )
         )
         if report.chart_paths:
@@ -180,30 +202,58 @@ class FinalDecisionReportRenderer:
             for index, path in enumerate(report.chart_paths, start=1):
                 lines.append(f"![关键图表{index}]({path})")
 
-        lines.extend(("", "## 是否值得买"))
+        lines.extend(("", headings[0]))
         lines.extend(
             self._decision_lines(
                 sections[DecisionLane.SUITABILITY],
                 report,
                 citation_numbers,
+                shown,
             )
         )
-        lines.extend(("", "## 何时行动"))
+        if report.claim_probability is not None:
+            direction = (
+                "跑赢"
+                if sections[DecisionLane.SUITABILITY].outcome
+                is FinalDecisionOutcome.SUITABILITY_CONSIDER
+                else "跑输"
+            )
+            lines.append(
+                f"- 发布前概率区间：{report.claim_probability.low:.0%}"
+                f"—{report.claim_probability.high:.0%}（研究期限内{direction}基准，"
+                "到期后按发布后的真实价格结算）。"
+            )
+        lines.extend(("", headings[1]))
         lines.extend(
             self._decision_lines(
                 sections[DecisionLane.TIMING],
                 report,
                 citation_numbers,
+                shown,
             )
         )
-        lines.extend(("", "## 购买多少"))
+        lines.extend(("", headings[2]))
+        position_section = sections[DecisionLane.POSITION_SIZING]
         lines.extend(
             self._decision_lines(
-                sections[DecisionLane.POSITION_SIZING],
+                position_section,
                 report,
                 citation_numbers,
+                shown,
             )
         )
+        if (
+            position_section.outcome
+            is not FinalDecisionOutcome.POSITION_AVAILABLE
+            and boundary.missing_context
+        ):
+            lines.append(
+                "- 补齐后才能计算仓位："
+                + "、".join(
+                    self._sanitize(item, report)
+                    for item in boundary.missing_context
+                )
+            )
 
         scenarios = {
             item.kind: item for item in report.scenarios
@@ -246,6 +296,7 @@ class FinalDecisionReportRenderer:
                 (report.strongest_counterargument,),
                 report,
                 citation_numbers,
+                shown,
             )
         )
 
@@ -255,6 +306,7 @@ class FinalDecisionReportRenderer:
                 f"- 建议最晚复查日：{report.monitoring_plan.review_date}"
             )
         if report.monitoring_plan.conditions:
+            shown_limits: set[str] = set()
             for item in report.monitoring_plan.conditions:
                 kind_label = (
                     "待确认的机器观察候选"
@@ -262,20 +314,24 @@ class FinalDecisionReportRenderer:
                     is MonitoringConditionKind.MACHINE_OBSERVABLE
                     else "需要人工复查"
                 )
-                suffix = (
-                    f"，最晚复查{item.review_by}"
-                    if item.review_by is not None
-                    else ""
-                )
+                text = self._sanitize(item.text, report)
+                if (
+                    item.review_by is not None
+                    and item.review_by
+                    != report.monitoring_plan.review_date
+                ):
+                    text = f"{text}（最晚复查日：{item.review_by}）"
                 lines.append(
-                    f"- {kind_label}："
-                    f"{self._sanitize(item.text, report)}{suffix}"
+                    f"- {kind_label}：{text}"
                     f"{self._evidence_suffix(item.evidence_refs, citation_numbers)}"
                 )
-                lines.extend(
-                    f"  - 限制：{self._sanitize(value, report)}"
-                    for value in item.limitations
-                )
+                for value in item.limitations:
+                    if value in shown_limits:
+                        continue
+                    shown_limits.add(value)
+                    lines.append(
+                        f"  - 限制：{self._sanitize(value, report)}"
+                    )
         else:
             lines.append("- 当前未形成可执行监测条件。")
         lines.extend(
@@ -363,6 +419,7 @@ class FinalDecisionReportRenderer:
         section: object,
         report: FinalDecisionResearchReport,
         citation_numbers: dict[str, int],
+        shown: set[str],
     ) -> list[str]:
         lines = [
             "- 当前答案："
@@ -378,6 +435,7 @@ class FinalDecisionReportRenderer:
                 getattr(section, "statements"),
                 report,
                 citation_numbers,
+                shown,
             )
         )
         gaps = tuple(getattr(section, "gaps"))
@@ -386,10 +444,15 @@ class FinalDecisionReportRenderer:
                 f"- 不可用原因：{self._sanitize(item, report)}"
                 for item in gaps
             )
-        lines.extend(
-            f"- 限制：{self._sanitize(item, report)}"
-            for item in getattr(section, "limitations")
-        )
+        for item in getattr(section, "limitations"):
+            # Hypothesis conditions are shown with the thesis and the
+            # strongest counterargument themselves.
+            if item in shown or item.startswith(
+                _LABELED_LIMITATION_PREFIXES
+            ):
+                continue
+            shown.add(item)
+            lines.append(self._limitation_line(item, report, ""))
         return lines
 
     def _statement_lines(
@@ -397,6 +460,7 @@ class FinalDecisionReportRenderer:
         statements: tuple[FinalStatement, ...],
         report: FinalDecisionResearchReport,
         citation_numbers: dict[str, int],
+        shown: set[str],
     ) -> list[str]:
         lines: list[str] = []
         for statement in statements:
@@ -405,11 +469,21 @@ class FinalDecisionReportRenderer:
                 f"{self._sanitize(statement.text, report)}"
                 f"{self._evidence_suffix(statement.evidence_refs, citation_numbers)}"
             )
-            lines.extend(
-                f"  - 限制：{self._sanitize(item, report)}"
-                for item in statement.limitations
-            )
+            for item in statement.limitations:
+                shown.add(item)
+                lines.append(self._limitation_line(item, report, "  "))
         return lines
+
+    def _limitation_line(
+        self,
+        item: str,
+        report: FinalDecisionResearchReport,
+        indent: str,
+    ) -> str:
+        text = self._sanitize(item, report)
+        if text.startswith(_LABELED_LIMITATION_PREFIXES):
+            return f"{indent}- {text}"
+        return f"{indent}- 限制：{text}"
 
     @staticmethod
     def _evidence_suffix(

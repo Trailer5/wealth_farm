@@ -13,6 +13,7 @@ from .models import (
     DATASET_EXCHANGE_FUND_DAILY_BARS,
     DATASET_INDEX_DAILY_BARS,
     DATASET_STOCK_DAILY_BARS,
+    TOTAL_RETURN_BAR_DATASETS,
     DataCoverage,
 )
 
@@ -328,6 +329,13 @@ class SQLiteDataAccessRepository:
             )
         if dataset == DATASET_INDEX_DAILY_BARS:
             return self.store.get_index_daily_bars(
+                asset.standard_symbol,
+                start_date=start_date,
+                end_date=end_date,
+            )
+        if dataset in TOTAL_RETURN_BAR_DATASETS:
+            return self.store.get_total_return_bars(
+                dataset,
                 asset.standard_symbol,
                 start_date=start_date,
                 end_date=end_date,

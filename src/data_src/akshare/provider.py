@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -10,6 +11,8 @@ from ..common import (
     DataSourceError,
     DependencyNotInstalledError,
     dataframe_to_records,
+    infer_a_share_exchange,
+    normalize_a_share_code,
     normalize_date_compact,
     to_akshare_market_symbol,
     to_akshare_symbol,
@@ -150,6 +153,72 @@ class AkShareDataSource:
             self._daily_bar_from_record(record, normalized_symbol, source=f"{self.source}:fund_etf_hist_em")
             for record in dataframe_to_records(frame)
         ]
+
+    def get_etf_total_return_bars(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+    ) -> list[DailyBar]:
+        """Unadjusted ETF bars whose preclose is implied by Eastmoney hfq closes.
+
+        Eastmoney adjusts dividends additively, so dividend days are only
+        approximately right; share splits and conversions are exact.
+        """
+
+        # Look back so the first requested day also has a previous adjusted close.
+        lookback_start = (
+            date.fromisoformat(start_date[:10]) - timedelta(days=20)
+        ).isoformat()
+        raw_bars = self.get_etf_daily_bars(symbol, lookback_start, end_date)
+        adjusted = {
+            bar.trade_date[:10]: bar.close
+            for bar in self.get_etf_daily_bars(
+                symbol, lookback_start, end_date, adjust="hfq"
+            )
+            if bar.close
+        }
+        bars = []
+        previous_adjusted = None
+        for bar in sorted(raw_bars, key=lambda item: item.trade_date):
+            day = bar.trade_date[:10]
+            current_adjusted = adjusted.get(day)
+            preclose = None
+            if previous_adjusted and current_adjusted and bar.close:
+                preclose = bar.close * previous_adjusted / current_adjusted
+            if current_adjusted:
+                previous_adjusted = current_adjusted
+            if day < start_date[:10]:
+                continue
+            bars.append(
+                replace(
+                    bar,
+                    trade_date=day,
+                    source=f"{bar.source}:hfq_implied_preclose",
+                    raw={**bar.raw, "hfq_close": current_adjusted},
+                    preclose=preclose,
+                )
+            )
+        return bars
+
+    def get_a_share_hfq_factors(self, symbol: str) -> list[tuple[str, float]]:
+        """Sina multiplicative back-adjustment factors, effective from each date."""
+
+        code = normalize_a_share_code(symbol)
+        frame = self._call_dataframe(
+            "stock_zh_a_daily",
+            symbol=f"{infer_a_share_exchange(code)}{code}",
+            adjust="hfq-factor",
+        )
+        factors = []
+        for record in dataframe_to_records(frame):
+            day = to_date_string(record.get("date"))
+            factor = to_optional_float(record.get("hfq_factor"))
+            if day and factor:
+                factors.append((day, factor))
+        if not factors:
+            raise DataSourceError(f"No Sina hfq factors for {symbol}")
+        return sorted(factors)
 
     def get_etf_nav_history_records(
         self,
@@ -724,8 +793,8 @@ class AkShareDataSource:
     ) -> list[dict[str, object]]:
         """Return normalized Shenwan index-analysis daily metrics."""
 
-        if category not in {"市场表征", "一级行业"}:
-            raise ValueError("category must be 市场表征 or 一级行业")
+        if category not in {"市场表征", "一级行业", "二级行业"}:
+            raise ValueError("category must be 市场表征, 一级行业 or 二级行业")
 
         api_name = "index_analysis_daily_sw"
         frame = self._call_dataframe(
@@ -787,6 +856,230 @@ class AkShareDataSource:
             end_date,
             category="一级行业",
         )
+
+    def get_sw_industry_catalog(self, level: int) -> list[dict[str, object]]:
+        """Shenwan 2021 industries of one level with current valuation."""
+
+        api_name = {
+            1: "sw_index_first_info",
+            2: "sw_index_second_info",
+            3: "sw_index_third_info",
+        }[level]
+        frame = self._call_dataframe(api_name)
+        records = []
+        for record in dataframe_to_records(frame):
+            code = str(record.get("行业代码") or "").split(".")[0].strip()
+            if not code:
+                continue
+            records.append(
+                {
+                    "code": code,
+                    "name": str(record.get("行业名称") or "").strip(),
+                    "level": level,
+                    "parent_name": str(record.get("上级行业") or "").strip() or None,
+                    "constituent_count": int(record.get("成份个数") or 0),
+                    "pe_ttm": to_optional_float(record.get("TTM(滚动)市盈率")),
+                    "pb": to_optional_float(record.get("市净率")),
+                    "dividend_yield_percent": to_optional_float(
+                        record.get("静态股息率")
+                    ),
+                    "source": f"{self.source}:{api_name}",
+                }
+            )
+        return records
+
+    def get_sw_index_constituents(self, code: str) -> list[dict[str, object]]:
+        """Current constituents of one Shenwan index with their inclusion dates."""
+
+        api_name = "index_component_sw"
+        frame = self._call_dataframe(api_name, symbol=code)
+        return [
+            {
+                "industry_code": code,
+                "symbol": str(record.get("证券代码") or "").strip().zfill(6),
+                "name": str(record.get("证券名称") or "").strip(),
+                "weight_percent": to_optional_float(record.get("最新权重")),
+                "included_on": to_date_string(record.get("计入日期")) or None,
+                "source": f"{self.source}:{api_name}",
+            }
+            for record in dataframe_to_records(frame)
+            if record.get("证券代码")
+        ]
+
+    def get_sw_index_daily_bars(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+    ) -> list[DailyBar]:
+        """Shenwan index price bars; the source always returns full history."""
+
+        api_name = "index_hist_sw"
+        frame = self._call_dataframe(api_name, symbol=symbol, period="day")
+        bars = []
+        for record in dataframe_to_records(frame):
+            bar = self._daily_bar_from_record(
+                record,
+                symbol,
+                source=f"{self.source}:{api_name}",
+            )
+            if not start_date <= bar.trade_date <= end_date:
+                continue
+            # Source volume is in 100 million shares and amount in 100 million yuan.
+            bars.append(
+                replace(
+                    bar,
+                    symbol=symbol,
+                    volume=None if bar.volume is None else bar.volume * 1e8,
+                    amount=None if bar.amount is None else bar.amount * 1e8,
+                )
+            )
+        return bars
+
+    def get_a_share_spot_sina(self) -> list[dict[str, object]]:
+        """All listed A shares with the latest price from Sina (no valuation)."""
+
+        api_name = "stock_zh_a_spot"
+        frame = self._call_dataframe(api_name)
+        records = []
+        for record in dataframe_to_records(frame):
+            code = str(record.get("代码") or "").strip().lower()
+            if len(code) != 8:
+                continue
+            records.append(
+                {
+                    "symbol": code[2:],
+                    "exchange": code[:2],
+                    "name": str(record.get("名称") or "").strip(),
+                    "close": to_optional_float(record.get("最新价")),
+                    "pre_close": to_optional_float(record.get("昨收")),
+                    "pct_change": to_optional_float(record.get("涨跌幅")),
+                    "volume": to_optional_float(record.get("成交量")),
+                    "amount": to_optional_float(record.get("成交额")),
+                    "source": f"{self.source}:{api_name}",
+                }
+            )
+        return records
+
+    def get_stock_valuation_history(self, symbol: str) -> list[dict[str, object]]:
+        """Daily Eastmoney valuation of one stock since 2018."""
+
+        api_name = "stock_value_em"
+        frame = self._call_dataframe(api_name, symbol=normalize_a_share_code(symbol))
+        return [
+            {
+                "trade_date": to_date_string(record.get("数据日期")),
+                "close": to_optional_float(record.get("当日收盘价")),
+                "market_cap": to_optional_float(record.get("总市值")),
+                "float_market_cap": to_optional_float(record.get("流通市值")),
+                "pe_ttm": to_optional_float(record.get("PE(TTM)")),
+                "pe_static": to_optional_float(record.get("PE(静)")),
+                "pb": to_optional_float(record.get("市净率")),
+                "pcf": to_optional_float(record.get("市现率")),
+                "ps": to_optional_float(record.get("市销率")),
+                "source": f"{self.source}:{api_name}",
+            }
+            for record in dataframe_to_records(frame)
+            if record.get("数据日期")
+        ]
+
+    def get_financial_report_cross_section(self, report_period: str) -> list[dict[str, object]]:
+        """All A shares' headline figures for one report period, with announcement dates.
+
+        Merges Eastmoney performance, balance-sheet and cash-flow summaries;
+        amounts are in yuan and growth rates in percent.
+        """
+
+        period = normalize_date_compact(report_period)
+        rows: dict[str, dict[str, object]] = {}
+
+        def row(code: object, name: object) -> dict[str, object]:
+            symbol = str(code or "").strip().zfill(6)
+            return rows.setdefault(
+                symbol,
+                {"symbol": symbol, "name": str(name or "").strip(), "report_period": to_date_string(period)},
+            )
+
+        for record in dataframe_to_records(self._call_dataframe("stock_yjbb_em", date=period)):
+            item = row(record.get("股票代码"), record.get("股票简称"))
+            item.update(
+                {
+                    "eps": to_optional_float(record.get("每股收益")),
+                    "revenue": to_optional_float(record.get("营业总收入-营业总收入")),
+                    "revenue_yoy_percent": to_optional_float(record.get("营业总收入-同比增长")),
+                    "net_profit": to_optional_float(record.get("净利润-净利润")),
+                    "net_profit_yoy_percent": to_optional_float(record.get("净利润-同比增长")),
+                    "bvps": to_optional_float(record.get("每股净资产")),
+                    "roe_percent": to_optional_float(record.get("净资产收益率")),
+                    "operating_cash_flow_per_share": to_optional_float(record.get("每股经营现金流量")),
+                    "gross_margin_percent": to_optional_float(record.get("销售毛利率")),
+                    "em_industry": str(record.get("所处行业") or "").strip() or None,
+                    "announced_on": to_date_string(record.get("最新公告日期")) or None,
+                }
+            )
+        for record in dataframe_to_records(self._call_dataframe("stock_zcfz_em", date=period)):
+            item = row(record.get("股票代码"), record.get("股票简称"))
+            item.update(
+                {
+                    "cash": to_optional_float(record.get("资产-货币资金")),
+                    "total_assets": to_optional_float(record.get("资产-总资产")),
+                    "total_liabilities": to_optional_float(record.get("负债-总负债")),
+                    "debt_ratio_percent": to_optional_float(record.get("资产负债率")),
+                    "equity": to_optional_float(record.get("股东权益合计")),
+                    "balance_announced_on": to_date_string(record.get("公告日期")) or None,
+                }
+            )
+        for record in dataframe_to_records(self._call_dataframe("stock_xjll_em", date=period)):
+            item = row(record.get("股票代码"), record.get("股票简称"))
+            item.update(
+                {
+                    "operating_cash_flow": to_optional_float(record.get("经营性现金流-现金流量净额")),
+                    "investing_cash_flow": to_optional_float(record.get("投资性现金流-现金流量净额")),
+                    "cash_flow_announced_on": to_date_string(record.get("公告日期")) or None,
+                }
+            )
+        source = f"{self.source}:stock_yjbb_em+stock_zcfz_em+stock_xjll_em"
+        # The performance table also lists NEEQ and B shares; keep Shanghai, Shenzhen and Beijing A shares.
+        return [
+            {
+                **item,
+                "announced_on": item.get("announced_on")
+                or item.get("balance_announced_on")
+                or item.get("cash_flow_announced_on"),
+                "source": source,
+            }
+            for symbol, item in rows.items()
+            if symbol.startswith(("60", "68", "00", "30", "92"))
+        ]
+
+    def get_delisted_a_shares(self) -> list[dict[str, object]]:
+        """Shanghai and Shenzhen stocks that have terminated listing."""
+
+        records = []
+        for record in dataframe_to_records(self._call_dataframe("stock_info_sh_delist")):
+            records.append(
+                {
+                    "symbol": str(record.get("公司代码") or "").strip().zfill(6),
+                    "name": str(record.get("公司简称") or "").strip(),
+                    "exchange": "sh",
+                    "listed_on": to_date_string(record.get("上市日期")) or None,
+                    "delisted_on": to_date_string(record.get("暂停上市日期")) or None,
+                    "source": f"{self.source}:stock_info_sh_delist",
+                }
+            )
+        frame = self._call_dataframe("stock_info_sz_delist", symbol="终止上市公司")
+        for record in dataframe_to_records(frame):
+            records.append(
+                {
+                    "symbol": str(record.get("证券代码") or "").strip().zfill(6),
+                    "name": str(record.get("证券简称") or "").strip(),
+                    "exchange": "sz",
+                    "listed_on": to_date_string(record.get("上市日期")) or None,
+                    "delisted_on": to_date_string(record.get("终止上市日期")) or None,
+                    "source": f"{self.source}:stock_info_sz_delist",
+                }
+            )
+        return [item for item in records if item["symbol"].strip("0")]
 
     def get_china_ten_year_yield_history(
         self,

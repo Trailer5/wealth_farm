@@ -47,6 +47,38 @@ class MootdxDataSource:
 
         return self._get_daily_bars(symbol, start_date, end_date)
 
+    def get_xdxr_events(self, symbol: str) -> list[dict[str, Any]]:
+        """Ex-rights events: category 1 dividends/bonus/rights, 11 share splits."""
+
+        client = self._create_client()
+        try:
+            events = client.xdxr(symbol=normalize_a_share_code(symbol))
+            records = events.to_dict("records") if events is not None else []
+        except Exception as exc:
+            raise DataSourceError("mootdx xdxr failed") from exc
+        finally:
+            client.close()
+        output = []
+        for record in records:
+            category = int(record.get("category") or 0)
+            if category not in {1, 11}:
+                continue
+            output.append(
+                {
+                    "ex_date": (
+                        f"{int(record['year']):04d}-{int(record['month']):02d}-"
+                        f"{int(record['day']):02d}"
+                    ),
+                    "category": category,
+                    "cash_per_10": _number(record.get("fenhong")),
+                    "bonus_per_10": _number(record.get("songzhuangu")),
+                    "rights_per_10": _number(record.get("peigu")),
+                    "rights_price": _number(record.get("peigujia")),
+                    "split_ratio": _number(record.get("suogu")),
+                }
+            )
+        return output
+
     def _get_daily_bars(
         self,
         symbol: str,
@@ -130,3 +162,8 @@ def _required_offset(start: date) -> int:
 
 def _scale(value: float | None, factor: float) -> float | None:
     return value * factor if value is not None else None
+
+
+def _number(value: Any) -> float:
+    number = to_optional_float(value)
+    return number if number is not None and number == number else 0.0

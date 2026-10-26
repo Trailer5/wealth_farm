@@ -24,11 +24,13 @@ from src.research_orchestration import (
     CAPABILITY_DATASET_QUERY,
     CAPABILITY_EVENT_QUERY,
     CAPABILITY_EXTERNAL_OFFICIAL_WEB,
+    CAPABILITY_INDUSTRY_QUERY,
     CAPABILITY_OFFICIAL_DOCUMENT_QUERY,
     CAPABILITY_PEER_QUERY,
     CAPABILITY_PORTFOLIO_QUERY,
     EvidenceTier,
     ExplorationGapKind,
+    ExplorationQueryGap,
     ExplorationQuestion,
     ExplorationLedgerEntryKind,
     ExplorationStatus,
@@ -40,6 +42,7 @@ from src.research_orchestration import (
     PersistentResearchExplorationService,
     QuestionStatus,
     ResearchExplorationRound,
+    ResearchExplorationSession,
     ResearchFinding,
     ResearchFindingKind,
     ResearchExplorationQueryService,
@@ -57,24 +60,32 @@ from src.research_orchestration.query_routing import (
     BenchmarkQueryHandler,
     EventKnowledgeQueryHandler,
     ExternalOfficialWebQueryHandler,
+    IndustryAnalysisQueryHandler,
     PortfolioRiskQueryHandler,
     ResearchEvidenceQueryHandler,
     ResearchQueryHandlerOutput,
 )
+from src.research_orchestration.exploration_persistence import (
+    _seed_hypotheses,
+)
 from src.research_orchestration.sqlite_repository import (
     SQLiteResearchWorkflowRepository,
 )
-from src.research_state import SQLiteResearchStateRepository
-from src.research_workflow import (
+from src.research_state import (
+    ResearchStateService,
+    SQLiteResearchStateRepository,
+)
+from src.research_contracts import (
     PROFILE_ORDINARY_COMPANY,
     PROFILE_EXCHANGE_FUND,
     PROFILE_OPEN_FUND,
+    DecisionIntent,
     DecisionLane,
-    ResearchExecutionGap,
     ResearchHorizon,
     ResearchQuestionType,
     ResearchTaskSpec,
 )
+from src.research_workflow import ResearchExecutionGap
 from src.user_space import (
     SQLiteUserSpaceRepository,
     UserSpaceService,
@@ -886,6 +897,10 @@ class PersistentResearchExplorationTest(unittest.TestCase):
             output.evidence_tier,
             EvidenceTier.DERIVED,
         )
+        self.assertEqual(
+            output.metadata["events"][0]["title"],
+            "半年度业绩披露",
+        )
 
     def test_benchmark_data_access_failure_is_remote_failure(self):
         workflow_run = self._create_workflow(
@@ -1148,8 +1163,204 @@ class PersistentResearchExplorationTest(unittest.TestCase):
             EvidenceTier.SECONDARY,
         )
         self.assertEqual(
+            output.metadata["items"][0]["title"],
+            "第三方深度报告",
+        )
+        self.assertEqual(
+            output.metadata["items"][0]["tier"],
+            "third_party",
+        )
+        self.assertEqual(
             service.parameters["end_date"],
             self.task.as_of_date,
+        )
+
+    def test_data_and_industry_queries_return_values(self):
+        workflow_run = self._create_workflow("workflow:query:values")
+        session = self.exploration.start_from_handoff(
+            self.context,
+            workflow_run_id=workflow_run.workflow_run_id,
+        )
+        question_id = session.questions[0].question_id
+        data_plan = self._plan(
+            session_id=session.session_id,
+            question_id=question_id,
+            query_id="query:values:data",
+            capability_id=CAPABILITY_DATASET_QUERY,
+            route=ResearchQueryRoute.DATA_ACCESS,
+            parameters={
+                "dataset": "stock_daily_bars",
+                "start_date": "2026-08-01",
+                "end_date": "2026-08-20",
+            },
+        )
+        industry_plan = self._plan(
+            session_id=session.session_id,
+            question_id=question_id,
+            query_id="query:values:industry",
+            capability_id=CAPABILITY_INDUSTRY_QUERY,
+            route=ResearchQueryRoute.INDUSTRY_ANALYSIS,
+        )
+
+        data_output = DataAccessQueryHandler(
+            _FakeDataAccess(
+                response=DataAccessResponse(
+                    asset=self.asset,
+                    dataset="stock_daily_bars",
+                    records=(
+                        {"trade_date": "2026-08-19", "close": 10.0},
+                        {"trade_date": "2026-08-20", "close": 10.5},
+                    ),
+                    complete=True,
+                    coverage_start="2026-08-19",
+                    coverage_end="2026-08-20",
+                )
+            )
+        ).execute(
+            plan=data_plan,
+            session=session,
+            context=self.context,
+        )
+        industry_output = IndustryAnalysisQueryHandler(
+            SimpleNamespace(get_industry=lambda **kwargs: None),
+            profile_assignment=SimpleNamespace(
+                get_assignment=lambda asset_id, *, as_of_date: (
+                    SimpleNamespace(
+                        industry_name="酒、饮料和精制茶制造业",
+                        source="baostock:csrc_industry",
+                        profile_id=PROFILE_ORDINARY_COMPANY,
+                        effective_date=as_of_date,
+                    )
+                ),
+            ),
+        ).execute(
+            plan=industry_plan,
+            session=session,
+            context=self.context,
+        )
+
+        self.assertEqual(
+            data_output.metadata["latest_records"][-1]["close"],
+            10.5,
+        )
+        self.assertEqual(
+            data_output.metadata["coverage_end"],
+            "2026-08-20",
+        )
+        self.assertIs(
+            industry_output.outcome,
+            ResearchQueryOutcome.PARTIAL,
+        )
+        self.assertEqual(
+            industry_output.metadata["industry_name"],
+            "酒、饮料和精制茶制造业",
+        )
+        self.assertEqual(
+            industry_output.gap_code,
+            "peer_industry_assignment_missing",
+        )
+
+    def test_seed_hypotheses_follow_declaring_decision_lane(self):
+        handoff = SimpleNamespace(
+            candidate_hypotheses=(
+                "盈利质量能够持续而非仅由一次性因素驱动。",
+                "当前市场状态提供了可执行且有失效条件的窗口。",
+                "在显式风险预算下存在可承受的非零仓位区间。",
+            )
+        )
+
+        hypotheses = _seed_hypotheses(
+            handoff,
+            (
+                DecisionLane.TIMING,
+                DecisionLane.SUITABILITY,
+                DecisionLane.POSITION_SIZING,
+            ),
+        )
+
+        self.assertEqual(
+            [item.track for item in hypotheses[:3]],
+            [
+                ExplorationTrack.SUITABILITY,
+                ExplorationTrack.TIMING,
+                ExplorationTrack.POSITION_SIZING,
+            ],
+        )
+
+    def test_brief_binds_to_run_without_brief_on_first_session(self):
+        workflow_run, _ = self.workflow_coordinator.record_result(
+            ResearchRunRequest(
+                task=self.task,
+                workflow_run_id="workflow:brief:bind",
+                decision_lanes=(DecisionLane.SUITABILITY,),
+            ),
+            self._result(ResearchRunStatus.COMPLETE),
+        )
+        self.assertIsNone(workflow_run.decision_brief_id)
+        state = ResearchStateService(
+            SQLiteResearchStateRepository(self.db_path),
+            self.user_space,
+            self.master_data,
+        )
+        brief = state.save_decision_brief(
+            self.context,
+            asset_id=self.asset.asset_id,
+            decision_intent=DecisionIntent.EVALUATE_PURCHASE,
+            decision_lanes=(DecisionLane.SUITABILITY,),
+            horizon=ResearchHorizon.MEDIUM_LONG,
+            as_of_date=self.task.as_of_date,
+        )
+
+        session = self.exploration.start_from_handoff(
+            self.context,
+            workflow_run_id=workflow_run.workflow_run_id,
+            decision_brief=brief,
+        )
+        bound = self.workflow_coordinator.get_workflow_run(
+            workflow_run.workflow_run_id
+        )
+
+        self.assertEqual(session.decision_brief_id, brief.brief_id)
+        self.assertEqual(bound.decision_brief_id, brief.brief_id)
+
+    def test_answered_question_resolves_its_blocking_query_gap(self):
+        gap = ExplorationQueryGap(
+            query_id="query:a",
+            capability_id=CAPABILITY_INDUSTRY_QUERY,
+            kind=ExplorationGapKind.BUSINESS_EMPTY,
+            code="peer_industry_assignment_missing",
+            message="no peer industry",
+            blocking=True,
+        )
+        session = ResearchExplorationSession(
+            session_id="exploration:gaps",
+            task=self.task,
+            baseline_path=None,
+            questions=(
+                ExplorationQuestion(
+                    question_id="q:open",
+                    text="open",
+                    reason="r",
+                    blocking=True,
+                    query_ids=("query:b",),
+                ),
+                ExplorationQuestion(
+                    question_id="q:done",
+                    text="done",
+                    reason="r",
+                    blocking=True,
+                    status=QuestionStatus.ANSWERED,
+                    answer="answered with other evidence",
+                    evidence_refs=("evidence:x",),
+                    query_ids=("query:a",),
+                ),
+            ),
+            query_gaps=(gap, replace(gap, query_id="query:b")),
+        )
+
+        self.assertEqual(
+            [item.query_id for item in session.unresolved_blocking_query_gaps()],
+            ["query:b"],
         )
 
     def test_portfolio_query_excludes_post_cutoff_snapshots(self):
@@ -1353,6 +1564,13 @@ class _FakeEventService:
 class _FakeEvent:
     def __init__(self, event_id):
         self.event_id = event_id
+        self.event_type = "earnings"
+        self.event_date = "2026-08-20"
+        self.title = "半年度业绩披露"
+        self.summary = "营业收入同比增长"
+        self.source = "cninfo"
+        self.source_url = "https://example.test/event"
+        self.confidence = 0.9
 
 
 class _FailingBenchmarkService:
@@ -1473,6 +1691,11 @@ class _FakeEvidenceItem:
     def __init__(self, evidence_id, tier):
         self.evidence_id = evidence_id
         self.tier = _FakeTier(tier)
+        self.evidence_type = "research_report"
+        self.title = "第三方深度报告"
+        self.event_date = "2026-08-19"
+        self.source = "eastmoney"
+        self.source_url = "https://example.test/report"
 
 
 class _FakeTier:

@@ -11,11 +11,18 @@ from src.benchmark_analysis import (
     BenchmarkMetricCalculator,
     CompositeBenchmarkDefinition,
 )
+from src.data_access import DataAccessResponse
 from src.factor_engineering import (
     FactorValue,
     OpenFundStandardMetricCalculator,
     RiskCalculationResult,
     RiskMetricParameters,
+)
+from src.fundamental_analysis import (
+    FundamentalMetricResult,
+    FundamentalMetricSet,
+    FundamentalSnapshot,
+    MetricStatus,
 )
 from src.fund_research import (
     DisclosureExtractionStatus,
@@ -47,16 +54,26 @@ from src.research_acceptance import (
     ResearchReportAssemblyService,
     ScenarioKind,
 )
-from src.research_workflow import (
+from src.research_contracts import (
+    PROFILE_FINANCIAL_INSTITUTION,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
+    ResearchHorizon,
+    ResearchQuestionType,
+)
+from src.research_evidence import (
+    EvidenceTier,
+    ResearchEvidenceBundle,
+    ResearchEvidenceItem,
+)
+from src.research_orchestration.renderer import ResearchReportRenderer
+from src.research_orchestration.review import ResearchReportReviewer
+from src.research_workflow import (
     ResearchExecutionGap,
     ResearchExecutionResult,
     ResearchExecutionStatus,
-    ResearchHorizon,
     ResearchPhaseResult,
     ResearchPhaseStatus,
-    ResearchQuestionType,
     ResearchTaskFactory,
     ResearchWindows,
 )
@@ -111,6 +128,194 @@ class ResearchReportAssemblyTest(unittest.TestCase):
             {item.kind for item in report.scenarios},
             set(ScenarioKind),
         )
+
+    def test_stock_report_publishes_facts_and_rule_checks(self):
+        asset = self.master.register_asset(
+            Asset(
+                asset_id="stock:named",
+                asset_type=ASSET_TYPE_STOCK,
+                standard_symbol="600000",
+                display_name="测试公司",
+                market="cn_a",
+                exchange="sh",
+            ),
+            source="unit-test",
+            raw_symbol="600000",
+        )
+        index = self.master.register_asset(
+            Asset(
+                asset_id="index:named",
+                asset_type=ASSET_TYPE_INDEX,
+                standard_symbol="000905",
+                display_name="中证500",
+                market="cn_a",
+                exchange="sh",
+            ),
+            source="unit-test",
+            raw_symbol="000905",
+        )
+        task = ResearchTaskFactory(self.master).create(
+            asset_id=asset.asset_id,
+            profile_id=PROFILE_ORDINARY_COMPANY,
+            question_type=ResearchQuestionType.INVESTMENT,
+            horizon=ResearchHorizon.MEDIUM_LONG,
+            as_of_date="2026-08-03",
+            benchmark_asset_id=index.asset_id,
+        )
+        base = _execution(task)
+        execution = replace(
+            base,
+            bar_response=DataAccessResponse(
+                asset=asset,
+                dataset="stock_daily_bars",
+                records=(
+                    {"trade_date": "2026-07-31", "close": 1500.0},
+                    {"trade_date": "2026-08-03", "close": 1520.5},
+                ),
+            ),
+            risk_result=_stock_risk_result(asset.asset_id),
+            benchmark_result=BenchmarkMetricCalculator().calculate(
+                asset_id=asset.asset_id,
+                benchmark_asset_id=index.asset_id,
+                benchmark_kind=BenchmarkKind.INDEX,
+                asset_records=[
+                    {"trade_date": "2026-07-30", "close": 100},
+                    {"trade_date": "2026-07-31", "close": 102},
+                    {"trade_date": "2026-08-03", "close": 103},
+                ],
+                benchmark_records=[
+                    {"trade_date": "2026-07-30", "close": 100},
+                    {"trade_date": "2026-07-31", "close": 101},
+                    {"trade_date": "2026-08-03", "close": 100},
+                ],
+                asset_dataset="stock_daily_bars",
+                benchmark_dataset="index_daily_bars",
+            ),
+            fundamental_result=_fundamental_result(asset.asset_id),
+            evidence_bundle=_evidence_bundle(asset),
+            strategy_result=replace(
+                base.strategy_result,
+                status=StrategyRunStatus.FAIL,
+                score=Decimal("0.5"),
+                matched_conditions=(
+                    "quality_value_hard_gate",
+                    "quality_value_roe",
+                    "quality_value_roic_gate",
+                ),
+                failed_conditions=("quality_value_pe",),
+                limitations=("阈值是初始研究假设",),
+            ),
+        )
+
+        report = self.service.assemble(execution)
+        facts = {
+            fact.label: fact
+            for section in report.fact_sections
+            for fact in section.facts
+        }
+        sections = {
+            section.section_id for section in report.fact_sections
+        }
+
+        self.assertTrue(
+            {
+                "market_data",
+                "risk_metrics",
+                "benchmark_metrics",
+                "valuation",
+                "profitability",
+                "research_rule",
+                "evidence_overview",
+            }.issubset(sections)
+        )
+        self.assertEqual(facts["最新收盘价"].value, "1,520.5")
+        self.assertEqual(facts["最新收盘价"].as_of_date, "2026-08-03")
+        self.assertEqual(facts["比较基准"].value, "中证500")
+        self.assertEqual(facts["市盈率（TTM）"].value, "35倍")
+        self.assertEqual(facts["ROE"].value, "30.5%")
+        self.assertIn("未复权", facts["区间最大回撤"].limitations[0])
+        self.assertIn(
+            "市盈率（TTM） ≤ 30倍（当前35倍，未满足",
+            facts["评分条件"].value,
+        )
+        self.assertIn(
+            "ROIC ≥ 10%（当前缺失，满足",
+            facts["硬性门槛"].value,
+        )
+        self.assertIn(
+            "未通过（中长期质量与估值规则；得分0.5",
+            facts["规则结论"].value,
+        )
+        self.assertEqual(facts["公告"].kind, ResearchFactKind.OFFICIAL)
+        self.assertIn(
+            "未满足的规则条件",
+            report.strongest_counterargument.text,
+        )
+        self.assertIn("市盈率", report.strongest_counterargument.text)
+        texts = [
+            *(claim.text for claim in report.conclusions),
+            *(
+                claim.text
+                for scenario in report.scenarios
+                for claim in scenario.claims
+            ),
+            report.strongest_counterargument.text,
+            *(item.condition for item in report.invalidation_conditions),
+            *(fact.value for fact in facts.values()),
+        ]
+        for text in texts:
+            self.assertNotRegex(text, r"[a-z]+_[a-z]+")
+            self.assertNotRegex(
+                text,
+                r"\b(?:strategy|Strategy|condition|Rerun)\b",
+            )
+        markdown = ResearchReportRenderer().render(report)
+        self.assertNotIn("内部字段", markdown)
+        self.assertIn("## 研究规则检查", markdown)
+        self.assertIn("- 本节口径：按执行窗口内的日频未复权收盘价", markdown)
+        review = ResearchReportReviewer().review(
+            report,
+            expected_task=task,
+            user_markdown=markdown,
+        )
+        self.assertTrue(review.passed, review.findings)
+
+    def test_financial_report_discloses_broad_market_fallback(self):
+        task = ResearchTaskFactory(self.master).create(
+            asset_id=self.task.asset_id,
+            profile_id=PROFILE_FINANCIAL_INSTITUTION,
+            question_type=ResearchQuestionType.INVESTMENT,
+            horizon=ResearchHorizon.MEDIUM_LONG,
+            as_of_date="2026-08-03",
+            benchmark_asset_id=self.task.benchmark_asset_id,
+        )
+        execution = replace(
+            _execution(task),
+            benchmark_result=BenchmarkMetricCalculator().calculate(
+                asset_id=task.asset_id,
+                benchmark_asset_id=task.benchmark_asset_id,
+                benchmark_kind=BenchmarkKind.INDEX,
+                asset_records=[
+                    {"trade_date": "2026-07-31", "close": 10},
+                    {"trade_date": "2026-08-03", "close": 11},
+                ],
+                benchmark_records=[
+                    {"trade_date": "2026-07-31", "close": 100},
+                    {"trade_date": "2026-08-03", "close": 101},
+                ],
+                asset_dataset="stock_daily_bars",
+                benchmark_dataset="index_daily_bars",
+            ),
+        )
+
+        report = self.service.assemble(execution)
+        facts = {
+            fact.label: fact
+            for section in report.fact_sections
+            for fact in section.facts
+        }
+
+        self.assertIn("沪深300", facts["相对基准超额收益"].limitations[-1])
 
     def test_blocking_execution_gap_blocks_report(self):
         execution = _execution(self.task)
@@ -615,6 +820,99 @@ def _periodic_snapshot(asset_id):
         source="official-unit-test",
         parser_version="unit-test-v1",
         extraction_status=DisclosureExtractionStatus.EXTRACTED,
+    )
+
+
+def _stock_risk_result(asset_id):
+    metrics = tuple(
+        FactorValue(
+            asset_id=asset_id,
+            factor_name=name,
+            as_of_date="2026-08-03",
+            value=value,
+            calculation_version="unit-v1",
+            parameters={"window": "input"},
+            input_start_date="2026-07-31",
+            input_end_date="2026-08-03",
+            source_dataset="stock_daily_bars",
+            computed_at="2026-08-03T00:00:00+00:00",
+        )
+        for name, value in (
+            ("annualized_return", 0.08),
+            ("annualized_volatility", 0.22),
+            ("max_drawdown", -0.18),
+        )
+    )
+    return RiskCalculationResult(
+        asset_id=asset_id,
+        parameters=RiskMetricParameters(price_adjustment="none"),
+        series=(),
+        metrics=metrics,
+        drawdown_episode=None,
+    )
+
+
+def _fundamental_result(asset_id):
+    snapshot = FundamentalSnapshot(
+        asset_id=asset_id,
+        as_of_date="2026-08-03",
+        report_period="2026-06-30",
+        currency="CNY",
+        market_price=Decimal("1520.5"),
+        shares_outstanding=Decimal("1000"),
+        fields={},
+        prior_fields={},
+    )
+    metrics = tuple(
+        FundamentalMetricResult(
+            asset_id=asset_id,
+            metric_name=name,
+            as_of_date="2026-08-03",
+            report_period="2026-06-30",
+            status=MetricStatus.AVAILABLE,
+            value=Decimal(value),
+            unit=unit,
+            formula="unit",
+            numerator=None,
+            denominator=None,
+            reason=None,
+            calculation_version="unit-v1",
+            parameters={},
+            inputs=(),
+            computed_at="2026-08-03T00:00:00+00:00",
+        )
+        for name, value, unit in (
+            ("pe_ttm", "35", "multiple"),
+            ("roe", "0.305", "ratio"),
+        )
+    )
+    return FundamentalMetricSet(snapshot=snapshot, metrics=metrics)
+
+
+def _evidence_bundle(asset):
+    return ResearchEvidenceBundle(
+        asset=asset,
+        start_date="2025-02-01",
+        end_date="2026-08-03",
+        as_of_date="2026-08-03",
+        evidence=(
+            ResearchEvidenceItem(
+                evidence_id="evidence:disclosure:cninfo:1",
+                asset_id=asset.asset_id,
+                evidence_type="disclosure",
+                tier=EvidenceTier.OFFICIAL,
+                title="2026年半年度报告",
+                event_date="2026-07-30",
+                source="cninfo",
+                source_record_id="1",
+                source_url="https://example.test/report.pdf",
+                content="2026年半年度报告",
+            ),
+        ),
+        document_states=(),
+        events=(),
+        sources=("cninfo",),
+        complete=True,
     )
 
 

@@ -4,20 +4,22 @@
 
 本文件解释如何读取能力，不复制实现清单。机器可查询事实以默认容器中的 `ResearchCapabilityRegistry` 为准；模块职责、公共入口和工程边界以 `docs/modules/README.md` 及所属模块文档为准。
 
+本文覆盖标的类研究能力。所有问题先经 `QuestionRouter` 路由；市场、行业、宏观、策略、组合和计划类问题的当前可执行部分与缺口以路由结果为准，用法见 `question_routing.md`。
+
 ## 权威来源
 
 1. 调用 `container.capability_registry.resolve(profile_id=..., question_type=..., decision_lane=...)` 查询当前组合。
 2. `automated_capabilities` 是确定性流水线已声明的能力，不表示本次运行一定取得数据。
 3. `agent_query_capabilities` 是基础包后可安排的探索动作，不表示已经完成。
 4. `required_user_context` 只表示该决策轨道需要哪些用户上下文。
-5. `unsupported_capabilities` 和 `question_supported=false` 必须作为能力缺口保留，不能由 prompt 假装完成。
-6. `public_entrypoints` 由一致性测试校验；入口职责见 `docs/modules/研究编排模块.md`，profile 细节见对应模块文档。
+5. `unsupported_capabilities` 和 `question_supported=false` 必须作为能力缺口保留，不能由 prompt 假装完成；`lane_unsupported_capabilities` 非空表示当前 profile 不支持所查询的决策轨道。
+6. `public_entrypoints` 由一致性测试校验；入口职责见 `docs/modules/6-编排/研究编排模块.md`，profile 细节见对应模块文档。
 
 注册表声明的是当前五类正式 execution profile 的最小能力边界，不是完整未来清单。不得用其他 profile 的指标补齐当前 profile 的必需缺口。
 
 ## 基础研究与 handoff
 
-统一入口和 CLI 用法见 `docs/modules/研究编排模块.md`。运行状态为 `complete`、`partial` 或 `blocked`；基础包不包含最终买入建议。
+统一入口和 CLI 用法见 `docs/modules/6-编排/研究编排模块.md`。运行状态为 `complete`、`partial` 或 `blocked`；基础包不包含最终买入建议。
 
 默认流水线为 complete/partial 创建 `ResearchWorkflowRun` 和 `BaselineResearchHandoff`。handoff 分开保存：
 
@@ -67,7 +69,7 @@ blocked 运行只保存 workflow 阻塞状态，不创建 handoff 或探索会�
 
 当前限制：
 
-- 基础研究运行不会自动创建或加载决策简报；
+- `run-recipe` 在请求带 `user_id` 时按请求保存决策简报并绑定到 workflow run；`run-single` 不创建简报，需要时由 Agent 在启动探索前通过 `container.research_state.save_decision_brief(...)` 保存；
 - mandate、组合估值、约束快照和最新价格/风险输入仍需由 Agent 在用户确认后显式准备，不由基础运行擅自创建；
 - `PositionPlan` 已由最终报告服务按独立“购买多少”章节渲染；available 只显示区间、压力损失、绑定约束和规划分批，缺少上下文或 profile 不支持时显示正式不可用原因。
 
@@ -83,14 +85,29 @@ blocked 运行只保存 workflow 阻塞状态，不创建 handoff 或探索会�
 
 通用发现结果必须经 discovery 编排后交给 Agent；事件名称注意力使用 `EventNameDiscoveryOrchestrationPipeline` 或 `run-event-name-discovery`。具体边界见 `discovery_handoff.md` 和 `event_name_discovery.md`。
 
+### 问题路由与观点账本
+
+`container.router`（`QuestionRouter`）把 Agent 构造的 `ResearchRequest` 匹配到研究配方，返回步骤状态、元素覆盖、带系统模块与阶段的缺口、用户问题和“必须避免”检查项；`container.recipe_executor`（`RecipeExecutor`）执行其中当前可执行的步骤。配方与执行规则见 `docs/modules/6-编排/问题路由模块.md`。
+
+`ResearchLedgerService` 保存已发布的状态评估、观点、可结算动作和计划，只追加且按用户隔离；最终报告发布后自动入账，观点检验配方把用户观点记为个人条目，Agent 改写的可证伪观点用 `record-view`（`container.view_recorder`）入账。`LedgerSettlementService` 按检查点做前向结算：价格类按复权总回报，指标类（`metric_observation`，`observed_id` 为 `macro:<series_id>`）按检查点前已发布的宏观与市场序列。规则见 `docs/modules/5-研究产物/观点账本模块.md`。
+
+当前限制：
+
+- 路由不做自然语言理解，研究对象、意图和个人化程度由 Agent 写入请求；
+- 持仓以用户空间记录为准：`user-context` 查看用户上下文，`record-holding` 记录用户明确提供的持仓；投资任务和约束快照仍由已有服务创建，尚无 CLI；
+- 行业景气、策略回测、组合优化和完整计划仍是路由缺口，执行器不调用 smoke 或未接入正式入口的服务；申万行业分类、成分、默认同行、行业指数与估值采样用 `industry` 命令（见 `question_routing.md` 补充规则 8），标的或指数的 `asset_id` 用 `asset --symbol` 查询；市场状态由市场档案（`market-archive`，资金流与情绪待建）给出，宏观状态由宏观档案（`macro-archive`，政策文本与外部环境待建）给出，宏观与利率序列可用 `macro` 命令按截止日读取（见 `question_routing.md` 补充规则 6）；
+- 结算只能手动运行 `settle-ledger`，条件触发动作暂不可结算；指标类观点只支持宏观数据目录中的序列（写法见 `question_routing.md` 补充规则 7）；`ledger` 只读展示条目、每个检查点的最新结算和判定计数；复盘只有服务写入入口；股票、场内基金和场外基金按复权总回报结算，指数只有价格指数，结算备注写明各腿口径；`reference_value`、`observed_value` 是复权水平，不是成交价。
+- 研究流水线的区间收益、波动、回撤和相对基准指标按复权总回报计算；复权日线不可用时回退未复权并记非阻塞缺口 `total_return_bars_unavailable`，引用这些指标前先看事实限制里的口径。
+
 ## 当前路由限制
 
 `ResearchRequestPlanner` 和 `plan-single` 已支持：
 
-- 代码或 `asset_id` 到唯一身份；
+- 代码或 `asset_id` 到唯一身份；本地没有时从交易所证券和基金名录补登全部同代码身份，身份来源远程失败与代码不存在分开报告；
 - 资产类型、市场和交易所过滤；
 - 歧义时返回全部候选，不猜测；
-- 读取已持久化 profile assignment，否则使用资产类型默认 profile；
+- 读取已持久化 profile assignment；股票没有分配时按行业自动分配，行业查询失败才用资产类型默认 profile 并在规划说明里注明；
+- 需要比较基准而拿不到时返回 blocked，不报 ready；
 - 将理解、准备买入、持仓复核及决策轨道映射为 profile 可执行的基础任务；
 - 场外基金保留用户购买目标，但基础 question 使用当前唯一支持的 `understanding`。
 
@@ -104,9 +121,11 @@ blocked 运行只保存 workflow 阻塞状态，不创建 handoff 或探索会�
 - `horizon`；
 - `as-of-date`。
 
-交易所可选；存在身份冲突时必须补充。场外基金在身份未持久化时可通过正式数据获取流程 bootstrap。
+交易所可选；存在身份冲突时必须补充。本地没有身份时按 `--asset-type` 通过正式数据获取流程补登。
 
-当前不存在自然语言意图分类，也没有把规划与基础运行合成一次调用。基础流水线自身会生成 workflow run 和 handoff；Agent 通过持久化探索服务显式启动或恢复会话。必须按 `cold_start_intake.md` 使用规划结果，不得编造 `run-bootstrap` 等尚不存在的入口。
+当前冷启动限制：北交所代码不支持补登；ETF 需要已登记的标的指数关系才有比较基准，尚无自动来源；金融、周期、成长公司的行业或风格基准尚未建立，暂用沪深 300。
+
+当前不存在自然语言意图分类；研究对象与意图由 Agent 写入 `ResearchRequest`。标的配方的 `run-recipe` 把规划与基础运行合成一次调用，`plan-single` 仍只规划。基础流水线自身会生成 workflow run 和 handoff；Agent 通过持久化探索服务显式启动或恢复会话。必须按 `cold_start_intake.md` 使用规划结果，不得编造 `run-bootstrap` 等尚不存在的入口。
 
 ## Profile 能力边界
 
@@ -134,6 +153,8 @@ Agent 不得直接查询内部 SQLite、复制 Provider 调用、复刻 smoke �
 
 - handoff 缺口到查询计划的静默自动生成与循环执行；
 - 基础运行到用户 mandate、组合约束和仓位输入的自动创建；
+- 路由结果中标为规划的市场、行业、宏观、策略、组合与计划能力；
+- 观点账本的定时结算、条件动作触发记录和校准摘要；
 - 后台定时评估、实时行情监听和外部通知渠道。
 
 遇到上述缺口时按工程阻塞或正式不可用状态处理，不用 prompt 假装已有能力。

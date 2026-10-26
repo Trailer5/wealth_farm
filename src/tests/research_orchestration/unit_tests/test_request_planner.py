@@ -7,19 +7,22 @@ from types import SimpleNamespace
 
 from src.master_data import (
     ASSET_TYPE_EXCHANGE_FUND,
+    ASSET_TYPE_INDEX,
     ASSET_TYPE_OPEN_FUND,
     ASSET_TYPE_STOCK,
     Asset,
     MasterDataService,
     SQLiteMasterDataRepository,
 )
+from src.data_src.common import DataSourceError
+from src.data_src.models import StockIndustryInfo
 from src.research_orchestration import (
     ResearchPlanningRequest,
     ResearchPlanningStatus,
     ResearchRequestPlanner,
 )
 from src.research_orchestration.cli import main
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
     PROFILE_OPEN_FUND,
@@ -29,8 +32,10 @@ from src.research_workflow import (
     PositionState,
     ResearchDecisionBrief,
     ResearchHorizon,
-    ResearchProfileAssignmentService,
     ResearchQuestionType,
+)
+from src.research_workflow import (
+    ResearchProfileAssignmentService,
     ResearchTaskFactory,
     SQLiteResearchProfileAssignmentRepository,
 )
@@ -83,7 +88,19 @@ class ResearchRequestPlannerTest(unittest.TestCase):
             market="cn",
             exchange="sh",
         )
-        self.task_factory = ResearchTaskFactory(self.master_data)
+        self.task_factory = ResearchTaskFactory(
+            self.master_data,
+            benchmark_resolver=_IndexBenchmark(
+                self._register(
+                    asset_id="index:000300",
+                    symbol="000300",
+                    asset_type=ASSET_TYPE_INDEX,
+                    name="沪深300",
+                    market="cn",
+                    exchange="sh",
+                ).asset_id
+            ),
+        )
         self.assignment = ResearchProfileAssignmentService(
             master_data=self.master_data,
             repository=SQLiteResearchProfileAssignmentRepository(
@@ -207,13 +224,13 @@ class ResearchRequestPlannerTest(unittest.TestCase):
             result.routing_notes,
         )
 
-    def test_missing_open_fund_identity_uses_public_bootstrap(self):
-        bootstrap = _FundBootstrap(self.master_data)
+    def test_missing_identity_uses_public_bootstrap(self):
+        bootstrap = _IdentityBootstrap(self.master_data)
         planner = ResearchRequestPlanner(
             master_data=self.master_data,
             task_factory=self.task_factory,
             profile_assignment=self.assignment,
-            fund_identity_bootstrap=bootstrap,
+            identity_bootstrap=bootstrap,
         )
 
         result = planner.plan(
@@ -225,8 +242,114 @@ class ResearchRequestPlannerTest(unittest.TestCase):
         )
 
         self.assertIs(result.status, ResearchPlanningStatus.READY)
-        self.assertEqual(bootstrap.calls, ["163417"])
+        self.assertEqual(bootstrap.calls, [("163417", ASSET_TYPE_OPEN_FUND)])
         self.assertEqual(result.profile_id, PROFILE_OPEN_FUND)
+
+    def test_bare_code_shared_by_bootstrapped_products_asks_which(self):
+        planner = ResearchRequestPlanner(
+            master_data=self.master_data,
+            task_factory=self.task_factory,
+            identity_bootstrap=_IdentityBootstrap(
+                self.master_data,
+                types=(ASSET_TYPE_STOCK, ASSET_TYPE_OPEN_FUND),
+            ),
+        )
+
+        result = planner.plan(
+            ResearchPlanningRequest(symbol="300001", as_of_date="2026-08-23")
+        )
+
+        self.assertIs(
+            result.status,
+            ResearchPlanningStatus.NEEDS_CLARIFICATION,
+        )
+        self.assertEqual(
+            {item.asset_type for item in result.candidates},
+            {ASSET_TYPE_STOCK, ASSET_TYPE_OPEN_FUND},
+        )
+
+    def test_identity_source_failure_is_not_reported_as_missing(self):
+        planner = ResearchRequestPlanner(
+            master_data=self.master_data,
+            task_factory=self.task_factory,
+            identity_bootstrap=_IdentityBootstrap(
+                self.master_data,
+                fail=True,
+            ),
+        )
+
+        result = planner.plan(
+            ResearchPlanningRequest(symbol="300001", as_of_date="2026-08-23")
+        )
+
+        self.assertIs(result.status, ResearchPlanningStatus.UNRESOLVED)
+        self.assertEqual(result.issues, ("asset_identity_lookup_failed",))
+
+    def test_new_stock_profile_follows_industry_classification(self):
+        bank = self._register(
+            asset_id="stock:600036",
+            symbol="600036",
+            asset_type=ASSET_TYPE_STOCK,
+            name="招商银行",
+            market="cn",
+            exchange="sh",
+        )
+        planner = ResearchRequestPlanner(
+            master_data=self.master_data,
+            task_factory=self.task_factory,
+            profile_assignment=self.assignment,
+            industry_source=_Industries({"600036": "银行Ⅱ"}),
+        )
+
+        result = planner.plan(
+            ResearchPlanningRequest(
+                asset_id=bank.asset_id,
+                as_of_date="2026-08-23",
+            )
+        )
+
+        self.assertEqual(result.profile_id, PROFILE_FINANCIAL_INSTITUTION)
+        self.assertIn("industry_profile_assignment", result.routing_notes)
+        unavailable = ResearchRequestPlanner(
+            master_data=self.master_data,
+            task_factory=self.task_factory,
+            profile_assignment=self.assignment,
+            industry_source=_Industries({}, fail=True),
+        ).plan(
+            ResearchPlanningRequest(
+                asset_id=self.stock.asset_id,
+                as_of_date="2026-08-23",
+            )
+        )
+        self.assertEqual(unavailable.profile_id, PROFILE_ORDINARY_COMPANY)
+        self.assertIn(
+            "industry_unavailable_default_profile",
+            unavailable.routing_notes,
+        )
+
+    def test_missing_required_benchmark_blocks_instead_of_ready(self):
+        planner = ResearchRequestPlanner(
+            master_data=self.master_data,
+            task_factory=ResearchTaskFactory(self.master_data),
+            profile_assignment=self.assignment,
+        )
+
+        stock = planner.plan(
+            ResearchPlanningRequest(symbol="600519", as_of_date="2026-08-23")
+        )
+        fund = planner.plan(
+            ResearchPlanningRequest(
+                symbol="002236",
+                asset_type=ASSET_TYPE_OPEN_FUND,
+                as_of_date="2026-08-23",
+            )
+        )
+
+        self.assertIs(stock.status, ResearchPlanningStatus.BLOCKED)
+        self.assertEqual(stock.issues, ("benchmark_unavailable",))
+        self.assertEqual(stock.identity.asset_id, self.stock.asset_id)
+        self.assertIsNone(stock.task)
+        self.assertIs(fund.status, ResearchPlanningStatus.READY)
 
     def test_decision_brief_uses_same_public_planner(self):
         brief = ResearchDecisionBrief(
@@ -319,26 +442,67 @@ class _PlannerContainerFactory:
         return SimpleNamespace(request_planner=self.planner)
 
 
-class _FundBootstrap:
-    def __init__(self, master_data):
+class _IdentityBootstrap:
+    """Registers one identity per requested type for codes starting with 1 or 3."""
+
+    def __init__(self, master_data, *, types=None, fail=False):
         self.master_data = master_data
+        self.types = types
+        self.fail = fail
         self.calls = []
 
-    def fetch_and_store_fund_basic_info(self, *, symbol):
-        self.calls.append(symbol)
-        self.master_data.register_asset(
-            Asset(
-                asset_id=f"open-fund:{symbol}",
-                asset_type=ASSET_TYPE_OPEN_FUND,
-                standard_symbol=symbol,
-                display_name="兴全合宜混合(LOF)A",
-                market="cn",
-                exchange=None,
-            ),
-            source="unit_test:open_fund_bootstrap",
-            raw_symbol=symbol,
-        )
+    def fetch_and_store_identities(self, symbol, *, asset_type=None):
+        self.calls.append((symbol, asset_type))
+        if self.fail:
+            raise DataSourceError("provider timeout")
+        if not symbol.startswith(("1", "3")):
+            return SimpleNamespace(stored_count=0)
+        for item in self.types or (asset_type,):
+            self.master_data.register_asset(
+                Asset(
+                    asset_id=f"{item}:{symbol}",
+                    asset_type=item,
+                    standard_symbol=symbol,
+                    display_name=f"{item} {symbol}",
+                    market="cn",
+                    exchange="sz" if item == ASSET_TYPE_STOCK else None,
+                ),
+                source=f"unit_test:identity_bootstrap:{item}",
+                raw_symbol=symbol,
+            )
         return SimpleNamespace(stored_count=1)
+
+
+class _IndexBenchmark:
+    def __init__(self, index_asset_id):
+        self.index_asset_id = index_asset_id
+
+    def resolve(self, asset, profile, as_of_date):
+        return (
+            self.index_asset_id
+            if profile.default_benchmark_role != "fund_category"
+            else None
+        )
+
+
+class _Industries:
+    def __init__(self, industries, *, fail=False):
+        self.industries = industries
+        self.fail = fail
+
+    def fetch_stock_industries(self, symbols):
+        if self.fail:
+            raise OSError("industry provider unavailable")
+        return [
+            StockIndustryInfo(
+                symbol=symbol,
+                name=symbol,
+                industry_name=self.industries[symbol],
+                source="unit_test:industry",
+            )
+            for symbol in symbols
+            if symbol in self.industries
+        ]
 
 
 if __name__ == "__main__":

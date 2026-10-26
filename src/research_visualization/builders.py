@@ -12,11 +12,11 @@ from src.fundamental_analysis import (
     MetricStatus,
 )
 from src.master_data import Asset
-from src.research_workflow import ResearchTaskSpec
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_EXCHANGE_FUND,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
+    ResearchTaskSpec,
 )
 
 from .models import ChartDataPoint, ChartSpec, ChartType

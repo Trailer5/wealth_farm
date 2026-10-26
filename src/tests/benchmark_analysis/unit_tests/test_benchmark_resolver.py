@@ -6,6 +6,7 @@ from src.benchmark_analysis import (
     DefaultBenchmarkResolver,
     SQLiteBenchmarkRepository,
 )
+from src.data_src.common import DataSourceError
 from src.fund_research import (
     FundAssetRelation,
     FundRelationType,
@@ -19,12 +20,12 @@ from src.master_data import (
     MasterDataService,
     SQLiteMasterDataRepository,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_FINANCIAL_INSTITUTION,
     ResearchHorizon,
     ResearchQuestionType,
-    ResearchTaskFactory,
 )
+from src.research_workflow import ResearchTaskFactory
 
 
 class BenchmarkResolverTest(unittest.TestCase):
@@ -116,7 +117,7 @@ class BenchmarkResolverTest(unittest.TestCase):
             self.index.asset_id,
         )
 
-    def test_unresolved_role_or_ambiguous_index_stays_empty(self):
+    def test_sector_role_falls_back_to_broad_market_with_reason(self):
         bank = self._register(
             "stock:bank",
             ASSET_TYPE_STOCK,
@@ -133,8 +134,64 @@ class BenchmarkResolverTest(unittest.TestCase):
             horizon=ResearchHorizon.MEDIUM_LONG,
             as_of_date="2026-08-03",
         )
-        self.assertIsNone(financial_task.benchmark_asset_id)
 
+        self.assertEqual(
+            financial_task.benchmark_asset_id,
+            self.index.asset_id,
+        )
+        relation = self.benchmark_repository.get_default(
+            bank.asset_id,
+            as_of_date="2026-08-03",
+        )
+        self.assertEqual(
+            relation.source,
+            "profile_fallback:financial_sector:broad_market",
+        )
+
+    def test_missing_broad_market_index_is_bootstrapped(self):
+        empty_path = Path(self.temp_dir.name) / "empty.sqlite3"
+        empty = MasterDataService(SQLiteMasterDataRepository(empty_path))
+        stock = empty.register_asset(
+            Asset(
+                asset_id="stock:company",
+                asset_type=ASSET_TYPE_STOCK,
+                standard_symbol="600519",
+                display_name="stock",
+                market="cn_a",
+                exchange="sh",
+            ),
+            source="unit-test",
+            raw_symbol="600519",
+        )
+
+        def create(bootstrap):
+            return ResearchTaskFactory(
+                empty,
+                benchmark_resolver=DefaultBenchmarkResolver(
+                    master_data=empty,
+                    benchmark_repository=SQLiteBenchmarkRepository(
+                        empty_path
+                    ),
+                    identity_bootstrap=bootstrap,
+                ),
+            ).create(
+                asset_id=stock.asset_id,
+                question_type=ResearchQuestionType.INVESTMENT,
+                horizon=ResearchHorizon.MEDIUM_LONG,
+                as_of_date="2026-08-03",
+            )
+
+        self.assertIsNone(
+            create(_IndexBootstrap(empty, fail=True)).benchmark_asset_id
+        )
+        bootstrap = _IndexBootstrap(empty)
+        self.assertEqual(
+            create(bootstrap).benchmark_asset_id,
+            "index:bootstrapped",
+        )
+        self.assertEqual(bootstrap.calls, [("000300", ASSET_TYPE_INDEX)])
+
+    def test_ambiguous_index_stays_empty(self):
         second_index = self._register(
             "index:csi300:other",
             ASSET_TYPE_INDEX,
@@ -175,6 +232,30 @@ class BenchmarkResolverTest(unittest.TestCase):
                 exchange=exchange,
             ),
             source=f"unit-test:{asset_id}",
+            raw_symbol=symbol,
+        )
+
+
+class _IndexBootstrap:
+    def __init__(self, master, *, fail=False):
+        self.master = master
+        self.fail = fail
+        self.calls = []
+
+    def fetch_and_store_identities(self, symbol, *, asset_type=None):
+        self.calls.append((symbol, asset_type))
+        if self.fail:
+            raise DataSourceError("identity source timeout")
+        self.master.register_asset(
+            Asset(
+                asset_id="index:bootstrapped",
+                asset_type=ASSET_TYPE_INDEX,
+                standard_symbol=symbol,
+                display_name="沪深300指数",
+                market="cn_a",
+                exchange="sh",
+            ),
+            source="unit-test:bootstrap",
             raw_symbol=symbol,
         )
 

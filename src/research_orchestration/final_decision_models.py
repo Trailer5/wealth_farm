@@ -11,11 +11,14 @@ from enum import Enum
 from pathlib import PurePosixPath
 from typing import Any
 
-from src.research_workflow import (
+from src.research_contracts import (
     DecisionIntent,
     DecisionLane,
     PositionState,
+    ProbabilityInterval,
     ResearchHorizon,
+    from_payload,
+    to_payload,
 )
 
 from .models import ResearchRunStatus
@@ -767,6 +770,8 @@ class FinalDecisionResearchReport:
     chart_paths: tuple[str, ...]
     chart_artifacts: tuple[FinalChartArtifactReference, ...]
     limitations: tuple[str, ...]
+    # Probability, filled before publication, that the consider/avoid claim holds.
+    claim_probability: ProbabilityInterval | None = None
 
     def __post_init__(self) -> None:
         for value, name in (
@@ -853,12 +858,27 @@ class FinalDecisionResearchReport:
             )
         used_refs = self.evidence_refs
         if set(used_refs) != set(citation_ids):
+            missing = sorted(set(used_refs) - set(citation_ids))
+            extra = sorted(set(citation_ids) - set(used_refs))
             raise ValueError(
-                "evidence citations must exactly cover report refs"
+                "evidence citations must exactly cover report refs; "
+                f"uncited={missing}; unused={extra}"
             )
         if final_decision_report_id(self.to_dict()) != self.report_id:
             raise ValueError(
                 "final report_id does not match payload"
+            )
+        if self.claim_probability is not None and not any(
+            item.lane is DecisionLane.SUITABILITY
+            and item.outcome
+            in (
+                FinalDecisionOutcome.SUITABILITY_CONSIDER,
+                FinalDecisionOutcome.SUITABILITY_AVOID,
+            )
+            for item in self.decision_sections
+        ):
+            raise ValueError(
+                "claim_probability only applies to consider or avoid"
             )
 
     @property
@@ -921,6 +941,11 @@ class FinalDecisionResearchReport:
                 item.to_dict() for item in self.chart_artifacts
             ],
             "limitations": list(self.limitations),
+            "claim_probability": (
+                None
+                if self.claim_probability is None
+                else to_payload(self.claim_probability)
+            ),
         }
 
     @classmethod
@@ -958,6 +983,7 @@ class FinalDecisionResearchReport:
             "chart_paths",
             "chart_artifacts",
             "limitations",
+            "claim_probability",
         }
         _reject_unknown(payload, allowed, "FinalDecisionResearchReport")
         return cls(
@@ -1056,6 +1082,14 @@ class FinalDecisionResearchReport:
             limitations=_payload_text_tuple(
                 payload,
                 "limitations",
+            ),
+            claim_probability=(
+                None
+                if payload.get("claim_probability") is None
+                else from_payload(
+                    ProbabilityInterval,
+                    payload["claim_probability"],
+                )
             ),
         )
 

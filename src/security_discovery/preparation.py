@@ -24,10 +24,8 @@ from src.research_universe import (
     MembershipStatus,
     ResearchUniverseService,
 )
-from src.research_workflow import (
-    PROFILE_ORDINARY_COMPANY,
-    ResearchExecutionOptions,
-)
+from src.research_contracts import PROFILE_ORDINARY_COMPANY
+from src.research_workflow import ResearchExecutionOptions
 
 from .metrics_loader import StoredDiscoveryMetricLoader
 from .models import DiscoverySpec

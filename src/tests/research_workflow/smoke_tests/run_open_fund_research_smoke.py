@@ -29,12 +29,12 @@ def main() -> int:
         ResearchRunStatus,
         create_default_container,
     )
-    from src.research_workflow import (
+    from src.research_contracts import (
         PROFILE_OPEN_FUND,
-        ResearchExecutionOptions,
         ResearchHorizon,
         ResearchQuestionType,
     )
+    from src.research_workflow import ResearchExecutionOptions
 
     parser = argparse.ArgumentParser()
     parser.add_argument(

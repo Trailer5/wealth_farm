@@ -12,7 +12,7 @@ from src.backtest import (
     SQLiteBacktestRepository,
     TradeSide,
 )
-from src.research_workflow import ResearchHorizon
+from src.research_contracts import ResearchHorizon
 from src.strategy import (
     StrategyMaturity,
     StrategyResult,

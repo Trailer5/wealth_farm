@@ -14,7 +14,7 @@ from src.portfolio_risk import (
     PositionConstraintCalculator,
     portfolio_valuation_digest,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
@@ -406,11 +406,11 @@ class PositionPlanService:
             suitability.limitations,
             entry_plan.limitations,
             calculation_inputs.limitations,
-            tuple(f"budget_warning:{item}" for item in budget.warnings),
+            tuple(f"预算提示：{item}" for item in budget.warnings),
             (
                 policy.liquidity_semantics,
-                "Target ranges are constraints, not return forecasts.",
-                "Tranche amounts are planning bounds, not orders.",
+                "目标区间是约束边界，不是收益预测。",
+                "分批金额是规划边界，不是订单。",
             ),
         )
         values = {
@@ -602,10 +602,7 @@ class PositionPlanService:
             "limitations": _merge_texts(
                 suitability.limitations,
                 entry_plan.limitations,
-                (
-                    "No position range is emitted until all "
-                    "reported gaps are resolved.",
-                ),
+                ("所有已列缺口解决前不给出仓位区间。",),
             ),
             "assembly_gaps": state.gaps,
         }
@@ -795,8 +792,7 @@ def default_position_policies() -> tuple[PositionProfilePolicy, ...]:
             ),
             sizing_supported=True,
             liquidity_semantics=(
-                "Liquidity cap uses confirmed average traded "
-                "notional, participation, and execution horizon."
+                "流动性上限按用户确认的日均成交额、参与率和执行周期计算。"
             ),
         ),
         PositionProfilePolicy(
@@ -806,8 +802,7 @@ def default_position_policies() -> tuple[PositionProfilePolicy, ...]:
             ),
             sizing_supported=True,
             liquidity_semantics=(
-                "Financial-institution sizing uses the same "
-                "observable market-liquidity cap."
+                "金融机构仓位使用同样的可观察市场流动性上限。"
             ),
         ),
         PositionProfilePolicy(
@@ -817,8 +812,7 @@ def default_position_policies() -> tuple[PositionProfilePolicy, ...]:
             ),
             sizing_supported=True,
             liquidity_semantics=(
-                "Cyclical-resource sizing requires a frozen "
-                "stress shock and observable liquidity inputs."
+                "周期资源公司仓位需要固定的压力冲击和可观察的流动性输入。"
             ),
         ),
         PositionProfilePolicy(
@@ -826,8 +820,7 @@ def default_position_policies() -> tuple[PositionProfilePolicy, ...]:
             policy_id=f"{PROFILE_EXCHANGE_FUND}:position_v1",
             sizing_supported=True,
             liquidity_semantics=(
-                "ETF liquidity cap uses traded notional and does "
-                "not substitute fund size for executable volume."
+                "ETF 流动性上限按成交额计算，不用基金规模代替可执行成交量。"
             ),
         ),
         PositionProfilePolicy(
@@ -835,8 +828,7 @@ def default_position_policies() -> tuple[PositionProfilePolicy, ...]:
             policy_id=f"{PROFILE_OPEN_FUND}:position_v1",
             sizing_supported=False,
             liquidity_semantics=(
-                "Open-fund dealing and personalized execution "
-                "sizing are not supported in this slice."
+                "场外基金申赎与个性化执行仓位当前不支持。"
             ),
         ),
     )

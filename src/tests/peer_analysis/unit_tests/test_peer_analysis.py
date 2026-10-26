@@ -153,6 +153,31 @@ class PeerAnalysisTest(unittest.TestCase):
         assert industry is not None
         self.assertEqual(industry.industry_name, "白酒")
 
+    def test_shenwan_assignment_registers_peers_and_saves_peer_set(self):
+        service = PeerAnalysisService(
+            master_data=self.master_data,
+            metric_repository=self.metric_repository,
+            peer_repository=self.peer_repository,
+            sector_data=_FakeSector(),
+        )
+
+        assignment, peer_set, peers = service.assign_from_shenwan(
+            asset_id=self.target.asset_id,
+            as_of_date="2026-10-26",
+        )
+
+        self.assertEqual(assignment.industry_code, "851251")
+        self.assertEqual(assignment.classification_source, "shenwan_2021")
+        member_ids = [member.asset_id for member in peer_set.members]
+        self.assertIn(self.peer1.asset_id, member_ids)
+        new_peer = self.master_data.get_asset(member_ids[-1])
+        self.assertEqual(new_peer.standard_symbol, "000799")
+        self.assertEqual(
+            service.get_industry(asset_id=self.target.asset_id, as_of_date="2026-10-26").industry_code,
+            "851251",
+        )
+        self.assertEqual(len(peers["peers"]), 2)
+
     def test_peer_statistics_and_reasons_are_preserved(self):
         self.metric_repository.upsert_results(
             [
@@ -334,6 +359,20 @@ def _metric(
         inputs=(),
         computed_at="2026-03-31T00:00:00+00:00",
     )
+
+
+class _FakeSector:
+    def peers(self, symbol, allow_remote=True):
+        level3 = {"code": "851251", "name": "白酒Ⅲ"}
+        return {
+            "path": {"l3": level3},
+            "peer_industry": level3,
+            "peers": [
+                {"symbol": "000858", "name": "五粮液"},
+                {"symbol": "000799", "name": "酒鬼酒"},
+            ],
+            "note": "申万当前成分",
+        }
 
 
 if __name__ == "__main__":

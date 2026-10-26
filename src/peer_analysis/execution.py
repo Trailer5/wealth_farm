@@ -12,7 +12,6 @@ from src.data_access import (
     DataAccessService,
 )
 from src.fundamental_analysis import FundamentalAnalysisService
-from src.research_workflow import ResearchExecutionOptions
 
 from .models import (
     IndustryAssignment,
@@ -41,13 +40,18 @@ class PeerMetricExecutionService:
         industry: IndustryAssignment,
         as_of_date: str,
         metric_names: tuple[str, ...],
-        options: ResearchExecutionOptions | None = None,
+        allow_remote: bool = True,
+        bar_remote_sources: tuple[str, ...] = (
+            "mootdx",
+            "tencent",
+            "sina",
+        ),
+        provider_timeout_seconds: float = 90.0,
     ) -> PeerMetricExecutionResult:
         if industry.asset_id != peer_set.target_asset_id:
             raise ValueError(
                 "Industry assignment must match peer target"
             )
-        config = options or ResearchExecutionOptions()
         asset_ids = (
             peer_set.target_asset_id,
             *tuple(
@@ -70,10 +74,8 @@ class PeerMetricExecutionService:
                 start_date=financial_start,
                 end_date=as_of_date,
                 as_of_date=as_of_date,
-                allow_remote=config.allow_remote,
-                provider_timeout_seconds=(
-                    config.provider_timeout_seconds
-                ),
+                allow_remote=allow_remote,
+                provider_timeout_seconds=provider_timeout_seconds,
             )
             bundles[asset_id] = bundle
             period_sets.append(
@@ -86,11 +88,9 @@ class PeerMetricExecutionService:
                     start_date=bar_start,
                     end_date=as_of_date,
                     as_of_date=as_of_date,
-                    allow_remote=config.allow_remote,
-                    remote_sources=config.bar_remote_sources,
-                    provider_timeout_seconds=(
-                        config.provider_timeout_seconds
-                    ),
+                    allow_remote=allow_remote,
+                    remote_sources=bar_remote_sources,
+                    provider_timeout_seconds=provider_timeout_seconds,
                 )
             )
             eligible = [

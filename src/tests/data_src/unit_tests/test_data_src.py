@@ -731,15 +731,6 @@ class ProviderAdapterTest(unittest.TestCase):
                 end_date="2025-06-20",
             )
 
-    def test_disabled_akshare_non_baseline_methods_raise_clear_errors(self):
-        provider = AkShareDataSource(FakeAkShare())
-        with self.assertRaises(DataSourceError):
-            provider.get_a_share_spot()
-        with self.assertRaises(DataSourceError):
-            provider.get_a_share_minute_bars("000001", "2026-01-05 09:30:00", "2026-01-05 15:00:00")
-        with self.assertRaises(DataSourceError):
-            provider.get_industry_board_constituents("银行")
-
     def test_akshare_financial_and_board_methods_return_records(self):
         provider = AkShareDataSource(FakeAkShare())
         self.assertEqual(provider.get_stock_profit_sheet("000001")[0]["营业总收入"], "100")
@@ -911,11 +902,6 @@ class ProviderAdapterTest(unittest.TestCase):
         self.assertEqual(provider.get_stock_basic("000001")[0]["code_name"], "平安银行")
         self.assertEqual(provider.get_stock_basic_records("000001")[0].name, "平安银行")
         self.assertEqual(provider.get_profit_data("000001", 2026, 1)[0]["roeAvg"], "10.0")
-
-    def test_disabled_baostock_all_stocks_raises_clear_error(self):
-        provider = BaoStockDataSource(FakeBaoStock())
-        with self.assertRaises(DataSourceError):
-            provider.get_all_stocks("2026-01-05")
 
 
 if __name__ == "__main__":

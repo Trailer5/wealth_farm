@@ -2,7 +2,7 @@ import json
 import unittest
 from decimal import Decimal
 
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_EXCHANGE_FUND,
     PROFILE_ORDINARY_COMPANY,
     ResearchHorizon,

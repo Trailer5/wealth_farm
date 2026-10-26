@@ -12,6 +12,8 @@ ASSET_TYPE_EXCHANGE_FUND = "exchange_fund"
 ASSET_TYPE_OPEN_FUND = "open_fund"
 ASSET_TYPE_INDEX = "index"
 ASSET_TYPE_UNKNOWN = "unknown"
+# Exchange code of Shenwan industry indexes, which are published by a research firm.
+SW_INDEX_EXCHANGE = "sw"
 
 RESOLUTION_MATCHED = "matched"
 RESOLUTION_CREATED = "created"

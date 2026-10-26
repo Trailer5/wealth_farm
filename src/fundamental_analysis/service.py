@@ -5,12 +5,8 @@ from __future__ import annotations
 from decimal import Decimal
 
 from src.financial_data import FinancialResearchBundle
-from src.master_data import MasterDataService
-from src.research_workflow import (
-    PROFILE_ORDINARY_COMPANY,
-    ResearchProfileRegistry,
-    default_profile_registry,
-)
+from src.master_data import ASSET_TYPE_STOCK, MasterDataService
+from src.research_contracts import PROFILE_ORDINARY_COMPANY
 
 from .assembler import FundamentalSnapshotAssembler
 from .calculator import (
@@ -31,15 +27,11 @@ class FundamentalAnalysisService:
         *,
         master_data: MasterDataService,
         repository: SQLiteFundamentalMetricRepository,
-        profile_registry: ResearchProfileRegistry | None = None,
         assembler: FundamentalSnapshotAssembler | None = None,
         calculator: FundamentalMetricCalculator | None = None,
     ) -> None:
         self.master_data = master_data
         self.repository = repository
-        self.profile_registry = (
-            profile_registry or default_profile_registry()
-        )
         self.assembler = assembler or FundamentalSnapshotAssembler()
         self.calculator = calculator or FundamentalMetricCalculator()
         self.repository.initialize()
@@ -62,14 +54,15 @@ class FundamentalAnalysisService:
             )
         if asset.asset_id != bundle.asset.asset_id:
             raise ValueError("Financial bundle asset mismatch")
-        self.profile_registry.validate_for_asset(
-            profile_id,
-            asset,
-        )
         if profile_id != PROFILE_ORDINARY_COMPANY:
             raise ValueError(
                 f"{FUNDAMENTAL_CALCULATION_VERSION} only supports "
                 "ordinary_company"
+            )
+        if asset.asset_type != ASSET_TYPE_STOCK:
+            raise ValueError(
+                f"Research profile {profile_id} does not support "
+                f"asset_type {asset.asset_type}"
             )
         if not bundle.complete:
             raise ValueError(

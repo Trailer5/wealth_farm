@@ -8,7 +8,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, TypeAlias
 
-from src.research_workflow import ResearchHorizon
+from src.research_contracts import ResearchHorizon
 
 
 class StrategyMaturity(str, Enum):

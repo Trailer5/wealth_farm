@@ -48,7 +48,7 @@ def main() -> int:
         MasterDataService,
         SQLiteMasterDataRepository,
     )
-    from src.research_workflow import (
+    from src.research_contracts import (
         PROFILE_EXCHANGE_FUND,
         ResearchHorizon,
     )

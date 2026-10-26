@@ -25,7 +25,7 @@ from src.research_visualization import (
     build_valuation_history_spec,
     chart_types_for_profile,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_EXCHANGE_FUND,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,

@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any
 
 from .final_decision_models import MonitoringPlan
+from .ledger_projection import PublishedJudgements
 
 
 class MonitoringConditionDisposition(str, Enum):
@@ -83,6 +84,7 @@ class FinalDecisionPublicationAttestation:
     report_path: str
     markdown_digest: str
     monitoring_plan_payload_json: str
+    judgements_payload_json: str
     published_at: str
 
     def __post_init__(self) -> None:
@@ -100,6 +102,10 @@ class FinalDecisionPublicationAttestation:
             (
                 self.monitoring_plan_payload_json,
                 "monitoring_plan_payload_json",
+            ),
+            (
+                self.judgements_payload_json,
+                "judgements_payload_json",
             ),
         ):
             _text(value, name)
@@ -132,11 +138,31 @@ class FinalDecisionPublicationAttestation:
             raise ValueError(
                 "attested monitoring plan ID does not match payload"
             )
+        try:
+            judgements = self.judgements
+        except (TypeError, ValueError, KeyError) as exc:
+            raise ValueError(
+                "published judgements attestation is invalid"
+            ) from exc
+        subjects = {
+            *(item.subject_id for item in judgements.views),
+            *(item.asset_id for item in judgements.actions),
+        }
+        if subjects != {self.asset_id}:
+            raise ValueError(
+                "published judgements must concern the report asset"
+            )
 
     @property
     def monitoring_plan(self) -> MonitoringPlan:
         return MonitoringPlan.from_dict(
             json.loads(self.monitoring_plan_payload_json)
+        )
+
+    @property
+    def judgements(self) -> PublishedJudgements:
+        return PublishedJudgements.from_dict(
+            json.loads(self.judgements_payload_json)
         )
 
     def to_dict(self) -> dict[str, str]:
@@ -156,6 +182,7 @@ class FinalDecisionPublicationAttestation:
             "monitoring_plan_payload_json": (
                 self.monitoring_plan_payload_json
             ),
+            "judgements_payload_json": self.judgements_payload_json,
             "published_at": self.published_at,
         }
 
@@ -183,6 +210,9 @@ class FinalDecisionPublicationAttestation:
             markdown_digest=str(payload["markdown_digest"]),
             monitoring_plan_payload_json=str(
                 payload["monitoring_plan_payload_json"]
+            ),
+            judgements_payload_json=str(
+                payload["judgements_payload_json"]
             ),
             published_at=str(payload["published_at"]),
         )

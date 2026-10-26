@@ -24,6 +24,7 @@ from src.research_orchestration import (
     MonitoringRuleBinding,
     MonitoringRuleType,
     FinalDecisionPublicationAttestation,
+    PublishedJudgements,
     ResearchRunStatus,
     ResearchWorkflowCoordinator,
     ResearchWorkflowRun,
@@ -36,12 +37,16 @@ from src.research_orchestration.final_decision_models import (
 from src.research_orchestration.sqlite_repository import (
     SQLiteResearchWorkflowRepository,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_ORDINARY_COMPANY,
+    Confidence,
     DecisionLane,
     ResearchHorizon,
     ResearchQuestionType,
     ResearchTaskSpec,
+    SubjectType,
+    View,
+    ViewOrigin,
 )
 from src.user_space import SQLiteUserSpaceRepository, UserSpaceService
 
@@ -662,6 +667,24 @@ class MonitoringHandoffServiceTest(unittest.TestCase):
                     ensure_ascii=False,
                     sort_keys=True,
                     separators=(",", ":"),
+                ),
+                judgements_payload_json=json.dumps(
+                    PublishedJudgements(
+                        views=(
+                            View(
+                                view_id="view:monitoring-test",
+                                subject_type=SubjectType.ASSET,
+                                subject_id=report.asset_id,
+                                origin=ViewOrigin.SYSTEM,
+                                proposition="监测交接测试观点",
+                                horizon=ResearchHorizon.LONG,
+                                as_of_date=report.as_of_date,
+                                expires_on="2029-08-23",
+                                confidence=Confidence.LOW,
+                            ),
+                        ),
+                        actions=(),
+                    ).to_dict()
                 ),
                 published_at="2026-08-24T02:00:00+00:00",
             )

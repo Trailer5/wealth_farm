@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -7,6 +8,7 @@ from unittest.mock import Mock
 
 from src.data_access import (
     DATASET_STOCK_DAILY_BARS,
+    DATASET_STOCK_TOTAL_RETURN_BARS,
     DataAccessResponse,
 )
 from src.factor_engineering import (
@@ -32,15 +34,18 @@ from src.research_visualization import (
     ChartArtifact,
     ChartType,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_ORDINARY_COMPANY,
+    ResearchHorizon,
+    ResearchQuestionType,
+)
+from src.research_workflow import (
     ResearchExecutionOptions,
     ResearchExecutionService,
     ResearchExecutionStatus,
-    ResearchHorizon,
-    ResearchQuestionType,
     ResearchTaskFactory,
 )
+from src.research_workflow.return_bars import fetch_total_return_bars
 from src.strategy import (
     StrategyMaturity,
     StrategyResult,
@@ -98,10 +103,13 @@ class ResearchExecutionServiceTest(unittest.TestCase):
         self.assertEqual(len(result.phases), 9)
         self.assertEqual(result.phases[-1].status.value, "skipped")
 
-    def test_happy_path_returns_six_charts_and_strategy_result(self):
+    def test_happy_path_returns_four_charts_and_strategy_result(self):
         bars = _bar_response(self.asset)
         data_access = Mock()
-        data_access.get.return_value = bars
+        data_access.get.side_effect = lambda request: replace(
+            bars,
+            dataset=request.dataset,
+        )
         data_access.get_financial_bundle.return_value = (
             SimpleNamespace(sources=("akshare",))
         )
@@ -160,16 +168,50 @@ class ResearchExecutionServiceTest(unittest.TestCase):
             result.status,
             ResearchExecutionStatus.COMPLETE,
         )
-        self.assertEqual(len(result.chart_artifacts), 6)
+        self.assertEqual(len(result.chart_artifacts), 4)
         self.assertEqual(
             {item.chart_type for item in result.chart_artifacts},
-            set(ChartType) - {ChartType.CATEGORICAL_BAR},
+            {
+                ChartType.PRICE_VOLUME,
+                ChartType.CUMULATIVE_RETURN,
+                ChartType.DRAWDOWN,
+                ChartType.ROLLING_RISK,
+            },
         )
         self.assertEqual(
             result.strategy_result.strategy_id,
             "quality_value",
         )
         self.assertEqual(result.windows.strategy_window_days, 730)
+        risk_call = factor_service.compute_risk_from_response.call_args
+        self.assertEqual(
+            risk_call.args[0].dataset,
+            DATASET_STOCK_TOTAL_RETURN_BARS,
+        )
+        self.assertEqual(
+            risk_call.kwargs["parameters"].price_adjustment,
+            "total_return",
+        )
+        self.assertEqual(result.bar_response.dataset, DATASET_STOCK_DAILY_BARS)
+
+    def test_total_return_failure_falls_back_with_visible_gap(self):
+        bars = _bar_response(self.asset)
+        data_access = Mock()
+        data_access.get.side_effect = RuntimeError("baostock down")
+
+        response, gap = fetch_total_return_bars(
+            data_access,
+            bars,
+            start_date="2026-08-01",
+            end_date="2026-08-03",
+            as_of_date="2026-08-03",
+            options=ResearchExecutionOptions(allow_remote=False),
+        )
+
+        self.assertIs(response, bars)
+        self.assertEqual(gap.code, "total_return_bars_unavailable")
+        self.assertFalse(gap.blocking)
+        self.assertIn("未复权", gap.message)
 
     def _service(self, **overrides):
         defaults = {

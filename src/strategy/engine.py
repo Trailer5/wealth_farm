@@ -217,7 +217,7 @@ class StrategyExecutor:
         ).isoformat()
         limitations = (
             *spec.limitations,
-            "confidence reflects required-input completeness only",
+            "置信度只反映必需输入是否齐全，不代表结论正确的概率",
         )
         return StrategyResult(
             strategy_id=spec.strategy_id,

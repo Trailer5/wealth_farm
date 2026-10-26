@@ -52,10 +52,8 @@ def main() -> int:
         EventNameDiscoveryOrchestrationPipeline,
         EventNameDiscoveryRunRequest,
     )
-    from src.research_workflow import (
-        PROFILE_ORDINARY_COMPANY,
-        ResearchTaskFactory,
-    )
+    from src.research_contracts import PROFILE_ORDINARY_COMPANY
+    from src.research_workflow import ResearchTaskFactory
 
     source = TencentExchangeFundDataSource()
     cases = (

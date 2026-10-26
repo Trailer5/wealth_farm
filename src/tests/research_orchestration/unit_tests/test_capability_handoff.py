@@ -25,16 +25,18 @@ from src.research_orchestration.review import ReviewFinding
 from src.research_orchestration.sqlite_repository import (
     SQLiteResearchWorkflowRepository,
 )
-from src.research_workflow import (
+from src.research_contracts import (
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
     DecisionContextRequirement,
     DecisionLane,
-    ResearchExecutionGap,
     ResearchHorizon,
-    ResearchPhaseStatus,
     ResearchQuestionType,
     ResearchTaskSpec,
+)
+from src.research_workflow import (
+    ResearchExecutionGap,
+    ResearchPhaseStatus,
 )
 
 
@@ -97,6 +99,29 @@ class ResearchCapabilityRegistryTest(unittest.TestCase):
             "open_fund_position_sizing",
             sizing.unsupported_capabilities,
         )
+
+    def test_unsupported_lanes_are_declared_per_profile(self):
+        def blockers(profile_id, lane):
+            return self.registry.resolve(
+                profile_id=profile_id,
+                question_type=ResearchQuestionType.INVESTMENT,
+                decision_lane=lane,
+            ).lane_unsupported_capabilities
+
+        self.assertEqual(
+            blockers(PROFILE_OPEN_FUND, DecisionLane.TIMING),
+            ("open_fund_timing_execution",),
+        )
+        self.assertEqual(
+            blockers(PROFILE_OPEN_FUND, DecisionLane.POSITION_SIZING),
+            ("open_fund_position_sizing",),
+        )
+        self.assertEqual(
+            blockers(PROFILE_OPEN_FUND, DecisionLane.SUITABILITY),
+            (),
+        )
+        for lane in DecisionLane:
+            self.assertEqual(blockers(PROFILE_ORDINARY_COMPANY, lane), ())
 
     def test_suitability_assessment_and_final_review_are_declared(self):
         capability = self.registry.resolve(

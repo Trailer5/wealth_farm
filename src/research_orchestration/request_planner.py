@@ -7,8 +7,10 @@ from datetime import date
 from enum import Enum
 from typing import Any, Protocol
 
-from src.master_data import ASSET_TYPE_OPEN_FUND, Asset, MasterDataService
-from src.research_workflow import (
+from src.data_src.common import DataSourceError, normalize_a_share_code
+from src.data_src.models import StockIndustryInfo
+from src.master_data import ASSET_TYPE_STOCK, Asset, MasterDataService
+from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
@@ -18,10 +20,12 @@ from src.research_workflow import (
     DecisionLane,
     ResearchDecisionBrief,
     ResearchHorizon,
-    ResearchProfileAssignmentService,
     ResearchQuestionType,
-    ResearchTaskFactory,
     ResearchTaskSpec,
+)
+from src.research_workflow import (
+    ResearchProfileAssignmentService,
+    ResearchTaskFactory,
 )
 
 
@@ -34,12 +38,20 @@ DEFAULT_EXECUTION_PROFILES = (
 )
 
 
-class FundIdentityBootstrapProtocol(Protocol):
-    def fetch_and_store_fund_basic_info(
+class IdentityBootstrapProtocol(Protocol):
+    def fetch_and_store_identities(
         self,
-        *,
         symbol: str,
+        *,
+        asset_type: str | None = None,
     ) -> object: ...
+
+
+class StockIndustrySourceProtocol(Protocol):
+    def fetch_stock_industries(
+        self,
+        symbols: list[str],
+    ) -> list[StockIndustryInfo]: ...
 
 
 class ResearchPlanningStatus(str, Enum):
@@ -47,6 +59,8 @@ class ResearchPlanningStatus(str, Enum):
     NEEDS_CLARIFICATION = "needs_clarification"
     UNRESOLVED = "unresolved"
     UNSUPPORTED = "unsupported"
+    # Identity and profile are known but an execution prerequisite is missing.
+    BLOCKED = "blocked"
 
 
 @dataclass(frozen=True)
@@ -216,9 +230,8 @@ class ResearchRequestPlanner:
         profile_assignment: (
             ResearchProfileAssignmentService | None
         ) = None,
-        fund_identity_bootstrap: (
-            FundIdentityBootstrapProtocol | None
-        ) = None,
+        identity_bootstrap: IdentityBootstrapProtocol | None = None,
+        industry_source: StockIndustrySourceProtocol | None = None,
         supported_profile_ids: tuple[str, ...] = (
             DEFAULT_EXECUTION_PROFILES
         ),
@@ -226,7 +239,8 @@ class ResearchRequestPlanner:
         self.master_data = master_data
         self.task_factory = task_factory
         self.profile_assignment = profile_assignment
-        self.fund_identity_bootstrap = fund_identity_bootstrap
+        self.identity_bootstrap = identity_bootstrap
+        self.industry_source = industry_source
         self.supported_profile_ids = frozenset(
             supported_profile_ids
         )
@@ -240,13 +254,13 @@ class ResearchRequestPlanner:
                 "request must be ResearchPlanningRequest"
             )
         effective_lanes = _effective_lanes(request)
-        matches = self._resolve_candidates(request)
+        matches, missing_issue = self._resolve_candidates(request)
         if not matches:
             return ResearchPlanningResult(
                 status=ResearchPlanningStatus.UNRESOLVED,
                 request=request,
                 effective_decision_lanes=effective_lanes,
-                issues=("asset_identity_not_found",),
+                issues=(missing_issue,),
             )
         candidates = tuple(
             ResearchIdentityCandidate.from_asset(asset)
@@ -291,6 +305,18 @@ class ResearchRequestPlanner:
             horizon=request.horizon,
             as_of_date=request.as_of_date,
         )
+        notes = (profile_note, *question_notes)
+        profile = self.task_factory.profile_registry.require(profile_id)
+        if profile.benchmark_required and task.benchmark_asset_id is None:
+            return ResearchPlanningResult(
+                status=ResearchPlanningStatus.BLOCKED,
+                request=request,
+                effective_decision_lanes=effective_lanes,
+                identity=candidates[0],
+                profile_id=profile_id,
+                routing_notes=notes,
+                issues=("benchmark_unavailable",),
+            )
         return ResearchPlanningResult(
             status=ResearchPlanningStatus.READY,
             request=request,
@@ -298,7 +324,7 @@ class ResearchRequestPlanner:
             identity=candidates[0],
             profile_id=profile_id,
             task=task,
-            routing_notes=(profile_note, *question_notes),
+            routing_notes=notes,
         )
 
     def plan_decision_brief(
@@ -322,7 +348,9 @@ class ResearchRequestPlanner:
     def _resolve_candidates(
         self,
         request: ResearchPlanningRequest,
-    ) -> list[Asset]:
+    ) -> tuple[list[Asset], str]:
+        """Matching assets and the issue to report when there are none."""
+
         if request.asset_id is not None:
             asset = self.master_data.get_asset(request.asset_id)
             return (
@@ -330,35 +358,24 @@ class ResearchRequestPlanner:
                 if asset is not None
                 and _matches_hints(asset, request)
                 else []
-            )
+            ), "asset_identity_not_found"
 
         assert request.symbol is not None
-        matches = self.master_data.find_assets(
-            standard_symbol=request.symbol,
-            asset_type=request.asset_type,
-        )
-        matches = [
-            asset
-            for asset in matches
-            if _matches_hints(asset, request)
-        ]
+        code = _a_share_code(request.symbol)
+        matches = self._find(code or request.symbol, request)
         if (
             not matches
-            and request.asset_type == ASSET_TYPE_OPEN_FUND
-            and self.fund_identity_bootstrap is not None
+            and code is not None
+            and self.identity_bootstrap is not None
         ):
-            self.fund_identity_bootstrap.fetch_and_store_fund_basic_info(
-                symbol=request.symbol,
-            )
-            matches = self.master_data.find_assets(
-                standard_symbol=request.symbol,
-                asset_type=request.asset_type,
-            )
-            matches = [
-                asset
-                for asset in matches
-                if _matches_hints(asset, request)
-            ]
+            try:
+                self.identity_bootstrap.fetch_and_store_identities(
+                    code,
+                    asset_type=request.asset_type,
+                )
+            except DataSourceError:
+                return [], "asset_identity_lookup_failed"
+            matches = self._find(code, request)
         return sorted(
             matches,
             key=lambda asset: (
@@ -367,7 +384,21 @@ class ResearchRequestPlanner:
                 asset.exchange or "",
                 asset.asset_id,
             ),
-        )
+        ), "asset_identity_not_found"
+
+    def _find(
+        self,
+        symbol: str,
+        request: ResearchPlanningRequest,
+    ) -> list[Asset]:
+        return [
+            asset
+            for asset in self.master_data.find_assets(
+                standard_symbol=symbol,
+                asset_type=request.asset_type,
+            )
+            if _matches_hints(asset, request)
+        ]
 
     def _profile_for(
         self,
@@ -375,20 +406,61 @@ class ResearchRequestPlanner:
         as_of_date: str,
     ) -> tuple[str, str]:
         if self.profile_assignment is not None:
-            assigned = self.profile_assignment.profile_map(
-                [asset.asset_id],
-                as_of_date=as_of_date,
-            ).get(asset.asset_id)
+            assigned = self._assigned_profile(asset, as_of_date)
+            note = "profile_assignment"
+            if assigned is None and self._classify_industry(
+                asset,
+                as_of_date,
+            ):
+                assigned = self._assigned_profile(asset, as_of_date)
+                note = "industry_profile_assignment"
             if assigned is not None:
                 self.task_factory.profile_registry.validate_for_asset(
                     assigned,
                     asset,
                 )
-                return assigned, "profile_assignment"
+                return assigned, note
         profile = self.task_factory.profile_registry.default_for_asset(
             asset
         )
+        if (
+            asset.asset_type == ASSET_TYPE_STOCK
+            and self.industry_source is not None
+        ):
+            return profile.profile_id, "industry_unavailable_default_profile"
         return profile.profile_id, "asset_type_default_profile"
+
+    def _assigned_profile(
+        self,
+        asset: Asset,
+        as_of_date: str,
+    ) -> str | None:
+        assert self.profile_assignment is not None
+        return self.profile_assignment.profile_map(
+            [asset.asset_id],
+            as_of_date=as_of_date,
+        ).get(asset.asset_id)
+
+    def _classify_industry(self, asset: Asset, as_of_date: str) -> bool:
+        if (
+            asset.asset_type != ASSET_TYPE_STOCK
+            or self.industry_source is None
+            or self.profile_assignment is None
+        ):
+            return False
+        try:
+            records = self.industry_source.fetch_stock_industries(
+                [asset.standard_symbol]
+            )
+        except (OSError, RuntimeError, ValueError):
+            return False
+        return bool(
+            self.profile_assignment.classify_industries(
+                records,
+                asset_by_symbol={asset.standard_symbol: asset.asset_id},
+                effective_date=as_of_date,
+            )
+        )
 
 
 def _effective_lanes(
@@ -437,6 +509,13 @@ def _baseline_question(
         ResearchQuestionType.UNDERSTANDING,
         ("decision_horizon_uses_understanding_baseline",),
     )
+
+
+def _a_share_code(symbol: str) -> str | None:
+    try:
+        return normalize_a_share_code(symbol)
+    except ValueError:
+        return None
 
 
 def _matches_hints(
