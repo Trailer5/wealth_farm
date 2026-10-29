@@ -35,24 +35,35 @@ class RoutingStatus(str, Enum):
 class UserContextNeed(str, Enum):
     POSITIONS = "positions"
     INVESTMENT_MANDATE = "investment_mandate"
+    INVESTMENT_PREFERENCE = "investment_preference"
     CONSTRAINT_SNAPSHOT = "constraint_snapshot"
     AGGRESSIVENESS_MEANING = "aggressiveness_meaning"
     ORIGINAL_THESIS = "original_thesis"
 
 
+# preference_status of a context probe: a recorded version, with or without confirmed meanings.
+PREFERENCE_RECORDED = "recorded"
+PREFERENCE_WITH_MEANING = "with_meaning"
+
 # How a request proves a need is met: None means recorded holdings of the
 # request user (only the user_id is checked when no context probe is wired).
+# Preference refs are also checked against the user's recorded versions when a probe is wired.
 USER_CONTEXT_REF_PREFIXES: dict[UserContextNeed, str | None] = {
     UserContextNeed.POSITIONS: None,
     UserContextNeed.INVESTMENT_MANDATE: "mandate:",
+    UserContextNeed.INVESTMENT_PREFERENCE: "preference:",
     UserContextNeed.CONSTRAINT_SNAPSHOT: "constraints:",
-    UserContextNeed.AGGRESSIVENESS_MEANING: "preference:aggressiveness",
+    UserContextNeed.AGGRESSIVENESS_MEANING: "preference:",
     UserContextNeed.ORIGINAL_THESIS: "thesis:",
 }
 
 USER_CONTEXT_QUESTIONS: dict[UserContextNeed, str] = {
     UserContextNeed.POSITIONS: "请提供当前持仓（标的、数量、成本），记录到用户空间后继续。",
     UserContextNeed.INVESTMENT_MANDATE: "请提供投资任务：风险预算、计划资金和投资期限。",
+    UserContextNeed.INVESTMENT_PREFERENCE: (
+        "这笔投资打算放多久？最多能接受亏多少（比如 10%、20%、30%）？"
+        "股票类资产大概想占多少？近期有没有要用的钱？"
+    ),
     UserContextNeed.CONSTRAINT_SNAPSHOT: "请确认组合约束：单标的上限、现金底线和流动性要求。",
     UserContextNeed.AGGRESSIVENESS_MEANING: (
         "“更激进”具体指更高权益比例、更集中、更高波动，还是更长期限？"
@@ -62,6 +73,13 @@ USER_CONTEXT_QUESTIONS: dict[UserContextNeed, str] = {
 
 VIEW_HORIZON_QUESTION = (
     "这个观点的时间窗口是多久：1 个月内、1–6 个月、6 个月–3 年，还是 3 年以上？"
+)
+# Uninvested cash is not a holding; portfolio steps take it as run-recipe --cash.
+PORTFOLIO_CASH_QUESTION = "除了这些持仓，还有多少没投资的现金可以一起安排？"
+# Without these the suitability lane stops at a non-personalized watch and timing defaults to medium-long.
+DECISION_CONTEXT_QUESTION = (
+    "这笔钱打算持有多久（1 年内、1–3 年、3 年以上）？在组合里是什么角色（长期核心、卫星增强、短期机会）？"
+    "什么时候可能要用这笔钱？"
 )
 
 

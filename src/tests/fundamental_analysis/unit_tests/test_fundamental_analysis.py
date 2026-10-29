@@ -120,7 +120,8 @@ class FundamentalAnalysisTest(unittest.TestCase):
             },
         )
         self.assertEqual(by_name["pb"].value, Decimal("0.5"))
-        self.assertEqual(by_name["roe"].value, Decimal("0.10"))
+        # Q1 year-to-date ROE 10% annualizes to 40%.
+        self.assertEqual(by_name["roe"].value, Decimal("0.40"))
         self.assertEqual(
             by_name["capital_adequacy"].value,
             Decimal("0.1346"),
@@ -204,6 +205,7 @@ class FundamentalAnalysisTest(unittest.TestCase):
                 "market_cap",
                 "enterprise_value",
                 "pe_ttm",
+                "pe_ttm_recurring",
                 "pb",
                 "ps_ttm",
                 "pcf_ttm",
@@ -213,6 +215,8 @@ class FundamentalAnalysisTest(unittest.TestCase):
                 "fcf_yield",
                 "dividend_yield",
                 "roe",
+                "roe_recurring",
+                "non_recurring_share",
                 "roa",
                 "roic",
                 "gross_margin",
@@ -220,16 +224,25 @@ class FundamentalAnalysisTest(unittest.TestCase):
                 "net_margin",
                 "revenue_growth",
                 "net_profit_growth",
+                "recurring_profit_growth",
                 "operating_cash_flow_growth",
                 "free_cash_flow_growth",
                 "debt_to_assets",
                 "net_debt",
                 "interest_coverage",
+                "rd_intensity",
+                "cash_burn",
+                "cash_burn_ratio",
+                "cash_runway_years",
+                "financing_dependence",
             },
         )
         self.assertEqual(metrics["market_cap"].value, Decimal("1500"))
         self.assertEqual(metrics["enterprise_value"].value, Decimal("1500"))
         self.assertEqual(metrics["pe_ttm"].value, Decimal("15"))
+        self.assertEqual(metrics["pe_ttm_recurring"].value, Decimal("20"))
+        self.assertEqual(metrics["non_recurring_share"].value, Decimal("0.25"))
+        self.assertEqual(metrics["recurring_profit_growth"].value, Decimal("0.25"))
         self.assertEqual(metrics["pb"].value, Decimal("1.25"))
         self.assertEqual(metrics["ps_ttm"].value, Decimal("1.5"))
         self.assertEqual(
@@ -371,6 +384,46 @@ class FundamentalAnalysisTest(unittest.TestCase):
             metrics["earnings_yield"].value,
             Decimal("-10") / Decimal("1500"),
         )
+
+    def test_announced_dividends_replace_cash_flow_line(self):
+        result = self.service.analyze(
+            self.bundle,
+            market_price=Decimal("15"),
+            dividend_per_share_ttm=Decimal("0.45"),
+        )
+        self.assertEqual(result.by_name()["dividend_yield"].value, Decimal("0.03"))
+
+    def test_cash_metrics_only_measure_runway_when_burning_cash(self):
+        snapshot = FundamentalSnapshotAssembler().assemble(
+            self.bundle,
+            market_price=Decimal("15"),
+        )
+        profitable = FundamentalMetricCalculator().calculate(snapshot).by_name()
+        self.assertEqual(profitable["cash_burn"].value, Decimal("-130"))
+        self.assertEqual(
+            profitable["cash_runway_years"].status,
+            MetricStatus.NOT_APPLICABLE,
+        )
+        self.assertEqual(
+            profitable["rd_intensity"].status,
+            MetricStatus.MISSING_INPUT,
+        )
+
+        fields = dict(snapshot.fields)
+        fields.update(
+            free_cash_flow=Decimal("-120"),
+            research_expense=Decimal("250"),
+            financing_cash_flow=Decimal("60"),
+        )
+        burning = FundamentalMetricCalculator().calculate(
+            replace(snapshot, fields=fields)
+        ).by_name()
+
+        self.assertEqual(burning["cash_burn"].value, Decimal("120"))
+        self.assertEqual(burning["cash_burn_ratio"].value, Decimal("0.4"))
+        self.assertEqual(burning["cash_runway_years"].value, Decimal("2.5"))
+        self.assertEqual(burning["financing_dependence"].value, Decimal("0.5"))
+        self.assertEqual(burning["rd_intensity"].value, Decimal("0.25"))
 
     def test_missing_shares_propagates_clear_status(self):
         bundle = _annual_bundle(
@@ -563,6 +616,7 @@ def _annual_bundle(asset, include_shares=True):
             {
                 "revenue": "800",
                 "earnings": "80",
+                "deducted_parent_net_profit": "60",
                 "operating_profit": "120",
                 "ebit": "120",
                 "ebitda": "160",
@@ -575,6 +629,7 @@ def _annual_bundle(asset, include_shares=True):
             {
                 "revenue": "1000",
                 "earnings": "100",
+                "deducted_parent_net_profit": "75",
                 "operating_profit": "150",
                 "ebit": "150",
                 "ebitda": "200",

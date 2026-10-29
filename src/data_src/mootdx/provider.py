@@ -12,6 +12,7 @@ from src.data_src.common import (
     to_optional_float,
 )
 from src.data_src.models import DailyBar
+from src.data_src.throttle import default_throttle
 
 
 class MootdxDataSource:
@@ -143,6 +144,7 @@ class MootdxDataSource:
             raise DependencyNotInstalledError(
                 "mootdx is not installed. Add it to dependencies."
             ) from exc
+        default_throttle().acquire("mootdx")
         return Quotes.factory("std", timeout=self.timeout)
 
 

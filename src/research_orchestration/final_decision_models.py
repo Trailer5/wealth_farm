@@ -21,6 +21,7 @@ from src.research_contracts import (
     to_payload,
 )
 
+from .exit_plan_models import ExitPlan
 from .models import ResearchRunStatus
 
 
@@ -772,6 +773,8 @@ class FinalDecisionResearchReport:
     limitations: tuple[str, ...]
     # Probability, filled before publication, that the consider/avoid claim holds.
     claim_probability: ProbabilityInterval | None = None
+    # Sell-side conditions for a held position; required for holding reviews.
+    exit_plan: ExitPlan | None = None
 
     def __post_init__(self) -> None:
         for value, name in (
@@ -897,7 +900,7 @@ class FinalDecisionResearchReport:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "report_id": self.report_id,
             "user_id": self.user_id,
             "workflow_run_id": self.workflow_run_id,
@@ -947,6 +950,10 @@ class FinalDecisionResearchReport:
                 else to_payload(self.claim_probability)
             ),
         }
+        # Omitted when absent so reports without an exit plan keep their content IDs.
+        if self.exit_plan is not None:
+            payload["exit_plan"] = self.exit_plan.to_dict()
+        return payload
 
     @classmethod
     def from_dict(
@@ -984,6 +991,7 @@ class FinalDecisionResearchReport:
             "chart_artifacts",
             "limitations",
             "claim_probability",
+            "exit_plan",
         }
         _reject_unknown(payload, allowed, "FinalDecisionResearchReport")
         return cls(
@@ -1090,6 +1098,11 @@ class FinalDecisionResearchReport:
                     ProbabilityInterval,
                     payload["claim_probability"],
                 )
+            ),
+            exit_plan=(
+                None
+                if payload.get("exit_plan") is None
+                else ExitPlan.from_dict(payload["exit_plan"])
             ),
         )
 

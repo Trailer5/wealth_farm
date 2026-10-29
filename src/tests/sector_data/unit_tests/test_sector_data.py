@@ -32,6 +32,7 @@ MEMBERS = {
 class FakeFetcher:
     def __init__(self):
         self.calls = []
+        self.failing = set()
 
     def catalog(self, level):
         self.calls.append(("catalog", level))
@@ -39,7 +40,7 @@ class FakeFetcher:
 
     def constituents(self, codes):
         self.calls.append(("constituents", tuple(codes)))
-        return {code: MEMBERS[code] for code in codes}
+        return {code: "DataSourceError: rejected" if code in self.failing else MEMBERS[code] for code in codes}
 
     def level_metrics(self, category, trade_dates):
         self.calls.append(("metrics", category, tuple(trade_dates)))
@@ -95,6 +96,15 @@ class SectorDataServiceTest(unittest.TestCase):
         self.assertEqual([p["symbol"] for p in few["peers"]], ["000858"])
         self.assertEqual(wider["peer_industry"]["code"], "801125")
         self.assertEqual({p["symbol"] for p in wider["peers"]}, {"000858", "600059"})
+
+    def test_level_two_members_refuse_a_partial_union(self):
+        self.fetcher.failing = {"851252"}
+        with self.assertRaisesRegex(Exception, "851252"):
+            self.service.members("801125")
+
+        self.fetcher.failing = set()
+        members = self.service.members("801125")
+        self.assertEqual({m.symbol for m in members}, {"600519", "000858", "600059"})
 
     def test_index_asset_is_registered_once_on_the_sw_exchange(self):
         first = self.service.index_asset("801120")

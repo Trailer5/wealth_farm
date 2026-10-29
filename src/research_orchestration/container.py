@@ -31,20 +31,29 @@ from src.financial_data import SQLiteFinancialDataRepository
 from src.macro_data import MacroDataService, SQLiteMacroDataRepository
 from src.sector_data import SectorDataService, SQLiteSectorDataRepository
 from src.cross_section import CrossSectionService, SQLiteCrossSectionRepository
+from src.valuation_position import ValuationPositionService
 from src.fund_research import (
     ExchangeFundMetricService,
     FundResearchService,
     OpenFundBenchmarkResolver,
+    OpenFundDecisionFactsService,
+    FundPortfolioService,
+    IndexWeightService,
     SQLiteFundResearchRepository,
+    UnderlyingValuationService,
 )
 from src.fundamental_analysis import (
+    DividendHistoryService,
     FinancialInstitutionAnalysisService,
     FundamentalAnalysisService,
     SQLiteFundamentalMetricRepository,
+    ValuationModelService,
 )
 from src.master_data import MasterDataService, SQLiteMasterDataRepository
 from src.market_analysis import MarketArchiveService
 from src.macro_state import MacroArchiveService
+from src.discovery_funnel import DiscoveryFunnelService, SQLiteDiscoveryFunnelRepository
+from src.sector_state import SectorArchiveService
 from src.peer_analysis import (
     PeerAnalysisService,
     SQLitePeerAnalysisRepository,
@@ -56,7 +65,9 @@ from src.portfolio_risk import (
 from src.research_acceptance import ResearchReportAssemblyService
 from src.research_evidence import ResearchEvidenceService
 from src.research_ledger import (
+    CompositeMetricSource,
     DataAccessPriceSeriesSource,
+    FinancialMetricSeriesSource,
     LedgerSettlementService,
     MacroMetricSeriesSource,
     ResearchLedgerService,
@@ -72,6 +83,7 @@ from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
+    PROFILE_HIGH_GROWTH_UNPROFITABLE,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
 )
@@ -85,7 +97,7 @@ from src.research_workflow import (
     ResearchTaskFactory,
     SQLiteResearchProfileAssignmentRepository,
 )
-from src.strategy import default_strategy_registry
+from src.strategy import SQLiteStrategyArchiveRepository, default_strategy_registry
 from src.user_space import (
     SQLiteUserSpaceRepository,
     UserSpaceService,
@@ -106,6 +118,21 @@ from .final_decision import FinalDecisionReportAssemblyService
 from .final_decision_pipeline import FinalDecisionReportService
 from .ledger_projection import FinalDecisionLedgerRecorder
 from .state_archive import StateArchiveRecorder
+from .thesis import ThesisService
+from .exit_plan import ExitPlanService
+from .portfolio_diagnosis import PortfolioDiagnosisService
+from .allocation_proposal import AllocationProposalService
+from .adjustment_proposal import AdjustmentProposalService
+from .portfolio_plan import PortfolioPlanService
+from .decision_review import DecisionReviewService
+from .routine import RoutineService
+from .strategy_archive import StrategyArchiveService
+from .strategy_backtest import StrategyBacktestService
+from .strategy_evaluate import StrategyEvaluateService
+from .strategy_recipe import StrategyRecipeRunner
+from .strategy_track import StrategyTrackService
+from .stock_pool import StockPoolService
+from .valuation_runner import ValuationModelRunner
 from .view_recording import ViewRecorder
 from .monitoring import MonitoringHandoffService
 from .pipeline import ResearchOrchestrationPipeline
@@ -118,8 +145,12 @@ from .suitability import SuitabilityAssessmentService
 from .request_planner import ResearchRequestPlanner
 from .routing_adapters import (
     EventDiscoveryRecipeRunner,
+    DiscoveryFunnelRunner,
+    GrowthProfileDetector,
     PlannerSubjectResolver,
+    RecurringProfitLookup,
     RegistryLaneSupport,
+    SectorBriefRunner,
     SingleAssetRecipeRunner,
     UserSpaceContextReader,
 )
@@ -137,8 +168,12 @@ class ResearchOrchestrationContainer:
     macro_data: MacroDataService
     sector_data: SectorDataService
     cross_section: CrossSectionService
+    valuation_position: ValuationPositionService
+    valuation_models: ValuationModelRunner
     market_state: StateArchiveRecorder
     macro_state: StateArchiveRecorder
+    sector_state: StateArchiveRecorder
+    discovery_funnel: DiscoveryFunnelRunner
     analogs: AnalogHistoryService
     task_factory: ResearchTaskFactory
     request_planner: ResearchRequestPlanner
@@ -159,6 +194,18 @@ class ResearchOrchestrationContainer:
     ledger_recorder: FinalDecisionLedgerRecorder
     ledger_settlement: LedgerSettlementService
     view_recorder: ViewRecorder
+    thesis: ThesisService
+    exit_plan: ExitPlanService
+    portfolio_diagnosis: PortfolioDiagnosisService
+    allocation_proposal: AllocationProposalService
+    adjustment_proposal: AdjustmentProposalService
+    portfolio_plan: PortfolioPlanService
+    decision_review: DecisionReviewService
+    routine: RoutineService
+    strategy_archive: StrategyArchiveService
+    strategy_backtest: StrategyBacktestService
+    strategy_evaluate: StrategyEvaluateService
+    strategy_track: StrategyTrackService
     alerts: AlertService
     monitoring: MonitoringHandoffService
     portfolio_risk: PortfolioRiskService
@@ -242,6 +289,22 @@ def create_default_container(
 
     strategy_registry = default_strategy_registry()
     chart_renderer = ChartRenderer(Path("temp/research"))
+    sector_data = SectorDataService(
+        SQLiteSectorDataRepository(database_path),
+        master_data=master_data,
+        data_access=data_access,
+    )
+    cross_section = CrossSectionService(SQLiteCrossSectionRepository(database_path))
+    valuation_position = ValuationPositionService(
+        cross_section=cross_section,
+        sector_data=sector_data,
+    )
+    macro_data = MacroDataService(SQLiteMacroDataRepository(database_path))
+    fund_decision_facts = OpenFundDecisionFactsService(
+        repository=fund_repository,
+        underlying_valuation=UnderlyingValuationService(macro_data=macro_data),
+    )
+    valuation_models = ValuationModelService(data_access=data_access, macro_data=macro_data)
     common_execution_dependencies = {
         "master_data": master_data,
         "data_access": data_access,
@@ -251,16 +314,32 @@ def create_default_container(
         "strategy_registry": strategy_registry,
         "chart_renderer": chart_renderer,
     }
+    dividends = DividendHistoryService(database_path)
     ordinary_service = ResearchExecutionService(
         **common_execution_dependencies,
         fundamental_service=fundamental_service,
         evidence_service=evidence_service,
+        valuation_position=valuation_position,
+        valuation_models=valuation_models,
+        dividends=dividends,
+    )
+    growth_execution_service = ResearchExecutionService(
+        **common_execution_dependencies,
+        fundamental_service=fundamental_service,
+        evidence_service=evidence_service,
+        valuation_position=valuation_position,
+        valuation_models=valuation_models,
+        profile_id=PROFILE_HIGH_GROWTH_UNPROFITABLE,
+        dividends=dividends,
     )
     financial_execution_service = (
         FinancialInstitutionResearchExecutionService(
             **common_execution_dependencies,
             financial_service=financial_service,
             evidence_service=evidence_service,
+            valuation_position=valuation_position,
+            valuation_models=valuation_models,
+            dividends=dividends,
         )
     )
     etf_execution_service = ETFResearchExecutionService(
@@ -277,6 +356,7 @@ def create_default_container(
         benchmark_service=benchmark_service,
         benchmark_resolver=open_fund_benchmark_resolver,
         chart_renderer=chart_renderer,
+        decision_facts=fund_decision_facts,
     )
     cycle_execution_service = CyclicalResourceResearchExecutionService(
         **common_execution_dependencies,
@@ -284,6 +364,9 @@ def create_default_container(
         fundamental_service=fundamental_service,
         commodity_service=commodity_service,
         evidence_service=evidence_service,
+        valuation_position=valuation_position,
+        valuation_models=valuation_models,
+        dividends=dividends,
     )
 
     task_factory = ResearchTaskFactory(
@@ -308,6 +391,7 @@ def create_default_container(
         profile_assignment=profile_assignment,
         identity_bootstrap=data_fetch,
         industry_source=data_fetch,
+        growth_detector=GrowthProfileDetector(data_access=data_access),
     )
     new_conversation_acceptance = NewConversationAcceptanceRunner(
         planner=request_planner
@@ -343,12 +427,6 @@ def create_default_container(
         workflow_coordinator=workflow_coordinator,
         user_space=user_space,
     )
-    sector_data = SectorDataService(
-        SQLiteSectorDataRepository(database_path),
-        master_data=master_data,
-        data_access=data_access,
-    )
-    cross_section = CrossSectionService(SQLiteCrossSectionRepository(database_path))
     peer_analysis = PeerAnalysisService(
         master_data=master_data,
         metric_repository=fundamental_repository,
@@ -394,7 +472,6 @@ def create_default_container(
     report_publisher = ReportArtifactService(Path(report_root))
     ledger_repository = SQLiteResearchLedgerRepository(database_path)
     ledger = ResearchLedgerService(ledger_repository)
-    macro_data = MacroDataService(SQLiteMacroDataRepository(database_path))
     market_state = StateArchiveRecorder(
         archive=MarketArchiveService(
             macro_data=macro_data,
@@ -408,18 +485,86 @@ def create_default_container(
         ledger=ledger,
         source_prefix="macro_archive",
     )
+    sector_state = StateArchiveRecorder(
+        archive=SectorArchiveService(
+            sector_data=sector_data,
+            cross_section=cross_section,
+            data_access=data_access,
+        ),
+        ledger=ledger,
+        source_prefix="sector_archive",
+    )
     analogs = AnalogHistoryService(macro_data=macro_data, data_access=data_access)
-    metrics = MacroMetricSeriesSource(macro_data=macro_data)
+    metrics = CompositeMetricSource(
+        MacroMetricSeriesSource(macro_data=macro_data),
+        FinancialMetricSeriesSource(data_access=data_access, master_data=master_data),
+    )
+    thesis = ThesisService(ledger=ledger, metrics=metrics, master_data=master_data)
+    settlement_prices = DataAccessPriceSeriesSource(
+        data_access=data_access,
+        master_data=master_data,
+    )
+    valuation_runner = ValuationModelRunner(
+        planner=request_planner,
+        master_data=master_data,
+        data_access=data_access,
+        fundamental=fundamental_service,
+        financial=financial_service,
+        models=valuation_models,
+        ledger=ledger,
+    )
+    exit_plan = ExitPlanService(
+        research_state=research_state,
+        portfolio_risk=portfolio_risk,
+        thesis=thesis,
+        valuation=valuation_runner,
+        prices=settlement_prices,
+        master_data=master_data,
+        ledger=ledger,
+    )
+    portfolio_diagnosis = PortfolioDiagnosisService(
+        portfolio_risk=portfolio_risk,
+        master_data=master_data,
+        data_access=data_access,
+        sector_data=sector_data,
+        fund_facts=fund_decision_facts,
+        fund_portfolio=FundPortfolioService(repository=fund_repository),
+        index_weights=IndexWeightService(repository=fund_repository),
+        report_root=report_root,
+    )
+    allocation_proposal = AllocationProposalService(
+        diagnosis=portfolio_diagnosis,
+        portfolio_risk=portfolio_risk,
+        master_data=master_data,
+        identity_bootstrap=data_fetch.fetch_and_store_identities,
+        report_root=report_root,
+    )
+    adjustment_proposal = AdjustmentProposalService(
+        diagnosis=portfolio_diagnosis,
+        allocation=allocation_proposal,
+        fund_facts=fund_decision_facts,
+        macro_data=macro_data,
+        report_root=report_root,
+    )
+    portfolio_plan = PortfolioPlanService(
+        adjustment=adjustment_proposal,
+        ledger=ledger,
+        report_root=report_root,
+    )
+    decision_review = DecisionReviewService(
+        ledger=ledger,
+        diagnosis=portfolio_diagnosis,
+        portfolio_risk=portfolio_risk,
+        master_data=master_data,
+        report_root=report_root,
+    )
     ledger_recorder = FinalDecisionLedgerRecorder(
         ledger=ledger,
         publications=workflow_coordinator,
     )
     ledger_settlement = LedgerSettlementService(
         repository=ledger_repository,
-        prices=DataAccessPriceSeriesSource(
-            data_access=data_access,
-            master_data=master_data,
-        ),
+        prices=settlement_prices,
         metrics=metrics,
     )
     final_decision = FinalDecisionReportService(
@@ -445,6 +590,7 @@ def create_default_container(
                 PROFILE_EXCHANGE_FUND: etf_execution_service,
                 PROFILE_OPEN_FUND: open_fund_execution_service,
                 PROFILE_CYCLICAL_RESOURCE: cycle_execution_service,
+                PROFILE_HIGH_GROWTH_UNPROFITABLE: growth_execution_service,
             }
         ),
         report_assembly=ResearchReportAssemblyService(
@@ -462,19 +608,65 @@ def create_default_container(
             master_data=master_data,
         ),
     )
+    single_asset_runner = SingleAssetRecipeRunner(
+        planner=request_planner,
+        pipeline=pipeline,
+        decision_briefs=research_state,
+    )
+    sector_runner = SectorBriefRunner(sector_data=sector_data, recorder=sector_state)
+    discovery_funnel = DiscoveryFunnelRunner(
+        funnel=DiscoveryFunnelService(
+            cross_section=cross_section,
+            sector_data=sector_data,
+            repository=SQLiteDiscoveryFunnelRepository(database_path),
+            index_members=lambda code: [
+                (item.constituent_symbol, item.constituent_name)
+                for item in data_fetch.fetch_index_constituents(code, timeout_seconds=60.0)
+            ],
+            recurring_lookup=RecurringProfitLookup(
+                master_data=master_data,
+                data_access=data_access,
+                data_fetch=data_fetch,
+            ),
+        ),
+        single_asset=single_asset_runner,
+        master_data=master_data,
+        sector=sector_runner,
+    )
+    strategy_archive = StrategyArchiveService(
+        repository=SQLiteStrategyArchiveRepository(database_path),
+        ledger=ledger,
+    )
+    strategy_backtest = StrategyBacktestService(
+        archives=strategy_archive,
+        repository=strategy_archive.repository,
+        data_access=data_access,
+        data_fetch=data_fetch,
+        master_data=master_data,
+        macro_data=macro_data,
+        pools=StockPoolService(sector_data=sector_data, data_fetch=data_fetch, cross_section=cross_section),
+    )
+    strategy_track = StrategyTrackService(backtest=strategy_backtest, archives=strategy_archive, ledger=ledger)
+    strategy_evaluate = StrategyEvaluateService(backtest=strategy_backtest, archives=strategy_archive)
     recipe_executor = RecipeExecutor(
         router=router,
-        single_asset=SingleAssetRecipeRunner(
-            planner=request_planner,
-            pipeline=pipeline,
-            decision_briefs=research_state,
-        ),
+        single_asset=single_asset_runner,
         ledger=ledger,
         discovery=EventDiscoveryRecipeRunner(event_name_discovery),
         portfolio=user_context,
         market=market_state,
         macro=macro_state,
         analogs=analogs,
+        sector=sector_runner,
+        funnel=discovery_funnel,
+        thesis=thesis,
+        exit_plan=exit_plan,
+        portfolio_diagnosis=portfolio_diagnosis,
+        allocation=allocation_proposal,
+        adjustment=adjustment_proposal,
+        plan=portfolio_plan,
+        decision_review=decision_review,
+        strategy=StrategyRecipeRunner(archives=strategy_archive, evaluate=strategy_evaluate, track=strategy_track),
     )
     return ResearchOrchestrationContainer(
         master_data=master_data,
@@ -483,8 +675,12 @@ def create_default_container(
         macro_data=macro_data,
         sector_data=sector_data,
         cross_section=cross_section,
+        valuation_position=valuation_position,
+        valuation_models=valuation_runner,
         market_state=market_state,
         macro_state=macro_state,
+        sector_state=sector_state,
+        discovery_funnel=discovery_funnel,
         analogs=analogs,
         task_factory=task_factory,
         request_planner=request_planner,
@@ -509,6 +705,27 @@ def create_default_container(
             metrics=metrics,
             master_data=master_data,
         ),
+        thesis=thesis,
+        exit_plan=exit_plan,
+        portfolio_diagnosis=portfolio_diagnosis,
+        allocation_proposal=allocation_proposal,
+        adjustment_proposal=adjustment_proposal,
+        portfolio_plan=portfolio_plan,
+        decision_review=decision_review,
+        routine=RoutineService(
+            settlement=ledger_settlement,
+            market=market_state,
+            macro=macro_state,
+            ledger=ledger,
+            thesis=thesis,
+            decision_review=decision_review,
+            master_data=master_data,
+            strategies=lambda as_of, remote: strategy_track.track_all(as_of_date=as_of, allow_remote=remote),
+        ),
+        strategy_archive=strategy_archive,
+        strategy_backtest=strategy_backtest,
+        strategy_evaluate=strategy_evaluate,
+        strategy_track=strategy_track,
         alerts=alerts,
         monitoring=monitoring,
         portfolio_risk=portfolio_risk,

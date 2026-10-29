@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 from src.financial_data import FinancialResearchBundle
 from src.master_data import ASSET_TYPE_STOCK, MasterDataService
-from src.research_contracts import PROFILE_ORDINARY_COMPANY
+from src.research_contracts import PROFILE_HIGH_GROWTH_UNPROFITABLE, PROFILE_ORDINARY_COMPANY
+
+COMPANY_PROFILES = frozenset({PROFILE_ORDINARY_COMPANY, PROFILE_HIGH_GROWTH_UNPROFITABLE})
 
 from .assembler import FundamentalSnapshotAssembler
 from .calculator import (
@@ -46,6 +49,7 @@ class FundamentalAnalysisService:
         profile_id: str = PROFILE_ORDINARY_COMPANY,
         parameters: FundamentalMetricParameters | None = None,
         target_report_period: str | None = None,
+        dividend_per_share_ttm: Decimal | None = None,
     ) -> FundamentalMetricSet:
         asset = self.master_data.get_asset(bundle.asset.asset_id)
         if asset is None:
@@ -54,10 +58,10 @@ class FundamentalAnalysisService:
             )
         if asset.asset_id != bundle.asset.asset_id:
             raise ValueError("Financial bundle asset mismatch")
-        if profile_id != PROFILE_ORDINARY_COMPANY:
+        if profile_id not in COMPANY_PROFILES:
             raise ValueError(
                 f"{FUNDAMENTAL_CALCULATION_VERSION} only supports "
-                "ordinary_company"
+                "ordinary_company and high_growth_unprofitable"
             )
         if asset.asset_type != ASSET_TYPE_STOCK:
             raise ValueError(
@@ -75,6 +79,12 @@ class FundamentalAnalysisService:
             currency=currency,
             target_report_period=target_report_period,
         )
+        shares = snapshot.fields.get("shares_outstanding")
+        if dividend_per_share_ttm is not None and shares is not None:
+            snapshot = replace(
+                snapshot,
+                fields={**snapshot.fields, "annual_dividends": dividend_per_share_ttm * shares},
+            )
         result = self.calculator.calculate(
             snapshot,
             parameters=parameters,

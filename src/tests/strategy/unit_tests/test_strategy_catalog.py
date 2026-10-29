@@ -16,6 +16,7 @@ from src.research_evidence import (
 from src.research_contracts import (
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
+    PROFILE_HIGH_GROWTH_UNPROFITABLE,
     PROFILE_ORDINARY_COMPANY,
     ResearchHorizon,
 )
@@ -30,6 +31,7 @@ from src.strategy import (
     exchange_fund_strategy_specs,
     execute_horizon_catalog,
     financial_institution_strategy_specs,
+    high_growth_strategy_specs,
 )
 
 
@@ -91,6 +93,33 @@ class StrategyCatalogTest(unittest.TestCase):
             "research_event",
             strategy_input.evidence_types,
         )
+
+    def test_growth_runway_rule_vetoes_short_runway(self):
+        spec = high_growth_strategy_specs()[0]
+        base = {
+            "revenue_growth": "0.35",
+            "gross_margin": "0.55",
+            "cash_burn_ratio": "0.25",
+            "ps_ttm": "8",
+            "debt_to_assets": "0.3",
+        }
+
+        def run(**overrides):
+            strategy_input = self.builder.build(
+                asset_id=self.asset.asset_id,
+                profile_id=PROFILE_HIGH_GROWTH_UNPROFITABLE,
+                horizon=ResearchHorizon.MEDIUM_LONG,
+                as_of_date="2026-03-31",
+                factor_values=[],
+                fundamental_results=_fundamental_results({**base, **overrides}),
+                evidence_bundle=_evidence_bundle(self.asset),
+            )
+            return self.executor.execute(spec, strategy_input).status
+
+        self.assertEqual(run(), StrategyRunStatus.PASS)
+        self.assertEqual(run(cash_burn_ratio="1.2"), StrategyRunStatus.VETOED)
+        self.assertEqual(run(revenue_growth="0.1"), StrategyRunStatus.FAIL)
+        self.assertIn(spec.strategy_id, {item.strategy_id for item in default_strategy_registry().list_specs()})
 
     def test_short_and_medium_long_rules_can_disagree(self):
         short_input = self.builder.build(
@@ -333,8 +362,8 @@ def _factor(name, value, parameters=None):
     )
 
 
-def _fundamental_results():
-    values = {
+def _fundamental_results(values=None):
+    values = values or {
         "pe_ttm": "20",
         "roe": "0.25",
         "roic": "0.22",

@@ -16,6 +16,33 @@ from .exploration_models import (
 
 
 class ResearchQueryRoute(str, Enum):
+    """Public query routes for exploration; capability_id and parameters per route:
+
+    DATA_ACCESS            dataset_query: dataset, start_date, end_date (required); allow_remote, remote_sources,
+                           provider_timeout_seconds. metadata: latest_records (last 5), coverage_start/end.
+                           Datasets: stock_daily_bars, index_daily_bars, fund_exchange_daily_bars,
+                           stock_total_return_bars, fund_exchange_total_return_bars, disclosures, research_reports,
+                           open_fund_nav. No multi-period financial statements: read the periodic reports.
+                           *_daily_bars are unadjusted traded prices (latest price, volume, valuation); returns,
+                           drawdowns and comparisons use *_total_return_bars (back-adjusted on the exchange's
+                           ex-right reference price; the last bar keeps the traded price; levels differ between
+                           query windows, so only take ratios within one result). Indexes are price indexes:
+                           excess return over them is overstated by roughly the dividend yield.
+    RESEARCH_EVIDENCE      official_document_query: start_date, end_date; disclosure_sources, research_sources.
+                           metadata: items (title, date, source, tier, source_url; up to 20), events.
+    BENCHMARK_ANALYSIS     benchmark_comparison_query: start_date, end_date; benchmark_asset_id.
+    EVENT_KNOWLEDGE        event_lookup: start_date, end_date, event_type (all optional).
+    INDUSTRY_ANALYSIS      industry_assignment_query: no parameters; partial when only a profile industry name.
+    PEER_ANALYSIS          peer_comparison_query: peer_set_id; metric_names. metadata: comparisons.
+    USER_RESEARCH_STATE    user_context_query: operation = decision_brief | holding.
+    PORTFOLIO_RISK         portfolio_snapshot_query: operation = list_snapshots | snapshot (+ snapshot_id).
+    EXTERNAL_OFFICIAL_WEB  external_official_web_research: url (HTTPS), title, source_name, published_at;
+                           content_excerpt. Registers a source the Agent has read; nothing is fetched.
+
+    A query only registers evidence. business_empty / remote_failure on a blocking question become blocking
+    gaps until the question is answered with other evidence.
+    """
+
     DATA_ACCESS = "data_access"
     RESEARCH_EVIDENCE = "research_evidence"
     BENCHMARK_ANALYSIS = "benchmark_analysis"
@@ -39,6 +66,11 @@ class ResearchQueryOutcome(str, Enum):
 
 @dataclass(frozen=True)
 class ResearchQueryPlan:
+    """One query bound to an open question; query_id unique per session, as_of_date not after the task's.
+
+    Routes, capability ids and parameters: see ResearchQueryRoute.
+    """
+
     query_id: str
     session_id: str
     question_id: str

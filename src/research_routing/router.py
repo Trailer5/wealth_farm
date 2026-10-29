@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Protocol
 
 from src.research_contracts import (
@@ -15,6 +15,9 @@ from src.research_contracts import (
 )
 
 from .models import (
+    DECISION_CONTEXT_QUESTION,
+    PORTFOLIO_CASH_QUESTION,
+    PREFERENCE_WITH_MEANING,
     USER_CONTEXT_QUESTIONS,
     USER_CONTEXT_REF_PREFIXES,
     VIEW_HORIZON_QUESTION,
@@ -34,6 +37,9 @@ from .recipes import RecipeRegistry, default_recipe_registry
 # Profile-specific lane gaps (for example open-fund timing) close in 标的决策深化.
 PROFILE_LANE_GAP_STAGE = 7
 RESOLVED = "resolved"
+_PREFERENCE_NEEDS = frozenset(
+    {UserContextNeed.INVESTMENT_PREFERENCE, UserContextNeed.AGGRESSIVENESS_MEANING}
+)
 
 
 class SubjectResolverProtocol(Protocol):
@@ -91,10 +97,10 @@ class QuestionRouter:
         coverage = _coverage(recipe, steps)
         positions = self._positions_recorded(request, subjects)
         missing = _missing_context(
-            request, recipe.required_user_context, positions
+            request, recipe.required_user_context, positions, self._ref_recorded
         )
         optional = _missing_context(
-            request, recipe.optional_user_context, positions
+            request, recipe.optional_user_context, positions, self._ref_recorded
         )
         if request.personalization is Personalization.NONE:
             optional = ()
@@ -107,8 +113,25 @@ class QuestionRouter:
         questions = tuple(
             USER_CONTEXT_QUESTIONS[item] for item in (*missing, *optional)
         )
+        # A meaning changes a recorded preference, so a user without one is asked for the baseline first.
+        if UserContextNeed.AGGRESSIVENESS_MEANING in missing and not any(
+            ref.startswith("preference:")
+            and self._ref_recorded(request, UserContextNeed.INVESTMENT_PREFERENCE, ref)
+            for ref in request.personal_refs
+        ):
+            questions = (USER_CONTEXT_QUESTIONS[UserContextNeed.INVESTMENT_PREFERENCE], *questions)
+        if request.user_id is not None and (
+            request.subject_type is SubjectType.PORTFOLIO or recipe.recipe_id == "sector_view_recommendation"
+        ):
+            questions = (*questions, PORTFOLIO_CASH_QUESTION)
         if ResearchIntent.TEST_VIEW in request.intents and request.horizon is None:
             questions = (VIEW_HORIZON_QUESTION, *questions)
+        if (
+            request.subject_type is SubjectType.ASSET
+            and request.personalization is not Personalization.NONE
+            and {ResearchIntent.DECIDE, ResearchIntent.REVIEW} & set(request.intents)
+        ):
+            questions = (DECISION_CONTEXT_QUESTION, *questions)
         return RoutingResult(
             request=request,
             status=status,
@@ -120,6 +143,24 @@ class QuestionRouter:
             user_questions=questions,
             subjects=subjects,
         )
+
+    def _ref_recorded(
+        self,
+        request: ResearchRequest,
+        need: UserContextNeed,
+        ref: str,
+    ) -> bool:
+        """A preference ref must name a recorded version; a meaning ref must also carry confirmed meanings."""
+
+        if need not in _PREFERENCE_NEEDS:
+            return True
+        probe = getattr(self.context_probe, "preference_status", None)
+        if probe is None or request.user_id is None:
+            return True
+        status = probe(request.user_id, ref)
+        if need is UserContextNeed.AGGRESSIVENESS_MEANING:
+            return status == PREFERENCE_WITH_MEANING
+        return status is not None
 
     def _positions_recorded(
         self,
@@ -268,6 +309,7 @@ def _missing_context(
     request: ResearchRequest,
     needs: Sequence[UserContextNeed],
     positions_recorded: bool,
+    ref_recorded: Callable[[ResearchRequest, UserContextNeed, str], bool],
 ) -> tuple[UserContextNeed, ...]:
     missing = []
     for need in needs:
@@ -276,7 +318,8 @@ def _missing_context(
             satisfied = positions_recorded
         else:
             satisfied = any(
-                ref.startswith(prefix) for ref in request.personal_refs
+                ref.startswith(prefix) and ref_recorded(request, need, ref)
+                for ref in request.personal_refs
             )
         if not satisfied:
             missing.append(need)

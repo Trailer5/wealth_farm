@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
 from src.data_src import StockIndustryInfo
@@ -18,6 +19,7 @@ from src.research_contracts import (
 from src.research_workflow import (
     ResearchProfileAssignmentService,
     SQLiteResearchProfileAssignmentRepository,
+    high_growth_unprofitable_reason,
 )
 
 
@@ -189,6 +191,32 @@ class ProfileAssignmentTest(unittest.TestCase):
                 PROFILE_CYCLICAL_RESOURCE,
             ],
         )
+
+    def test_high_growth_unprofitable_rule(self):
+        loss, profit = Decimal("-5"), Decimal("5")
+        self.assertEqual(
+            high_growth_unprofitable_reason(
+                earnings_ttm=loss, revenue_growth=None, display_name="某某生物-U", symbol="688123"
+            ),
+            "financial_rule:star_unprofitable_listing",
+        )
+        self.assertEqual(
+            high_growth_unprofitable_reason(
+                earnings_ttm=loss, revenue_growth=Decimal("0.25"), display_name="某某科技", symbol="300123"
+            ),
+            "financial_rule:ttm_loss_revenue_growth",
+        )
+        for earnings, growth, name, symbol in (
+            (loss, Decimal("0.05"), "某某科技", "300123"),
+            (profit, Decimal("0.50"), "某某生物-U", "688123"),
+            (loss, None, "某某生物-U", "600123"),
+            (None, Decimal("0.50"), "某某科技", "300123"),
+        ):
+            self.assertIsNone(
+                high_growth_unprofitable_reason(
+                    earnings_ttm=earnings, revenue_growth=growth, display_name=name, symbol=symbol
+                )
+            )
 
 
 if __name__ == "__main__":

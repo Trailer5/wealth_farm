@@ -2,11 +2,19 @@ import io
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from src.master_data import ASSET_TYPE_STOCK, Asset
+from src.research_contracts import (
+    Personalization,
+    ResearchIntent,
+    ResearchRequest,
+    SubjectType,
+)
 from src.research_orchestration import create_default_container
 from src.research_orchestration.cli import main
+from src.research_routing import RoutingStatus, StepOutcomeStatus
 
 
 class UserContextCliTest(unittest.TestCase):
@@ -68,6 +76,49 @@ class UserContextCliTest(unittest.TestCase):
         (user,) = listed["users"]
         self.assertEqual(user["user"]["user_id"], "user:default")
         self.assertEqual(user["mandates"], [])
+
+    def test_confirmed_meaning_becomes_a_new_preference_version_for_q5(self):
+        self._run(
+            "record-holding", "--user-id", "user:default", "--asset-id", "stock:000001", "--quantity", "1000"
+        )
+        base = ["record-preference", "--user-id", "user:default", "--as-of-date", "2026-10-28"]
+        code, preview = self._run(
+            *base, "--profile", "balanced", "--horizon", "1_3y", "--statement", "亏两成能接受", "--dry-run"
+        )
+        self.assertEqual(code, 0)
+        self.assertFalse(preview["recorded"])
+        self.assertIsNone(self.container.user_context.describe("user:default")["preference"])
+        code, first = self._run(*base, "--profile", "balanced", "--horizon", "1_3y", "--statement", "亏两成能接受")
+        code, second = self._run(*base, "--meaning", "higher_equity", "--statement", "想更激进，多放股票")
+
+        self.assertEqual(code, 0)
+        self.assertEqual(second["preference"]["version"], 2)
+        self.assertIn("equity_weight_high", {item["field"] for item in second["changes"]})
+        described = self.container.user_context.describe("user:default")
+        self.assertEqual(described["preference"]["preference_id"], second["personal_ref"])
+        self.assertEqual([item["version"] for item in described["preference_history"]], [1, 2])
+
+        request = ResearchRequest(
+            request_id="q5",
+            as_of_date="2026-10-28",
+            subject_type=SubjectType.PORTFOLIO,
+            subject_refs=(),
+            intents=(ResearchIntent.EVALUATE, ResearchIntent.PLAN),
+            personalization=Personalization.REQUIRED,
+            user_id="user:default",
+        )
+        unconfirmed = self.container.recipe_executor.run(
+            replace(request, personal_refs=(first["personal_ref"],))
+        )
+        self.assertEqual(unconfirmed.routing.status, RoutingStatus.NEEDS_USER_CONTEXT)
+        # Diagnosis and allocation fetch prices remotely; this test only covers the preference step.
+        self.container.recipe_executor.portfolio_diagnosis = None
+        self.container.recipe_executor.allocation = None
+        self.container.recipe_executor.adjustment = None
+        run = self.container.recipe_executor.run(replace(request, personal_refs=(second["personal_ref"],)))
+        outcome = next(item for item in run.step_outcomes if item.step_id == "confirm_preference")
+        self.assertEqual(outcome.status, StepOutcomeStatus.COMPLETED)
+        self.assertIn("权益比例上限", outcome.summary)
 
 
 if __name__ == "__main__":

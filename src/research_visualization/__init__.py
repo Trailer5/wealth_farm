@@ -15,6 +15,7 @@ from .models import (
     ChartType,
 )
 from .renderer import ChartRenderer
+from .plan_html import check_plan_html, render_plan_html
 from .reporting import (
     PublishedReport,
     ReportArtifactService,
@@ -36,4 +37,6 @@ __all__ = [
     "build_price_volume_spec",
     "build_valuation_history_spec",
     "chart_types_for_profile",
+    "check_plan_html",
+    "render_plan_html",
 ]

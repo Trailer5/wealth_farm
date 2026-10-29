@@ -156,6 +156,25 @@ MACRO_SERIES: tuple[MacroSeriesDefinition, ...] = (
         ("akshare",), _NEXT_BUSINESS_DAY,
         "乐咕乐股计算；历史为月末值，最新一期为最近交易日。",
     ),
+    *(
+        MacroSeriesDefinition(
+            series_id, f"{index_name} 滚动市盈率（市值加权）", "市场", "monthly", "倍",
+            ("akshare",), _NEXT_BUSINESS_DAY,
+            "乐咕乐股计算；历史为月末值，最新一期为最近交易日。供场外基金底层估值位置使用。",
+        )
+        for series_id, index_name in (
+            ("csi1000_pe_ttm", "中证1000"),
+            ("csi800_pe_ttm", "中证800"),
+            ("csi100_pe_ttm", "中证100"),
+            ("sse50_pe_ttm", "上证50"),
+            ("sse180_pe_ttm", "上证180"),
+            ("sse380_pe_ttm", "上证380"),
+            ("chinext50_pe_ttm", "创业板50"),
+            ("szse100_pe_ttm", "深证100"),
+            ("szse_dividend_pe_ttm", "深证红利"),
+            ("sse_dividend_pe_ttm", "上证红利"),
+        )
+    ),
     MacroSeriesDefinition(
         "new_high_60", "全 A 股创 60 日新高家数", "市场", "daily", "家",
         ("akshare",), _NEXT_BUSINESS_DAY, "乐咕乐股；来源只保留约两年历史。",

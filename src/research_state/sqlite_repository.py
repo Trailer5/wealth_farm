@@ -209,6 +209,12 @@ class SQLiteResearchStateRepository:
                 """,
                 [self.SCHEMA_VERSION, self.SCHEMA_DESCRIPTION],
             )
+            columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(holding_positions)")
+            }
+            if "first_bought_on" not in columns:
+                conn.execute("ALTER TABLE holding_positions ADD COLUMN first_bought_on TEXT")
 
     def insert_watchlist(self, watchlist: Watchlist) -> None:
         with self._connect() as conn:
@@ -351,14 +357,16 @@ class SQLiteResearchStateRepository:
                     currency,
                     note,
                     created_at,
-                    updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    updated_at,
+                    first_bought_on
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (user_id, asset_id) DO UPDATE SET
                     quantity = excluded.quantity,
                     average_cost = excluded.average_cost,
                     currency = excluded.currency,
                     note = excluded.note,
-                    updated_at = excluded.updated_at
+                    updated_at = excluded.updated_at,
+                    first_bought_on = excluded.first_bought_on
                 """,
                 [
                     position.user_id,
@@ -369,6 +377,7 @@ class SQLiteResearchStateRepository:
                     position.note,
                     position.created_at,
                     position.updated_at,
+                    position.first_bought_on,
                 ],
             )
 
@@ -394,7 +403,7 @@ class SQLiteResearchStateRepository:
             row = conn.execute(
                 """
                 SELECT user_id, asset_id, quantity, average_cost, currency,
-                       note, created_at, updated_at
+                       note, created_at, updated_at, first_bought_on
                 FROM holding_positions
                 WHERE user_id = ? AND asset_id = ?
                 """,
@@ -407,7 +416,7 @@ class SQLiteResearchStateRepository:
             rows = conn.execute(
                 """
                 SELECT user_id, asset_id, quantity, average_cost, currency,
-                       note, created_at, updated_at
+                       note, created_at, updated_at, first_bought_on
                 FROM holding_positions
                 WHERE user_id = ?
                 ORDER BY asset_id
@@ -782,6 +791,7 @@ def _holding_from_row(row: sqlite3.Row) -> HoldingPosition:
         note=str(row["note"]),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
+        first_bought_on=row["first_bought_on"],
     )
 
 

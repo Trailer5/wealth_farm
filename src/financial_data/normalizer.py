@@ -85,8 +85,13 @@ _CANONICAL_FIELDS = {
     "TOTAL_OPERATE_INCOME": "total_revenue",
     "OPERATE_INCOME": "revenue",
     "OPERATE_COST": "operating_cost",
+    "RESEARCH_EXPENSE": "research_expense",
+    "研发费用": "research_expense",
     "TOTAL_OPERATE_COST": "total_operating_cost",
     "PARENT_NETPROFIT": "parent_net_profit",
+    "DEDUCT_PARENT_NETPROFIT": "deducted_parent_net_profit",
+    "扣除非经常性损益后的净利润": "deducted_parent_net_profit",
+    "KCFJCXSYJLR": "deducted_parent_net_profit_ytd",
     "NETPROFIT": "net_profit",
     "OPERATE_PROFIT": "operating_profit",
     "TOTAL_PROFIT": "pretax_profit",
@@ -112,9 +117,11 @@ _CANONICAL_FIELDS = {
     "NETCASH_FINANCE": "financing_cash_flow",
     "CONSTRUCT_LONG_ASSET": "capital_expenditure",
     "DPN_AMORTIZATION": "depreciation_amortization",
-    "ASSIGN_DIVIDEND_PORFIT": "annual_dividends",
+    # Includes interest paid, so it must not be read as dividends.
+    "ASSIGN_DIVIDEND_PORFIT": "dividends_and_interest_paid",
     "BASIC_EPS": "basic_eps",
-    "DEDUCT_BASIC_EPS": "diluted_eps",
+    "DEDUCT_BASIC_EPS": "deducted_basic_eps",
+    "DILUTED_EPS": "diluted_eps",
     "ROE_WEIGHT": "roe",
     "ROEJQ": "roe",
     "ROEKCJQ": "roe_excluding_nonrecurring",
@@ -275,6 +282,7 @@ def _normalize_numeric(
     if "每股" in field_label or field_label in {
         "BASIC_EPS",
         "DEDUCT_BASIC_EPS",
+        "DILUTED_EPS",
         "BPS",
     }:
         return value, "CNY", "CNY_per_share"
@@ -312,6 +320,12 @@ def _is_ratio_field(field_label: str) -> bool:
         "NONPERLOAN",
         "ROIC",
     }
+
+
+def canonical_field_name(field_label: str) -> str:
+    """Field name for a provider label; applied on read so new mappings cover cached rows."""
+
+    return _field_name(field_label)
 
 
 def _field_name(field_label: str) -> str:

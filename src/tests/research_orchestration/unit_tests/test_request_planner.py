@@ -25,6 +25,7 @@ from src.research_orchestration.cli import main
 from src.research_contracts import (
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
+    PROFILE_HIGH_GROWTH_UNPROFITABLE,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
     DecisionIntent,
@@ -196,6 +197,52 @@ class ResearchRequestPlannerTest(unittest.TestCase):
             PROFILE_FINANCIAL_INSTITUTION,
         )
         self.assertIn("profile_assignment", result.routing_notes)
+
+    def test_growth_rule_reroutes_ordinary_company_unless_manually_assigned(self):
+        calls = []
+
+        def detector(asset, as_of_date):
+            calls.append(asset.asset_id)
+            return "financial_rule:ttm_loss_revenue_growth"
+
+        planner = ResearchRequestPlanner(
+            master_data=self.master_data,
+            task_factory=self.task_factory,
+            profile_assignment=self.assignment,
+            growth_detector=detector,
+        )
+        request = ResearchPlanningRequest(symbol="600519", as_of_date="2026-08-23")
+        routed = planner.plan(request)
+        self.assertEqual(routed.profile_id, PROFILE_HIGH_GROWTH_UNPROFITABLE)
+        self.assertIn("financial_rule:ttm_loss_revenue_growth", routed.routing_notes)
+
+        self.assertEqual(
+            planner.plan(
+                ResearchPlanningRequest(asset_id=self.financial.asset_id, as_of_date="2026-08-23")
+            ).profile_id,
+            PROFILE_FINANCIAL_INSTITUTION,
+        )
+        self.assertEqual(calls, [self.stock.asset_id])
+
+        self.assignment.assign_manual(
+            asset_id=self.stock.asset_id,
+            profile_id=PROFILE_ORDINARY_COMPANY,
+            industry_name="白酒",
+            effective_date="2026-01-01",
+            reason="unit_test",
+        )
+        self.assertEqual(planner.plan(request).profile_id, PROFILE_ORDINARY_COMPANY)
+        self.assertEqual(len(calls), 1)
+
+        def failing(asset, as_of_date):
+            raise OSError("offline")
+
+        fallback = ResearchRequestPlanner(
+            master_data=self.master_data,
+            task_factory=self.task_factory,
+            growth_detector=failing,
+        ).plan(request)
+        self.assertEqual(fallback.profile_id, PROFILE_ORDINARY_COMPANY)
 
     def test_open_fund_keeps_purchase_goal_but_uses_understanding_task(self):
         result = self.planner.plan(

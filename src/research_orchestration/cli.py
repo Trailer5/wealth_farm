@@ -7,6 +7,7 @@ import json
 import sys
 from collections.abc import Sequence
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import Callable, TextIO
 
@@ -25,12 +26,25 @@ from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     DecisionIntent,
     DecisionLane,
+    InvestmentThesis,
     ResearchHorizon,
     ResearchQuestionType,
     ResearchRequest,
     View,
 )
+from src.master_data import ASSET_TYPE_STOCK
+from src.portfolio_risk import (
+    AggressivenessMeaning,
+    PreferenceHorizon,
+    RiskProfile,
+    TradeRecord,
+    TradeSide,
+    derive_preference,
+    initial_preference,
+    preference_changes,
+)
 from src.analog_history import ANALOG_METRICS
+from src.discovery_funnel import DEFAULT_BASE_PACKS, STRATEGIES, DiscoveryScope
 from src.research_ledger import LedgerEntryType
 from src.research_routing import (
     QuestionRouter,
@@ -50,6 +64,9 @@ from .container import (
     create_default_container,
 )
 from .models import ResearchRunRequest, ResearchRunStatus
+from .cli_help import EPILOGS
+from .strategy_archive import StrategyArchiveError
+from src.strategy import LifecycleState
 from .event_name_discovery import EventNameDiscoveryRunRequest
 from .ledger_projection import LedgerRecordingStatus
 from .request_planner import (
@@ -235,6 +252,61 @@ def build_parser() -> argparse.ArgumentParser:
         default="data/database/wealth_farm.sqlite3",
     )
     record_view.add_argument("--report-root", default="report")
+    record_thesis = commands.add_parser(
+        "record-thesis",
+        help="Record an investment thesis (InvestmentThesis JSON) and its metric views.",
+    )
+    record_thesis.add_argument(
+        "--thesis-json",
+        required=True,
+        help="Path to an InvestmentThesis JSON file; decimals are strings.",
+    )
+    record_thesis.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    record_thesis.add_argument("--report-root", default="report")
+    thesis_check = commands.add_parser(
+        "thesis-check",
+        help="Check recorded theses of a stock against reports published by a date.",
+    )
+    thesis_target = thesis_check.add_mutually_exclusive_group(required=True)
+    thesis_target.add_argument("--asset-id")
+    thesis_target.add_argument("--symbol", help="Stock code; resolved to the stock asset.")
+    thesis_check.add_argument("--user-id", help="Include this user's personal theses.")
+    thesis_check.add_argument("--thesis-entry-id", help="Check one thesis ledger entry.")
+    thesis_check.add_argument("--as-of-date", default=date.today().isoformat())
+    thesis_check.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    thesis_check.add_argument("--report-root", default="report")
+    exit_plan = commands.add_parser(
+        "exit-plan",
+        help="Exit plan and behavioral hints for a recorded holding; records the sell conditions.",
+    )
+    exit_target = exit_plan.add_mutually_exclusive_group(required=True)
+    exit_target.add_argument("--asset-id")
+    exit_target.add_argument("--symbol", help="Stock code; resolved to the stock asset.")
+    exit_plan.add_argument("--user-id", required=True)
+    exit_plan.add_argument("--as-of-date", default=date.today().isoformat())
+    exit_plan.add_argument(
+        "--alternatives",
+        default="",
+        help="Comma-separated stock codes of same-risk alternatives to compare implied returns with.",
+    )
+    exit_plan.add_argument(
+        "--intended-action",
+        choices=("hold", "add", "reduce", "exit"),
+        help="What the user says they intend to do; drives the behavioral hints.",
+    )
+    exit_plan.add_argument("--no-record", action="store_true")
+    exit_plan.add_argument("--no-remote", action="store_true")
+    exit_plan.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    exit_plan.add_argument("--report-root", default="report")
     asset = commands.add_parser(
         "asset",
         help="Look up asset IDs by code; registers listings not yet known locally.",
@@ -286,6 +358,19 @@ def build_parser() -> argparse.ArgumentParser:
         default="data/database/wealth_farm.sqlite3",
     )
     cross_section.add_argument("--report-root", default="report")
+    valuation_position = commands.add_parser(
+        "valuation-position",
+        help="A stock's PE/PB/PS percentiles against its own history and Shenwan peers.",
+    )
+    valuation_position.add_argument("--symbol", required=True)
+    valuation_position.add_argument("--as-of-date", default=date.today().isoformat())
+    valuation_position.add_argument("--years", type=int, default=8)
+    valuation_position.add_argument("--no-remote", action="store_true")
+    valuation_position.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    valuation_position.add_argument("--report-root", default="report")
     macro = commands.add_parser(
         "macro",
         help="List macro series or read one series as of a date.",
@@ -344,6 +429,66 @@ def build_parser() -> argparse.ArgumentParser:
         default="data/database/wealth_farm.sqlite3",
     )
     macro_archive.add_argument("--report-root", default="report")
+    sector_archive = commands.add_parser(
+        "sector-archive",
+        help="Build a Shenwan industry archive as of a date and record it.",
+    )
+    sector_archive.add_argument("--code", required=True, help="Shenwan industry code, e.g. 801120.")
+    sector_archive.add_argument("--as-of-date", default=date.today().isoformat())
+    sector_archive.add_argument(
+        "--no-record",
+        action="store_true",
+        help="Do not record the state assessment in the ledger.",
+    )
+    sector_archive.add_argument("--no-remote", action="store_true")
+    sector_archive.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    sector_archive.add_argument("--report-root", default="report")
+    valuation_model = commands.add_parser(
+        "valuation-model",
+        help="Implied expectations (reverse DCF / PB-ROE) and scenario values for one stock; records them.",
+    )
+    valuation_model.add_argument("--symbol", required=True)
+    valuation_model.add_argument("--as-of-date", default=date.today().isoformat())
+    valuation_model.add_argument("--erp", type=float, help="Equity risk premium override, default 0.05.")
+    valuation_model.add_argument("--terminal-growth", type=float, help="Terminal growth override, default 0.02.")
+    valuation_model.add_argument(
+        "--no-record",
+        action="store_true",
+        help="Do not record the assessment in the ledger.",
+    )
+    valuation_model.add_argument("--no-remote", action="store_true")
+    valuation_model.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    valuation_model.add_argument("--report-root", default="report")
+    discover = commands.add_parser(
+        "discover",
+        help="Multi-strategy discovery funnel in a scope, with base packs for the top candidates.",
+    )
+    discover.add_argument(
+        "--scope",
+        help="industry:<Shenwan code>, index:<index code>, market, or symbols:<code,...>.",
+    )
+    discover.add_argument("--label", help="Readable scope name, e.g. the theme a symbol list stands for.")
+    discover.add_argument("--as-of-date", default=date.today().isoformat())
+    discover.add_argument("--strategies", help="Comma-separated strategy IDs; default all.")
+    discover.add_argument("--base-packs", type=int, default=DEFAULT_BASE_PACKS)
+    discover.add_argument("--no-history", action="store_true", help="Skip rule history replay.")
+    discover.add_argument("--no-remote", action="store_true")
+    discover.add_argument("--limit", type=int, default=20, help="Candidates printed; 0 prints all.")
+    discover.add_argument("--output", help="Write the full run JSON to this path.")
+    discover.add_argument("--run-id", help="Read a stored run instead of running.")
+    discover.add_argument("--symbols", help="With --run-id: per-strategy outcome of these members.")
+    discover.add_argument("--list-strategies", action="store_true")
+    discover.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    discover.add_argument("--report-root", default="report")
     analog = commands.add_parser(
         "analog",
         help="Forward CSI 300 returns after dates in a metric's percentile band.",
@@ -392,6 +537,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
     )
     run_recipe.add_argument(
+        "--cash",
+        type=float,
+        help="Uninvested cash the user stated, in yuan, for the portfolio recipes.",
+    )
+    run_recipe.add_argument(
         "--db-path",
         default="data/database/wealth_farm.sqlite3",
     )
@@ -420,9 +570,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Record one holding the user explicitly provided.",
     )
     record_holding.add_argument("--user-id", required=True)
-    record_holding.add_argument("--asset-id", required=True)
+    holding_subject = record_holding.add_mutually_exclusive_group(required=True)
+    holding_subject.add_argument("--asset-id")
+    holding_subject.add_argument("--symbol", help="Six-digit code; combine with --asset-type when the code is shared.")
+    record_holding.add_argument(
+        "--asset-type",
+        default=ASSET_TYPE_STOCK,
+        help="Asset type for --symbol: stock (default), open_fund or exchange_fund.",
+    )
     record_holding.add_argument("--quantity", required=True, type=float)
     record_holding.add_argument("--average-cost", type=float)
+    record_holding.add_argument(
+        "--first-bought-on",
+        help="Date of the first purchase as the user states it (YYYY-MM-DD).",
+    )
     record_holding.add_argument("--currency", default="CNY")
     record_holding.add_argument("--note", default="")
     record_holding.add_argument(
@@ -430,6 +591,274 @@ def build_parser() -> argparse.ArgumentParser:
         default="data/database/wealth_farm.sqlite3",
     )
     record_holding.add_argument("--report-root", default="report")
+    record_preference = commands.add_parser(
+        "record-preference",
+        help=(
+            "Record the next version of a user's portfolio preference: a preset profile, "
+            "or confirmed aggressiveness meanings applied to the latest version."
+        ),
+    )
+    record_preference.add_argument("--user-id", required=True)
+    preference_basis = record_preference.add_mutually_exclusive_group(required=True)
+    preference_basis.add_argument(
+        "--profile",
+        choices=[item.value for item in RiskProfile],
+        help="Start from (or restate to) a preset profile.",
+    )
+    preference_basis.add_argument(
+        "--meaning",
+        action="append",
+        choices=[item.value for item in AggressivenessMeaning],
+        help="Confirmed meaning of 'more aggressive'; repeat for several.",
+    )
+    record_preference.add_argument(
+        "--horizon",
+        choices=[item.value for item in PreferenceHorizon],
+        help="Required with --profile.",
+    )
+    record_preference.add_argument(
+        "--statement",
+        required=True,
+        help="The user's own words this version is based on.",
+    )
+    record_preference.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        metavar="FIELD=VALUE",
+        help="User-stated value overriding the derived one, e.g. max_drawdown=0.25.",
+    )
+    record_preference.add_argument("--liquidity-need-amount")
+    record_preference.add_argument("--liquidity-need-by")
+    record_preference.add_argument("--as-of-date", default=date.today().isoformat())
+    record_preference.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show the derived version without recording it, for the user to confirm.",
+    )
+    record_preference.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    record_preference.add_argument("--report-root", default="report")
+    diagnose = commands.add_parser(
+        "portfolio-diagnose",
+        help="Diagnose a user's recorded holdings: exposures, overlap, correlation, risk contribution, stress.",
+    )
+    diagnose.add_argument("--user-id", required=True)
+    diagnose.add_argument("--as-of-date", default=date.today().isoformat())
+    diagnose.add_argument("--cash", type=float, help="Uninvested cash the user stated, in yuan.")
+    diagnose.add_argument("--no-remote", action="store_true")
+    diagnose.add_argument("--no-report", action="store_true")
+    diagnose.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    diagnose.add_argument("--report-root", default="report")
+    allocation = commands.add_parser(
+        "allocation-proposal",
+        help="Target equity range and risk-budget reference weights from the user's latest preference.",
+    )
+    allocation.add_argument("--user-id", required=True)
+    allocation.add_argument("--as-of-date", default=date.today().isoformat())
+    allocation.add_argument("--cash", type=float, help="Uninvested cash the user stated, in yuan.")
+    allocation.add_argument("--no-remote", action="store_true")
+    allocation.add_argument("--no-report", action="store_true")
+    allocation.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    allocation.add_argument("--report-root", default="report")
+    adjustment = commands.add_parser(
+        "adjustment-proposal",
+        help="Target weight ranges, a stepwise migration path with costs, and the adjusted portfolio's risk.",
+    )
+    adjustment.add_argument("--user-id", required=True)
+    adjustment.add_argument("--as-of-date", default=date.today().isoformat())
+    adjustment.add_argument("--cash", type=float, help="Uninvested cash the user stated, in yuan.")
+    adjustment.add_argument(
+        "--candidate",
+        action="append",
+        default=[],
+        metavar="SYMBOL[:ASSET_TYPE]",
+        help="Researched or user-named asset to add; default asset type stock. Replaces the default broad ETFs.",
+    )
+    adjustment.add_argument("--no-remote", action="store_true")
+    adjustment.add_argument("--no-report", action="store_true")
+    adjustment.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    adjustment.add_argument("--report-root", default="report")
+    portfolio_plan = commands.add_parser(
+        "portfolio-plan",
+        help="Assemble the portfolio plan (migration steps, recorded actions, review nodes, targets); --record to ledger it.",
+    )
+    portfolio_plan.add_argument("--user-id", required=True)
+    portfolio_plan.add_argument("--as-of-date", default=date.today().isoformat())
+    portfolio_plan.add_argument("--cash", type=float)
+    portfolio_plan.add_argument("--candidate", action="append", default=[], metavar="SYMBOL[:ASSET_TYPE]")
+    portfolio_plan.add_argument(
+        "--record",
+        action="store_true",
+        help="Record the plan and its new actions after the user confirmed them.",
+    )
+    portfolio_plan.add_argument("--no-remote", action="store_true")
+    portfolio_plan.add_argument("--no-report", action="store_true")
+    portfolio_plan.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    portfolio_plan.add_argument("--report-root", default="report")
+    record_trade = commands.add_parser(
+        "record-trade",
+        help=(
+            "Log one trade the user says they made (optional trade log for decision review); "
+            "does not change holdings, update those with record-holding."
+        ),
+    )
+    record_trade.add_argument("--user-id", required=True)
+    trade_subject = record_trade.add_mutually_exclusive_group(required=True)
+    trade_subject.add_argument("--asset-id")
+    trade_subject.add_argument("--symbol")
+    record_trade.add_argument("--asset-type", default=ASSET_TYPE_STOCK)
+    record_trade.add_argument("--side", required=True, choices=[item.value for item in TradeSide])
+    record_trade.add_argument("--date", required=True, help="Trade date YYYY-MM-DD.")
+    record_trade.add_argument("--quantity", required=True, help="Units traded, positive.")
+    record_trade.add_argument("--price")
+    record_trade.add_argument("--note", default="")
+    record_trade.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    record_trade.add_argument("--report-root", default="report")
+    decision_review = commands.add_parser(
+        "decision-review",
+        help=(
+            "Review settled ledger judgements (hit rate, timing contribution), plan review nodes and execution, "
+            "and compare the stated preference with measured risk and logged trades."
+        ),
+    )
+    decision_review.add_argument("--user-id", required=True)
+    decision_review.add_argument("--as-of-date", default=date.today().isoformat())
+    decision_review.add_argument("--cash", type=float)
+    decision_review.add_argument(
+        "--no-calibration",
+        action="store_true",
+        help="Skip the preference calibration (no price fetching).",
+    )
+    decision_review.add_argument("--no-remote", action="store_true")
+    decision_review.add_argument("--no-report", action="store_true")
+    decision_review.add_argument(
+        "--include-dev-seed",
+        action="store_true",
+        help="Count development sample judgements (source_ref dev-seed:) too; for development checks only.",
+    )
+    decision_review.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    decision_review.add_argument("--report-root", default="report")
+    routine = commands.add_parser(
+        "routine",
+        help=(
+            "Manual upkeep in one run: settle due ledger checkpoints, refresh market and macro archives, "
+            "check the user's active theses and list due plan review nodes; follow next_actions."
+        ),
+    )
+    routine.add_argument("--user-id", required=True)
+    routine.add_argument("--as-of-date", default=date.today().isoformat())
+    routine.add_argument("--no-remote", action="store_true")
+    routine.add_argument(
+        "--skip-archives",
+        action="store_true",
+        help="Do not rebuild the market and macro archives.",
+    )
+    routine.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    routine.add_argument("--report-root", default="report")
+    strategy_archive = commands.add_parser(
+        "strategy-archive",
+        help="List strategy archives, show one, register a strategy version, or move its lifecycle state.",
+    )
+    strategy_archive.add_argument("--strategy-id")
+    strategy_archive.add_argument("--version")
+    strategy_archive.add_argument("--register-json", help="Path to a StrategyArchive JSON file.")
+    strategy_archive.add_argument("--templates", action="store_true", help="List strategy templates.")
+    strategy_archive.add_argument("--from-template", help="Register a strategy as template + parameters.")
+    strategy_archive.add_argument("--asset", action="append", default=[], metavar="SYMBOL:TYPE[:ROLE]")
+    strategy_archive.add_argument("--set", action="append", default=[], metavar="NAME=VALUE")
+    strategy_archive.add_argument("--name")
+    strategy_archive.add_argument(
+        "--transition",
+        choices=[item.value for item in LifecycleState],
+        help="Target lifecycle state (needs --strategy-id and --reason).",
+    )
+    strategy_archive.add_argument("--reason", default="")
+    strategy_archive.add_argument("--evidence-ref", action="append", default=[])
+    strategy_archive.add_argument("--as-of-date", default=date.today().isoformat())
+    strategy_archive.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    strategy_archive.add_argument("--report-root", default="report")
+    strategy_backtest = commands.add_parser(
+        "strategy-backtest",
+        help="Backtest an archived strategy with costs, capacity and four simple benchmarks; logs the attempt.",
+    )
+    strategy_backtest.add_argument("--strategy-id", required=True)
+    strategy_backtest.add_argument("--version")
+    strategy_backtest.add_argument("--start-date")
+    strategy_backtest.add_argument("--end-date")
+    strategy_backtest.add_argument("--set", action="append", default=[], metavar="NAME=VALUE")
+    strategy_backtest.add_argument("--initial-cash", type=float, default=1_000_000.0)
+    strategy_backtest.add_argument("--lots", action="store_true", help="Trade whole lots of 100.")
+    strategy_backtest.add_argument("--no-remote", action="store_true")
+    strategy_backtest.add_argument("--as-of-date", default=date.today().isoformat())
+    strategy_backtest.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    strategy_backtest.add_argument("--report-root", default="report")
+    strategy_evaluate = commands.add_parser(
+        "strategy-evaluate",
+        help="Complete validation: rolling out-of-sample, parameter neighbourhood and deflated significance.",
+    )
+    strategy_evaluate.add_argument("--strategy-id", required=True)
+    strategy_evaluate.add_argument("--version")
+    strategy_evaluate.add_argument("--start-date")
+    strategy_evaluate.add_argument("--end-date")
+    strategy_evaluate.add_argument("--train-years", type=float, default=3.0)
+    strategy_evaluate.add_argument("--test-years", type=float, default=2.0)
+    strategy_evaluate.add_argument("--gap-days", type=int, default=21)
+    strategy_evaluate.add_argument("--lots", action="store_true", help="Trade whole lots of 100.")
+    strategy_evaluate.add_argument("--no-remote", action="store_true")
+    strategy_evaluate.add_argument("--as-of-date", default=date.today().isoformat())
+    strategy_evaluate.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    strategy_evaluate.add_argument("--report-root", default="report")
+    strategy_track = commands.add_parser(
+        "strategy-track",
+        help="Record today's forward signal of a strategy in forward tracking (or all of them) and its forward record.",
+    )
+    strategy_track.add_argument("--strategy-id")
+    strategy_track.add_argument("--version")
+    strategy_track.add_argument("--all", action="store_true", help="Track every strategy in forward tracking or enabled.")
+    strategy_track.add_argument("--no-remote", action="store_true")
+    strategy_track.add_argument("--as-of-date", default=date.today().isoformat())
+    strategy_track.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    strategy_track.add_argument("--report-root", default="report")
+    for name, epilog in EPILOGS.items():
+        command = commands.choices[name]
+        command.epilog = epilog
+        command.formatter_class = argparse.RawDescriptionHelpFormatter
     return parser
 
 
@@ -443,11 +872,12 @@ def main(
     stderr: TextIO | None = None,
 ) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    # Before parsing: --help prints Chinese epilogs and exits inside parse_args.
     if stdout is None and hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     if stderr is None and hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
+    args = parser.parse_args(argv)
     output = stdout or sys.stdout
     error_output = stderr or sys.stderr
 
@@ -576,6 +1006,45 @@ def main(
             )
             print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=output)
             return 0
+        if args.command == "record-thesis":
+            payload = container.thesis.record(
+                InvestmentThesis.from_dict(
+                    json.loads(Path(args.thesis_json).read_text(encoding="utf-8"))
+                )
+            )
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=output)
+            return 0
+        if args.command in ("thesis-check", "exit-plan"):
+            asset_id = args.asset_id
+            if asset_id is None:
+                stocks = container.master_data.find_assets(
+                    standard_symbol=args.symbol,
+                    asset_type=ASSET_TYPE_STOCK,
+                )
+                if len(stocks) != 1:
+                    print(f"无法唯一识别股票 {args.symbol}；用 asset --symbol 查 asset_id", file=sys.stderr)
+                    return 2
+                asset_id = stocks[0].asset_id
+            if args.command == "exit-plan":
+                payload = container.exit_plan.run(
+                    user_id=args.user_id,
+                    asset_id=asset_id,
+                    as_of_date=args.as_of_date,
+                    alternatives=tuple(item for item in args.alternatives.split(",") if item),
+                    intended_action=args.intended_action,
+                    record=not args.no_record,
+                    allow_remote=not args.no_remote,
+                )
+                print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
+                return 0
+            payload = container.thesis.check(
+                asset_id,
+                as_of_date=args.as_of_date,
+                user_id=args.user_id,
+                thesis_entry_id=args.thesis_entry_id,
+            )
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=output)
+            return 0
         if args.command == "asset":
             assets = container.master_data.find_assets(
                 standard_symbol=args.symbol,
@@ -619,6 +1088,19 @@ def main(
                 file=output,
             )
             return 0
+        if args.command == "valuation-position":
+            payload = container.valuation_position.position(
+                args.symbol,
+                as_of_date=args.as_of_date,
+                years=args.years,
+                allow_remote=not args.no_remote,
+            )
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0
+        if args.command == "discover":
+            payload = _discover_payload(container, args)
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0 if payload is not None else 2
         if args.command == "cross-section":
             print(
                 json.dumps(
@@ -657,6 +1139,32 @@ def main(
             )
             payload = recorder.run(
                 args.as_of_date,
+                record=not args.no_record,
+                allow_remote=not args.no_remote,
+            )
+            print(
+                json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str),
+                file=output,
+            )
+            return 0
+        if args.command == "sector-archive":
+            payload = container.sector_state.run(
+                args.as_of_date,
+                record=not args.no_record,
+                allow_remote=not args.no_remote,
+                code=args.code,
+            )
+            print(
+                json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str),
+                file=output,
+            )
+            return 0
+        if args.command == "valuation-model":
+            payload = container.valuation_models.run(
+                args.symbol,
+                args.as_of_date,
+                equity_risk_premium=args.erp,
+                terminal_growth=args.terminal_growth,
                 record=not args.no_record,
                 allow_remote=not args.no_remote,
             )
@@ -733,6 +1241,7 @@ def main(
             run = container.recipe_executor.run(
                 _read_research_request(args.request_json),
                 discovery_request=discovery_request,
+                cash=args.cash,
             )
             print(
                 json.dumps(
@@ -769,13 +1278,24 @@ def main(
             )
             return 0
         if args.command == "record-holding":
+            asset_id = args.asset_id
+            if asset_id is None:
+                matches = _symbol_matches(container, args.symbol, args.asset_type)
+                if len(matches) != 1:
+                    print(
+                        f"无法唯一识别 {args.asset_type} {args.symbol}（找到 {len(matches)} 个）；核对代码与 --asset-type，或用 asset --symbol 查 asset_id",
+                        file=sys.stderr,
+                    )
+                    return 2
+                asset_id = matches[0].asset_id
             container.portfolio_risk.research_state.upsert_holding(
                 container.user_space.context_for_user(args.user_id),
-                asset_id=args.asset_id,
+                asset_id=asset_id,
                 quantity=args.quantity,
                 average_cost=args.average_cost,
                 currency=args.currency,
                 note=args.note,
+                first_bought_on=args.first_bought_on,
             )
             print(
                 json.dumps(
@@ -785,6 +1305,205 @@ def main(
                 ),
                 file=output,
             )
+            return 0
+        if args.command == "record-preference":
+            print(
+                json.dumps(
+                    _record_preference(container, args),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                file=output,
+            )
+            return 0
+        if args.command == "record-trade":
+            asset_id = args.asset_id
+            if asset_id is None:
+                matches = _symbol_matches(container, args.symbol, args.asset_type)
+                if len(matches) != 1:
+                    print(
+                        f"无法唯一识别 {args.asset_type} {args.symbol}（找到 {len(matches)} 个）；核对代码与 --asset-type，或用 asset --symbol 查 asset_id",
+                        file=sys.stderr,
+                    )
+                    return 2
+                asset_id = matches[0].asset_id
+            trade = TradeRecord(
+                user_id=args.user_id,
+                asset_id=asset_id,
+                side=TradeSide(args.side),
+                trade_date=args.date,
+                quantity=Decimal(args.quantity),
+                price=Decimal(args.price) if args.price else None,
+                note=args.note,
+            )
+            added = container.portfolio_risk.record_trade(
+                container.user_space.context_for_user(args.user_id), trade
+            )
+            print(
+                json.dumps({"trade": trade.to_dict(), "recorded": added}, ensure_ascii=False, sort_keys=True),
+                file=output,
+            )
+            return 0
+        if args.command == "decision-review":
+            payload = container.decision_review.run(
+                user_id=args.user_id,
+                as_of_date=args.as_of_date,
+                cash=args.cash,
+                calibrate=not args.no_calibration,
+                allow_remote=not args.no_remote,
+                write_report=not args.no_report,
+                include_dev_seed=args.include_dev_seed,
+            )
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0
+        if args.command == "strategy-archive":
+            service = container.strategy_archive
+            try:
+                if args.templates:
+                    payload = service.templates()
+                elif args.from_template:
+                    if not args.strategy_id:
+                        print("--from-template 需要 --strategy-id", file=error_output)
+                        return 2
+                    payload = service.register_from_template(
+                        args.from_template,
+                        strategy_id=args.strategy_id,
+                        as_of_date=args.as_of_date,
+                        universe_assets=tuple(args.asset),
+                        parameters=dict(item.split("=", 1) for item in args.set),
+                        name=args.name,
+                        version=args.version or "v1",
+                    )
+                elif args.register_json:
+                    payload = service.register(
+                        json.loads(Path(args.register_json).read_text(encoding="utf-8")), args.as_of_date
+                    )
+                elif args.transition:
+                    if not args.strategy_id:
+                        print("--transition 需要 --strategy-id", file=error_output)
+                        return 2
+                    payload = service.transition(
+                        args.strategy_id,
+                        LifecycleState(args.transition),
+                        as_of_date=args.as_of_date,
+                        reason=args.reason,
+                        version=args.version,
+                        evidence_refs=tuple(args.evidence_ref),
+                    )
+                elif args.strategy_id:
+                    payload = service.show(args.strategy_id, args.as_of_date, args.version)
+                else:
+                    payload = service.list_archives(args.as_of_date)
+            except StrategyArchiveError as exc:
+                print(str(exc), file=error_output)
+                return 2
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0 if payload.get("status") != "rejected" else 3
+        if args.command == "strategy-backtest":
+            overrides = dict(item.split("=", 1) for item in args.set)
+            try:
+                payload = container.strategy_backtest.run(
+                    args.strategy_id,
+                    as_of_date=args.as_of_date,
+                    version=args.version,
+                    start_date=args.start_date,
+                    end_date=args.end_date,
+                    overrides=overrides,
+                    initial_cash=args.initial_cash,
+                    lots=args.lots,
+                    allow_remote=not args.no_remote,
+                )
+            except StrategyArchiveError as exc:
+                print(str(exc), file=error_output)
+                return 2
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0
+        if args.command == "strategy-evaluate":
+            try:
+                payload = container.strategy_evaluate.evaluate(
+                    args.strategy_id,
+                    as_of_date=args.as_of_date,
+                    version=args.version,
+                    start_date=args.start_date,
+                    end_date=args.end_date,
+                    train_years=args.train_years,
+                    test_years=args.test_years,
+                    gap_days=args.gap_days,
+                    lots=args.lots,
+                    allow_remote=not args.no_remote,
+                )
+            except StrategyArchiveError as exc:
+                print(str(exc), file=error_output)
+                return 2
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0
+        if args.command == "strategy-track":
+            try:
+                if args.all:
+                    payload = {
+                        "as_of_date": args.as_of_date,
+                        "strategies": container.strategy_track.track_all(
+                            as_of_date=args.as_of_date, allow_remote=not args.no_remote
+                        ),
+                    }
+                elif args.strategy_id:
+                    payload = container.strategy_track.track(
+                        args.strategy_id,
+                        as_of_date=args.as_of_date,
+                        version=args.version,
+                        allow_remote=not args.no_remote,
+                    )
+                else:
+                    print("strategy-track 需要 --strategy-id 或 --all", file=error_output)
+                    return 2
+            except StrategyArchiveError as exc:
+                print(str(exc), file=error_output)
+                return 2
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0
+        if args.command == "routine":
+            payload = container.routine.run(
+                user_id=args.user_id,
+                as_of_date=args.as_of_date,
+                allow_remote=not args.no_remote,
+                archives=not args.skip_archives,
+            )
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0
+        if args.command in ("adjustment-proposal", "portfolio-plan"):
+            candidates = tuple(
+                (symbol, asset_type or ASSET_TYPE_STOCK)
+                for symbol, _, asset_type in (item.partition(":") for item in args.candidate)
+            )
+            common = {
+                "user_id": args.user_id,
+                "as_of_date": args.as_of_date,
+                "cash": args.cash,
+                "candidates": candidates,
+                "allow_remote": not args.no_remote,
+                "write_report": not args.no_report,
+            }
+            payload = (
+                container.adjustment_proposal.run(**common)
+                if args.command == "adjustment-proposal"
+                else container.portfolio_plan.run(**common, record=args.record)
+            )
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0
+        if args.command in ("portfolio-diagnose", "allocation-proposal"):
+            service = (
+                container.portfolio_diagnosis
+                if args.command == "portfolio-diagnose"
+                else container.allocation_proposal
+            )
+            payload = service.run(
+                user_id=args.user_id,
+                as_of_date=args.as_of_date,
+                cash=args.cash,
+                allow_remote=not args.no_remote,
+                write_report=not args.no_report,
+            )
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
             return 0
         asset_id = _resolve_asset_id(container, args)
         task = container.task_factory.create(
@@ -810,7 +1529,7 @@ def main(
         ValueError,
     ) as exc:
         print(
-            "error: research identity or execution could not be resolved: "
+            "error: invalid input or execution failed: "
             f"{exc}",
             file=error_output,
         )
@@ -837,6 +1556,97 @@ def _read_research_request(path: str) -> ResearchRequest:
     return ResearchRequest.from_dict(
         json.loads(Path(path).read_text(encoding="utf-8"))
     )
+
+
+def _record_preference(
+    container: ResearchOrchestrationContainer,
+    args: argparse.Namespace,
+) -> dict[str, object]:
+    context = container.user_space.context_for_user(args.user_id)
+    service = container.portfolio_risk
+    previous = service.latest_preference(context)
+    overrides = dict(_parse_key_value(item) for item in args.set)
+    if args.profile:
+        if not args.horizon:
+            raise ValueError("--profile needs --horizon")
+        preference = initial_preference(
+            user_id=args.user_id,
+            recorded_on=args.as_of_date,
+            risk_profile=RiskProfile(args.profile),
+            horizon=PreferenceHorizon(args.horizon),
+            user_statement=args.statement,
+            overrides=overrides,
+            liquidity_need_amount=(
+                Decimal(args.liquidity_need_amount) if args.liquidity_need_amount else None
+            ),
+            liquidity_need_by=args.liquidity_need_by,
+            previous=previous,
+        )
+    else:
+        if previous is None:
+            raise ValueError(
+                "no recorded preference to make more aggressive: record the current one with --profile first"
+            )
+        if args.horizon:
+            overrides["horizon"] = args.horizon
+        preference = derive_preference(
+            previous,
+            meanings=tuple(AggressivenessMeaning(item) for item in args.meaning),
+            recorded_on=args.as_of_date,
+            user_statement=args.statement,
+            overrides=overrides,
+        )
+    if not args.dry_run:
+        service.record_preference(context, preference)
+    return {
+        "recorded": not args.dry_run,
+        "preference": preference.to_dict(),
+        "readable": preference.describe()["lines"],
+        "changes": preference_changes(previous, preference),
+        "personal_ref": preference.preference_id,
+    }
+
+
+def _parse_key_value(value: str) -> tuple[str, str]:
+    key, separator, item = value.partition("=")
+    if not separator or not key.strip() or not item.strip():
+        raise ValueError(f"expected FIELD=VALUE, got {value!r}")
+    return key.strip(), item.strip()
+
+
+def _discover_payload(
+    container: ResearchOrchestrationContainer,
+    args: argparse.Namespace,
+) -> object:
+    runner = container.discovery_funnel
+    if args.list_strategies:
+        return [item.describe() for item in STRATEGIES]
+    if args.run_id:
+        run = runner.funnel.get(args.run_id)
+        if run is None:
+            return None
+        if args.symbols:
+            wanted = [item.strip().zfill(6) for item in args.symbols.split(",") if item.strip()]
+            return {symbol: run["members"].get(symbol, "不在本次范围内") for symbol in wanted}
+    else:
+        if not args.scope:
+            raise ValueError("discover needs --scope, --run-id or --list-strategies")
+        run = runner.run(
+            DiscoveryScope.parse(args.scope, label=args.label),
+            as_of_date=args.as_of_date,
+            base_packs=args.base_packs,
+            strategy_ids=tuple(args.strategies.split(",")) if args.strategies else None,
+            history=not args.no_history,
+            allow_remote=not args.no_remote,
+        )
+    if args.output:
+        Path(args.output).write_text(
+            json.dumps(run, ensure_ascii=False, indent=1, default=str), encoding="utf-8"
+        )
+    payload = {key: value for key, value in run.items() if key != "members"}
+    if args.limit:
+        payload["candidates"] = run["candidates"][: args.limit]
+    return payload
 
 
 def _cross_section_payload(
@@ -977,6 +1787,16 @@ def _default_planning_horizon(
     if DecisionLane.TIMING in decision_lanes:
         return ResearchHorizon.SHORT
     return ResearchHorizon.MEDIUM_LONG
+
+
+def _symbol_matches(container: ResearchOrchestrationContainer, symbol: str, asset_type: str) -> list:
+    """Persisted identities for a code, registering them from the listings first when none is stored."""
+
+    matches = container.master_data.find_assets(standard_symbol=symbol, asset_type=asset_type)
+    if not matches:
+        container.data_fetch.fetch_and_store_identities(symbol, asset_type=asset_type)
+        matches = container.master_data.find_assets(standard_symbol=symbol, asset_type=asset_type)
+    return matches
 
 
 def _resolve_asset_id(

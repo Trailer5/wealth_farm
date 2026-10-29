@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from src.data_store import SQLiteDataStore
 from src.data_src.akshare import AkShareDataSource
+from src.data_src.akshare.provider import EXCHANGE_LISTING_SEGMENTS
 from src.data_src.baostock import BaoStockDataSource
 from src.data_src.bse import BseDisclosureDataSource
 from src.data_src.cninfo import CninfoDataSource
@@ -50,6 +52,7 @@ from src.data_src.tencent import TencentExchangeFundDataSource
 from src.data_src.ths import ThsDataSource
 from src.data_src.total_return_bars import (
     sina_stock_total_return_bars,
+    sina_tdx_fund_total_return_bars,
     ths_tdx_total_return_bars,
 )
 from src.data_src.process_executor import run_provider_task
@@ -72,6 +75,26 @@ from src.master_data import (
 
 
 DEFAULT_EXCHANGE_FUND_SPOT_SOURCES = ["eastmoney", "tencent", "sina", "akshare"]
+
+
+def _fetch_listing_segment(segment: str) -> list[dict[str, object]]:
+    return run_provider_task(
+        "src.data_src.provider_tasks",
+        "fetch_exchange_listing_segment",
+        {"segment": segment},
+        timeout_seconds=120.0,
+    )
+
+_SEGMENT_TYPES = {
+    "sh_stock": ASSET_TYPE_STOCK,
+    "sz_stock": ASSET_TYPE_STOCK,
+    "bj_stock": ASSET_TYPE_STOCK,
+    "sh_delisted": ASSET_TYPE_STOCK,
+    "sz_delisted": ASSET_TYPE_STOCK,
+    "etf": ASSET_TYPE_EXCHANGE_FUND,
+    "lof": ASSET_TYPE_EXCHANGE_FUND,
+    "index": ASSET_TYPE_INDEX,
+}
 
 
 @dataclass(frozen=True)
@@ -111,8 +134,10 @@ class DataFetchService:
         ocr_extractors: dict[str, object] | None = None,
         master_data_service: MasterDataService | None = None,
         mootdx_source: MootdxDataSource | None = None,
+        listing_fetcher: Callable[[str], list[dict[str, object]]] | None = None,
     ) -> None:
         self.store = store
+        self._listing_fetcher = listing_fetcher or _fetch_listing_segment
         self._master_data = master_data_service
         self.akshare = akshare_source or AkShareDataSource()
         self.baostock = baostock_source or BaoStockDataSource()
@@ -209,6 +234,8 @@ class DataFetchService:
             )
         if source == "baostock":
             return self.baostock.get_trade_dates(start_date, end_date)
+        if source == "sina":
+            return self.akshare.get_trade_dates(start_date, end_date)
         raise ValueError(f"Unsupported trade calendar source: {source}")
 
     def fetch_and_store_a_share_daily_bars(
@@ -502,6 +529,10 @@ class DataFetchService:
                 sina=self.sina,
                 akshare=self.akshare,
             )
+        if source == "sina" and fund:
+            return sina_tdx_fund_total_return_bars(
+                symbol, start_date, end_date, akshare=self.akshare, mootdx=self.mootdx
+            )
         if source == "akshare" and fund:
             return self.akshare.get_etf_total_return_bars(
                 symbol,
@@ -632,6 +663,7 @@ class DataFetchService:
                 symbol,
                 start_date,
                 end_date,
+                exchange=exchange,
             )
         if source == "ths":
             return ThsDataSource().get_index_daily_bars(
@@ -876,6 +908,13 @@ class DataFetchService:
                 if asset_type is None or asset_type in exchange_types
                 else []
             )
+        except DataSourceError as exc:
+            listings = self._directory_listings(code, asset_type, exc)
+        except Exception as exc:  # Provider libraries raise arbitrary errors.
+            listings = self._directory_listings(
+                code, asset_type, DataSourceError(f"identity lookup failed for {code}: {exc}")
+            )
+        try:
             funds = (
                 [
                     item
@@ -923,6 +962,84 @@ class DataFetchService:
             fetched_count=len(listings) + len(funds),
             stored_count=len(resolutions),
         )
+
+    def refresh_exchange_listings(
+        self,
+        segments: tuple[str, ...] = EXCHANGE_LISTING_SEGMENTS,
+        *,
+        max_age_hours: float = 24.0,
+    ) -> dict[str, object]:
+        """Refresh stale segments of the exchange listing directory; per segment: row count, "cached" or an error."""
+
+        self.initialize()
+        known = self.store.get_exchange_listing_segments()
+        now = datetime.now(timezone.utc)
+        outcome: dict[str, object] = {}
+        for segment in segments:
+            fetched = known.get(segment)
+            if fetched and now - datetime.fromisoformat(fetched["fetched_at"]) < timedelta(hours=max_age_hours):
+                outcome[segment] = "cached"
+                continue
+            try:
+                rows = self._listing_fetcher(segment)
+            except DataSourceError:
+                # Full-list endpoints drop connections now and then; one more try before giving up.
+                try:
+                    rows = self._listing_fetcher(segment)
+                except DataSourceError as exc:
+                    outcome[segment] = f"error: {exc}"
+                    continue
+            if not rows:
+                outcome[segment] = "error: empty list"
+                continue
+            outcome[segment] = self.store.replace_exchange_listing_segment(
+                segment, rows, fetched_at=now.isoformat()
+            )
+        return outcome
+
+    def _directory_listings(
+        self,
+        code: str,
+        asset_type: str | None,
+        error: DataSourceError,
+    ) -> list[SecurityInfo]:
+        """Identity from the exchanges' own lists when BaoStock is unavailable.
+
+        Every segment the asset type needs must have been fetched at least once; otherwise the
+        original error is raised, because a partial directory could miss the right product.
+        """
+
+        segments = tuple(
+            segment
+            for segment in EXCHANGE_LISTING_SEGMENTS
+            if asset_type is None or _SEGMENT_TYPES[segment] == asset_type
+        )
+        if not segments:
+            return []
+        self.refresh_exchange_listings(segments)
+        available = self.store.get_exchange_listing_segments()
+        if any(segment not in available for segment in segments):
+            raise error
+        seen: set[tuple[str, str]] = set()
+        securities = []
+        for row in self.store.get_exchange_listings(code=code):
+            if row["segment"] not in segments or (row["exchange"], row["asset_type"]) in seen:
+                continue
+            seen.add((row["exchange"], row["asset_type"]))
+            securities.append(
+                SecurityInfo(
+                    symbol=f"{row['exchange']}.{code}",
+                    name=row["name"],
+                    security_type=row["asset_type"],
+                    exchange=row["exchange"],
+                    source=f"exchange_listing:{row['source']}",
+                    raw={
+                        key: row[key]
+                        for key in ("segment", "listed_on", "delisted_on", "board")
+                    },
+                )
+            )
+        return securities
 
     def fetch_fund_value_estimates(
         self,

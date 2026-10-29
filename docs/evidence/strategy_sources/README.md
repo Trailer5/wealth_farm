@@ -23,5 +23,12 @@
 
 - [ETF 双动量趋势](etf_dual_momentum.md)
 - [上证指数多周期择时](sse_market_timing.md)
+- 策略模板（代码记录在 `src/strategy/template_evidence.py`）：[均线择时](ma_timing.md)、[估值分位择时](valuation_timing.md)、[因子选股](factor_selection.md)、[定期再平衡与分批建仓](rebalance_staged_entry.md)；双动量轮动模板沿用 [ETF 双动量趋势](etf_dual_momentum.md)
+- [折扣夏普比率与最短回测长度（回测显著性方法，非交易策略）](deflated_sharpe.md)
+- [滚动样本外与参数邻域（验证方法，非交易策略）](rolling_oos_neighbourhood.md)
+- [分市场状态表现与夏普差检验（验证方法，非交易策略）](market_regimes.md)
 - [风险预算仓位](position_budget.md)
 - [事件—名称注意力外溢发现](event_name_attention_discovery.md)
+- [内在价值与隐含预期（估值方法，非交易策略）](valuation_models.md)
+- [高成长未盈利就绪度规则（研究规则，非交易策略）](growth_runway.md)
+- [组合配置与风险预算（配置方法，非交易策略）](allocation_risk_budget.md)

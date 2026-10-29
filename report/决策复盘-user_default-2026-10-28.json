@@ -1,0 +1,341 @@
+{
+ "user_id": "user:default",
+ "as_of_date": "2026-10-28",
+ "decisions": {
+  "as_of_date": "2026-10-28",
+  "status_counts": {
+   "settled_action": 5,
+   "pending": 12
+  },
+  "views": {
+   "overall": {
+    "settled": 0,
+    "directional": 0,
+    "met": 0,
+    "missed": 0,
+    "hit_rate": null,
+    "hit_rate_interval": null,
+    "small_sample": true,
+    "interim": 0
+   },
+   "by_origin": [],
+   "by_horizon": [],
+   "by_source": []
+  },
+  "actions": {
+   "overall": {
+    "settled": 5,
+    "directional": 5,
+    "met": 1,
+    "missed": 4,
+    "hit_rate": 0.2,
+    "hit_rate_interval": [
+     0.046,
+     0.5647
+    ],
+    "small_sample": false,
+    "interim": 0,
+    "timing_contribution_mean": -0.0728,
+    "timing_contribution_positive": 1,
+    "timing_contribution_count": 5
+   },
+   "by_direction": [
+    {
+     "group": "买入",
+     "settled": 2,
+     "directional": 2,
+     "met": 0,
+     "missed": 2,
+     "hit_rate": 0.0,
+     "hit_rate_interval": [
+      0.0,
+      0.575
+     ],
+     "small_sample": true,
+     "interim": 0,
+     "timing_contribution_mean": -0.092,
+     "timing_contribution_positive": 0,
+     "timing_contribution_count": 2
+    },
+    {
+     "group": "退出",
+     "settled": 3,
+     "directional": 3,
+     "met": 1,
+     "missed": 2,
+     "hit_rate": 0.3333,
+     "hit_rate_interval": [
+      0.0783,
+      0.7465
+     ],
+     "small_sample": true,
+     "interim": 0,
+     "timing_contribution_mean": -0.06,
+     "timing_contribution_positive": 1,
+     "timing_contribution_count": 3
+    }
+   ],
+   "by_source": [
+    {
+     "group": "策略前向信号",
+     "settled": 5,
+     "directional": 5,
+     "met": 1,
+     "missed": 4,
+     "hit_rate": 0.2,
+     "hit_rate_interval": [
+      0.046,
+      0.5647
+     ],
+     "small_sample": false,
+     "interim": 0,
+     "timing_contribution_mean": -0.0728,
+     "timing_contribution_positive": 1,
+     "timing_contribution_count": 5
+    }
+   ],
+   "by_horizon": [
+    {
+     "group": "中短期",
+     "settled": 5,
+     "directional": 5,
+     "met": 1,
+     "missed": 4,
+     "hit_rate": 0.2,
+     "hit_rate_interval": [
+      0.046,
+      0.5647
+     ],
+     "small_sample": false,
+     "interim": 0,
+     "timing_contribution_mean": -0.0728,
+     "timing_contribution_positive": 1,
+     "timing_contribution_count": 5
+    }
+   ],
+   "by_subject": [
+    {
+     "group": "中证1000ETF南方（512100）",
+     "settled": 1,
+     "directional": 1,
+     "met": 0,
+     "missed": 1,
+     "hit_rate": 0.0,
+     "hit_rate_interval": [
+      0.0,
+      0.7302
+     ],
+     "small_sample": true,
+     "interim": 0,
+     "timing_contribution_mean": -0.0776,
+     "timing_contribution_positive": 0,
+     "timing_contribution_count": 1
+    },
+    {
+     "group": "中证500ETF南方（510500）",
+     "settled": 1,
+     "directional": 1,
+     "met": 0,
+     "missed": 1,
+     "hit_rate": 0.0,
+     "hit_rate_interval": [
+      0.0,
+      0.7302
+     ],
+     "small_sample": true,
+     "interim": 0,
+     "timing_contribution_mean": -0.1065,
+     "timing_contribution_positive": 0,
+     "timing_contribution_count": 1
+    },
+    {
+     "group": "华安黄金ETF（518880）",
+     "settled": 1,
+     "directional": 1,
+     "met": 0,
+     "missed": 1,
+     "hit_rate": 0.0,
+     "hit_rate_interval": [
+      0.0,
+      0.7302
+     ],
+     "small_sample": true,
+     "interim": 0,
+     "timing_contribution_mean": -0.1058,
+     "timing_contribution_positive": 0,
+     "timing_contribution_count": 1
+    },
+    {
+     "group": "华泰柏瑞沪深300ETF（510300）",
+     "settled": 1,
+     "directional": 1,
+     "met": 1,
+     "missed": 0,
+     "hit_rate": 1.0,
+     "hit_rate_interval": [
+      0.2698,
+      1.0
+     ],
+     "small_sample": true,
+     "interim": 0,
+     "timing_contribution_mean": 0.0082,
+     "timing_contribution_positive": 1,
+     "timing_contribution_count": 1
+    },
+    {
+     "group": "国债ETF国泰（511010）",
+     "settled": 1,
+     "directional": 1,
+     "met": 0,
+     "missed": 1,
+     "hit_rate": 0.0,
+     "hit_rate_interval": [
+      0.0,
+      0.7302
+     ],
+     "small_sample": true,
+     "interim": 0,
+     "timing_contribution_mean": -0.0825,
+     "timing_contribution_positive": 0,
+     "timing_contribution_count": 1
+    }
+   ],
+   "by_strategy": [
+    {
+     "group": "etf_dual_momentum_trend",
+     "settled": 5,
+     "directional": 5,
+     "met": 1,
+     "missed": 4,
+     "hit_rate": 0.2,
+     "hit_rate_interval": [
+      0.046,
+      0.5647
+     ],
+     "small_sample": false,
+     "interim": 0,
+     "timing_contribution_mean": -0.0728,
+     "timing_contribution_positive": 1,
+     "timing_contribution_count": 5
+    }
+   ]
+  },
+  "view_items": [],
+  "action_items": [
+   {
+    "entry_id": "ledger-1bf6e8cc8d3589074a6cb9d0",
+    "subject": "中证1000ETF南方（512100）",
+    "source": "strategy",
+    "strategy": "etf_dual_momentum_trend",
+    "horizon": "medium_short",
+    "as_of_date": "2026-07-15",
+    "checkpoint_date": "2026-10-13",
+    "checkpoints_settled": 1,
+    "result": "missed",
+    "asset_return": -0.07761966,
+    "excess_return": null,
+    "interim": false,
+    "action_type": "buy",
+    "timing_contribution": -0.0776,
+    "trigger": "scheduled"
+   },
+   {
+    "entry_id": "ledger-5bb73c15bf151747587e09f6",
+    "subject": "华泰柏瑞沪深300ETF（510300）",
+    "source": "strategy",
+    "strategy": "etf_dual_momentum_trend",
+    "horizon": "medium_short",
+    "as_of_date": "2026-07-15",
+    "checkpoint_date": "2026-10-13",
+    "checkpoints_settled": 1,
+    "result": "met",
+    "asset_return": -0.08584052,
+    "excess_return": null,
+    "interim": false,
+    "action_type": "exit",
+    "timing_contribution": 0.0082,
+    "trigger": "scheduled"
+   },
+   {
+    "entry_id": "ledger-bf49f2fbc5d6245c8efec136",
+    "subject": "华安黄金ETF（518880）",
+    "source": "strategy",
+    "strategy": "etf_dual_momentum_trend",
+    "horizon": "medium_short",
+    "as_of_date": "2026-07-15",
+    "checkpoint_date": "2026-10-13",
+    "checkpoints_settled": 1,
+    "result": "missed",
+    "asset_return": 0.02821954,
+    "excess_return": null,
+    "interim": false,
+    "action_type": "exit",
+    "timing_contribution": -0.1058,
+    "trigger": "scheduled"
+   },
+   {
+    "entry_id": "ledger-e6e3844c3a44657e57d267e3",
+    "subject": "中证500ETF南方（510500）",
+    "source": "strategy",
+    "strategy": "etf_dual_momentum_trend",
+    "horizon": "medium_short",
+    "as_of_date": "2026-07-15",
+    "checkpoint_date": "2026-10-13",
+    "checkpoints_settled": 1,
+    "result": "missed",
+    "asset_return": -0.10646053,
+    "excess_return": null,
+    "interim": false,
+    "action_type": "buy",
+    "timing_contribution": -0.1065,
+    "trigger": "scheduled"
+   },
+   {
+    "entry_id": "ledger-efc2fb5e8898bd3fc9fd6736",
+    "subject": "国债ETF国泰（511010）",
+    "source": "strategy",
+    "strategy": "etf_dual_momentum_trend",
+    "horizon": "medium_short",
+    "as_of_date": "2026-07-15",
+    "checkpoint_date": "2026-10-13",
+    "checkpoints_settled": 1,
+    "result": "missed",
+    "asset_return": 0.00491098,
+    "excess_return": null,
+    "interim": false,
+    "action_type": "exit",
+    "timing_contribution": -0.0825,
+    "trigger": "scheduled"
+   }
+  ]
+ },
+ "review_nodes": {
+  "due": [],
+  "upcoming": []
+ },
+ "execution": null,
+ "trade_count": 0,
+ "dev_seed": {
+  "entries": 12,
+  "included": false
+ },
+ "gaps": [
+  "没有已记录的投资偏好，无法做偏好校准；先用 record-preference 记录"
+ ],
+ "calibration": null,
+ "summary": [
+  "账本中有 12 条开发样例，未计入",
+  "观点：还没有已结算的方向性判断",
+  "动作：已结算 5 条，命中 1 条（20%，90% 区间 5%–56%）；择时贡献平均 -7.28%（1/5 条为正）",
+  "没有交易流水：无法判断计划动作是否执行，也无法重建实际组合的回撤"
+ ],
+ "limitations": [
+  "命中率按每条判断最近一个已结算的检查点；还没到期的判断是中途结果，后续检查点可能改变结论",
+  "择时贡献是“执行动作”减“不动”：买入的不动是持有现金（收益记 0，不计货币基金利息），卖出的不动是继续持有；带替代标的的动作以替代标的为不动。每条动作等权，没有按金额加权",
+  "命中按各判断自己的结算规则（有基准时看超额），择时贡献看绝对收益，所以买入可能跑赢基准算命中、但择时贡献为负",
+  "同组少于 5 条时只列出，不解读；被修订的判断只计新版本",
+  "回放是当前持仓按固定权重的假设历史，不是用户的实际经历；实际回撤需要交易流水，且只覆盖流水开始之后",
+  "流水重建不含现金，按收盘价成交；流水与当前持仓不一致时不重建",
+  "行为提示是规则提示，不是结论；偏好不会被自动修改"
+ ]
+}

@@ -216,10 +216,12 @@ def default_research_profiles() -> tuple[
             required_metrics=(
                 "cumulative_return",
                 "max_drawdown",
-                "ps",
+                "ps_ttm",
                 "revenue_growth",
                 "gross_margin",
                 "cash_burn",
+                "cash_burn_ratio",
+                "rd_intensity",
             ),
             forbidden_metrics=("pe_ttm", "dividend_yield"),
             default_benchmark_role="growth_style",

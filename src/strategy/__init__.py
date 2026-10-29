@@ -13,6 +13,7 @@ from .evidence import (
 from .catalog import (
     HorizonStrategyReport,
     cycle_strategy_specs,
+    high_growth_strategy_specs,
     default_strategy_registry,
     default_strategy_specs,
     exchange_fund_strategy_specs,
@@ -48,6 +49,28 @@ from .models import (
     condition_to_dict,
 )
 from .registry import StrategyRegistry
+from .archive import (
+    FORWARD_MIN_MONTHS,
+    FORWARD_MIN_SETTLED,
+    NEXT_STATE,
+    STATE_LABELS,
+    STRATEGY_KINDS,
+    ForwardRecord,
+    LifecycleState,
+    StrategyArchive,
+    ValidationRecord,
+    default_archives,
+    transition_blockers,
+)
+from .archive_repository import SQLiteStrategyArchiveRepository
+from .templates import (
+    NOT_EXPRESSIBLE,
+    STRATEGY_TEMPLATES,
+    StrategyTemplate,
+    TemplateError,
+    archive_from_template,
+)
+from .template_evidence import assess_template
 from .sse_market_timing import (
     SSE_MARKET_TIMING_LIMITATIONS,
     SSE_MARKET_TIMING_MATURITY,
@@ -65,6 +88,18 @@ from .sse_market_timing import (
 )
 
 __all__ = [
+    "FORWARD_MIN_MONTHS",
+    "FORWARD_MIN_SETTLED",
+    "NEXT_STATE",
+    "STATE_LABELS",
+    "STRATEGY_KINDS",
+    "ForwardRecord",
+    "LifecycleState",
+    "SQLiteStrategyArchiveRepository",
+    "StrategyArchive",
+    "ValidationRecord",
+    "default_archives",
+    "transition_blockers",
     "ConditionEvaluation",
     "ConditionGroup",
     "ConditionLogic",
@@ -109,6 +144,7 @@ __all__ = [
     "condition_from_dict",
     "condition_to_dict",
     "cycle_strategy_specs",
+    "high_growth_strategy_specs",
     "default_strategy_registry",
     "default_strategy_specs",
     "exchange_fund_strategy_specs",

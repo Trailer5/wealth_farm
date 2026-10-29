@@ -7,16 +7,18 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
-from src.research_contracts import SettlementMethod
+from src.research_contracts import SettlementMethod, settlement_checkpoints
 
-from .models import Settlement, SettlementStatus
+from .models import ClaimResult, Settlement, SettlementStatus, new_settlement
 from .settlement import (
     MetricSeriesSource,
     PriceDataUnavailable,
     PricePoint,
     PriceSeriesSource,
+    SettlementSchedule,
     settle_checkpoint,
     settlement_schedule,
+    trigger_date,
 )
 from .sqlite_repository import SQLiteResearchLedgerRepository
 
@@ -77,6 +79,13 @@ class LedgerSettlementService:
             schedule = settlement_schedule(artifact)
             if schedule is None:
                 continue
+            if schedule.condition is not None and schedule.unsettleable_reason is None:
+                appended.extend(
+                    self._settle_conditional(
+                        entry.entry_id, artifact, schedule, as_of_date, recompute, computed_at, cache
+                    )
+                )
+                continue
             done = {
                 item.checkpoint_date
                 for item in self.repository.list_settlements(entry.entry_id)
@@ -135,6 +144,85 @@ class LedgerSettlementService:
                 Counter(item.status.value for item in appended)
             ),
         )
+
+    def _settle_conditional(
+        self,
+        entry_id: str,
+        artifact,
+        schedule: SettlementSchedule,
+        as_of_date: str,
+        recompute: bool,
+        computed_at: str,
+        cache: dict,
+    ) -> list[Settlement]:
+        """Find when the condition was first observed, then settle from that date like a scheduled action."""
+
+        condition = schedule.condition
+        valid_until = schedule.valid_until
+        window_end = min(as_of_date, valid_until)
+        if window_end <= schedule.start:
+            return []
+        series = (
+            self._series(cache, condition.observed_id, schedule.start, window_end)
+            if condition.on_price
+            else self._metric_series(cache, condition.observed_id, schedule.start, window_end)
+        )
+        if isinstance(series, PriceDataUnavailable):
+            return []
+        triggered_on = trigger_date(condition, series, schedule.start, valid_until)
+        done = {
+            item.checkpoint_date
+            for item in self.repository.list_settlements(entry_id)
+            if item.status in _FINAL_STATUSES
+        }
+        if triggered_on is None:
+            if as_of_date < valid_until or (valid_until in done and not recompute):
+                return []
+            stored, inserted = self.repository.append_settlement(
+                new_settlement(
+                    entry_id=entry_id,
+                    checkpoint_date=valid_until,
+                    status=SettlementStatus.NOT_SETTLEABLE,
+                    claim_result=ClaimResult.UNKNOWN,
+                    computed_at=computed_at,
+                    note=f"条件在 {schedule.start} 至 {valid_until} 内未出现，动作未触发",
+                )
+            )
+            return [stored] if inserted else []
+        effective = SettlementSchedule(
+            start=triggered_on,
+            checkpoints=settlement_checkpoints(artifact.horizon, triggered_on),
+            rule=schedule.rule,
+        )
+        due = tuple(
+            item
+            for item in effective.checkpoints
+            if item <= as_of_date and (recompute or item not in done)
+        )
+        if not due:
+            return []
+        rule = schedule.rule
+        prices = {
+            asset_id: self._series(cache, asset_id, triggered_on, due[-1])
+            for asset_id in (rule.observed_id, rule.benchmark_id, rule.alternative_id)
+            if asset_id is not None
+        }
+        appended = []
+        for checkpoint in due:
+            stored, inserted = self.repository.append_settlement(
+                settle_checkpoint(
+                    entry_id=entry_id,
+                    artifact=artifact,
+                    schedule=effective,
+                    checkpoint=checkpoint,
+                    prices=prices,
+                    computed_at=computed_at,
+                    note=f"条件于 {triggered_on} 首次出现（{artifact.trigger.observability_key}），按触发日起算",
+                )
+            )
+            if inserted:
+                appended.append(stored)
+        return appended
 
     def _series(
         self,

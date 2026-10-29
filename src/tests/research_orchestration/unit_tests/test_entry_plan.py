@@ -311,7 +311,7 @@ class EntryPlanTest(unittest.TestCase):
             plan.assembly_gaps,
         )
 
-    def test_open_fund_timing_capability_is_explicitly_insufficient(self):
+    def test_open_fund_timing_requires_dealing_rule_input(self):
         session, brief, suitability = _entry_fixture(
             self.suitability_service,
             PROFILE_OPEN_FUND,
@@ -324,12 +324,38 @@ class EntryPlanTest(unittest.TestCase):
             decision_brief=brief,
         )
 
-        self.assertIs(
-            plan.status,
-            EntryPlanStatus.INSUFFICIENT,
+        self.assertIs(plan.status, EntryPlanStatus.ACT)
+        self.assertEqual(
+            plan.next_tradable_condition.input_kind,
+            TimingInputKind.FUND_DEALING_RULE,
         )
+
+        round_result = session.rounds[0]
+        without_rule = replace(
+            session,
+            rounds=(
+                replace(
+                    round_result,
+                    structured_findings=tuple(
+                        item
+                        for item in round_result.structured_findings
+                        if item.timing_input_kind
+                        is not TimingInputKind.FUND_DEALING_RULE
+                    ),
+                ),
+            ),
+        )
+        plan = self.service.assemble(
+            session=without_rule,
+            suitability=self.suitability_service.assemble(
+                session=without_rule,
+                decision_brief=brief,
+            ),
+            decision_brief=brief,
+        )
+        self.assertIs(plan.status, EntryPlanStatus.INSUFFICIENT)
         self.assertIn(
-            "profile_timing_execution_unsupported:open_fund",
+            "profile_input_missing:fund_dealing_rule",
             plan.assembly_gaps,
         )
 
@@ -970,8 +996,8 @@ class EntryPlanTest(unittest.TestCase):
             EntryPlan.from_dict(payload)
 
         payload = plan.to_dict()
-        payload["profile_id"] = PROFILE_OPEN_FUND
-        payload["policy_id"] = "open_fund:entry_v1"
+        payload["profile_id"] = "unregistered_profile"
+        payload["policy_id"] = "unregistered_profile:entry_v1"
         payload["plan_id"] = entry_plan_id(payload)
         with self.assertRaisesRegex(
             ValueError,
@@ -1145,6 +1171,16 @@ def _entry_fixture(
                 TimingInputKind.ETF_PREMIUM_DISCOUNT,
                 TimingConditionState.NEUTRAL,
                 suffix="etf-premium-discount",
+            )
+        )
+    if profile_id == PROFILE_OPEN_FUND:
+        timing_findings.append(
+            _timing_finding(
+                TimingDimension.NEXT_TRADABLE_TIME,
+                TimingInputKind.FUND_DEALING_RULE,
+                TimingConditionState.MET,
+                next_tradable_at="2026-08-24T09:00:00+08:00",
+                suffix="fund-dealing-cutoff",
             )
         )
     if include_horizon_conflict:

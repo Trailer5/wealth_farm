@@ -17,9 +17,11 @@ from src.data_access import (
 )
 from src.data_quality import DataQualityService
 from src.factor_engineering import FactorService
-from src.fundamental_analysis import FundamentalAnalysisService
+from src.fundamental_analysis import DividendHistoryService, FundamentalAnalysisService, ValuationModelService
+from src.fundamental_analysis.service import COMPANY_PROFILES
 from src.master_data import ASSET_TYPE_INDEX, MasterDataService
 from src.research_contracts import (
+    PROFILE_HIGH_GROWTH_UNPROFITABLE,
     PROFILE_ORDINARY_COMPANY,
     ResearchHorizon,
     ResearchTaskSpec,
@@ -37,6 +39,7 @@ from src.strategy import (
     StrategyRegistry,
     StrategyRunStatus,
 )
+from src.valuation_position import ValuationPositionService
 
 from .execution_models import (
     ResearchExecutionGap,
@@ -47,6 +50,8 @@ from .execution_models import (
     ResearchPhaseStatus,
     ResearchWindows,
 )
+from .industry_context import collect_industry_context
+from .valuation_context import collect_dividends, collect_growth_trend, collect_valuation_model
 from .return_bars import fetch_total_return_bars, risk_parameters_for
 
 
@@ -80,7 +85,15 @@ class ResearchExecutionService:
         chart_renderer: ChartRenderer,
         strategy_builder: StrategyInputBuilder | None = None,
         strategy_executor: StrategyExecutor | None = None,
+        valuation_position: ValuationPositionService | None = None,
+        valuation_models: ValuationModelService | None = None,
+        profile_id: str = PROFILE_ORDINARY_COMPANY,
+        dividends: DividendHistoryService | None = None,
     ) -> None:
+        if profile_id not in COMPANY_PROFILES:
+            raise ValueError(f"ResearchExecutionService does not run {profile_id}")
+        self.profile_id = profile_id
+        self.dividends = dividends
         self.master_data = master_data
         self.data_access = data_access
         self.quality_service = quality_service
@@ -90,6 +103,8 @@ class ResearchExecutionService:
         self.evidence_service = evidence_service
         self.strategy_registry = strategy_registry
         self.chart_renderer = chart_renderer
+        self.valuation_position = valuation_position
+        self.valuation_models = valuation_models
         self.strategy_builder = (
             strategy_builder or StrategyInputBuilder()
         )
@@ -253,6 +268,8 @@ class ResearchExecutionService:
             )
 
         fundamental = None
+        growth_trend = None
+        dividends = None
         try:
             financials = self.data_access.get_financial_bundle(
                 asset_id=task.asset_id,
@@ -273,12 +290,25 @@ class ResearchExecutionService:
                 raise ValueError(
                     "No market price at or before as_of_date"
                 )
+            price = Decimal(str(eligible_bars[-1]["close"]))
+            dividends, dividend_gaps = collect_dividends(
+                self.dividends,
+                asset=asset,
+                as_of_date=task.as_of_date,
+                price=price,
+                config=config,
+            )
+            gaps.extend(dividend_gaps)
             fundamental = self.fundamental_service.analyze(
                 financials,
-                market_price=Decimal(
-                    str(eligible_bars[-1]["close"])
+                market_price=price,
+                profile_id=task.profile_id,
+                dividend_per_share_ttm=(
+                    None if dividends is None else Decimal(dividends["ttm_per_share"])
                 ),
             )
+            if task.profile_id == PROFILE_HIGH_GROWTH_UNPROFITABLE:
+                growth_trend = collect_growth_trend(financials)
             phases.append(
                 ResearchPhaseResult(
                     "fundamental",
@@ -593,6 +623,23 @@ class ResearchExecutionService:
                 )
             )
 
+        context = collect_industry_context(
+            self.valuation_position,
+            self.benchmark_service,
+            task=task,
+            asset=asset,
+            windows=windows,
+            config=config,
+        )
+        gaps.extend(context.gaps)
+        valuation_model, model_gaps = collect_valuation_model(
+            self.valuation_models,
+            task=task,
+            asset=asset,
+            fundamental=fundamental,
+            config=config,
+        )
+        gaps.extend(model_gaps)
         phases = _complete_phases(phases)
         status = _status(phases, gaps)
         return ResearchExecutionResult(
@@ -612,13 +659,16 @@ class ResearchExecutionService:
             evidence_bundle=evidence,
             chart_artifacts=artifacts,
             strategy_result=strategy_result,
+            industry_context=context,
+            valuation_model=valuation_model,
+            growth_trend=growth_trend,
+            dividends=dividends,
         )
 
     def _validate(self, task: ResearchTaskSpec):
-        if task.profile_id != PROFILE_ORDINARY_COMPANY:
+        if task.profile_id != self.profile_id:
             raise ValueError(
-                "ResearchExecutionService v1 supports "
-                "ordinary_company only"
+                f"This ResearchExecutionService runs {self.profile_id} only"
             )
         if task.horizon is not ResearchHorizon.MEDIUM_LONG:
             raise ValueError(

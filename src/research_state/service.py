@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
 from src.master_data import MasterDataService
@@ -151,6 +151,7 @@ class ResearchStateService:
         average_cost: float | None = None,
         currency: str = "CNY",
         note: str = "",
+        first_bought_on: str | None = None,
     ) -> HoldingPosition:
         """Save the current position snapshot for one asset."""
 
@@ -158,6 +159,8 @@ class ResearchStateService:
         self._require_asset(asset_id)
         if average_cost is not None and average_cost < 0:
             raise ValueError("average_cost must not be negative")
+        if first_bought_on is not None:
+            date.fromisoformat(first_bought_on)
         now = _now()
         position = HoldingPosition(
             user_id=context.user_id,
@@ -172,6 +175,7 @@ class ResearchStateService:
             note=note.strip(),
             created_at=now,
             updated_at=now,
+            first_bought_on=first_bought_on,
         )
         self.repository.upsert_holding(position)
         return position

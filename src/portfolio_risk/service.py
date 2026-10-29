@@ -7,6 +7,8 @@ from src.user_space import UserContext
 
 from .budget import InvestmentMandate
 from .calculator import PortfolioCalculator
+from .preference import InvestmentPreference
+from .trades import TradeRecord
 from .models import (
     PortfolioConstraintSnapshot,
     PortfolioSnapshot,
@@ -106,6 +108,56 @@ class PortfolioRiskService:
             context.user_id,
             mandate_id,
         )
+
+    def record_preference(
+        self,
+        context: UserContext,
+        preference: InvestmentPreference,
+    ) -> InvestmentPreference:
+        """Append the next confirmed preference version of the current user."""
+
+        self.research_state.list_holdings(context)
+        if preference.user_id != context.user_id:
+            raise ValueError("preference user_id must match context")
+        history = self.repository.list_preferences(context.user_id)
+        if history and history[-1].preference_id == preference.preference_id:
+            return preference
+        latest = history[-1] if history else None
+        expected_version = 1 if latest is None else latest.version + 1
+        if preference.version != expected_version:
+            raise ValueError(f"preference version must be {expected_version}")
+        if preference.supersedes_preference_id != (latest.preference_id if latest else None):
+            raise ValueError("preference must supersede the latest recorded version")
+        self.repository.save_preference(preference)
+        return preference
+
+    def list_preferences(
+        self,
+        context: UserContext,
+    ) -> list[InvestmentPreference]:
+        """Preference versions of the current user, oldest first."""
+
+        self.research_state.list_holdings(context)
+        return self.repository.list_preferences(context.user_id)
+
+    def latest_preference(
+        self,
+        context: UserContext,
+    ) -> InvestmentPreference | None:
+        history = self.list_preferences(context)
+        return history[-1] if history else None
+
+    def record_trade(self, context: UserContext, trade: TradeRecord) -> bool:
+        """Append one trade the user stated; returns False when the same trade is already logged."""
+
+        self.research_state.list_holdings(context)
+        if trade.user_id != context.user_id:
+            raise ValueError("trade user_id must match context")
+        return self.repository.save_trade(trade)
+
+    def list_trades(self, context: UserContext) -> list[TradeRecord]:
+        self.research_state.list_holdings(context)
+        return self.repository.list_trades(context.user_id)
 
     def list_mandates(
         self,

@@ -20,12 +20,14 @@ class TradingCalendarService:
         *,
         market: str = "cn_a",
         source: str = "baostock",
+        fallback_sources: tuple[str, ...] = ("sina",),
         provider_timeout_seconds: float = 30.0,
     ) -> None:
         self.repository = repository
         self.fetch_service = fetch_service
         self.market = market
         self.source = source
+        self.fallback_sources = fallback_sources
         self.provider_timeout_seconds = provider_timeout_seconds
 
     def effective_end_date(
@@ -76,28 +78,46 @@ class TradingCalendarService:
         return trading_dates[-1]
 
     def _trading_dates(self, start_date: str, end_date: str) -> list[str]:
-        if not self.repository.has_trading_calendar_coverage(
-            market=self.market,
-            start_date=start_date,
-            end_date=end_date,
-            source=self.source,
-        ):
-            rows = self.fetch_service.fetch_trade_calendar(
-                start_date=start_date,
-                end_date=end_date,
-                source=self.source,
-                timeout_seconds=self.provider_timeout_seconds,
-            )
-            self.repository.save_trading_calendar(
-                market=self.market,
-                start_date=start_date,
-                end_date=end_date,
-                source=self.source,
-                rows=rows,
-            )
+        # BaoStock first; Sina's trade-date list when BaoStock fails (e.g. the IP is blacklisted).
+        # Each source keeps its own cached rows and coverage.
+        sources = (self.source, *(item for item in self.fallback_sources if item != self.source))
+        covered = next(
+            (
+                source
+                for source in sources
+                if self.repository.has_trading_calendar_coverage(
+                    market=self.market, start_date=start_date, end_date=end_date, source=source
+                )
+            ),
+            None,
+        )
+        if covered is None:
+            errors = []
+            for source in sources:
+                try:
+                    rows = self.fetch_service.fetch_trade_calendar(
+                        start_date=start_date,
+                        end_date=end_date,
+                        source=source,
+                        timeout_seconds=self.provider_timeout_seconds,
+                    )
+                    self.repository.save_trading_calendar(
+                        market=self.market,
+                        start_date=start_date,
+                        end_date=end_date,
+                        source=source,
+                        rows=rows,
+                    )
+                except (OSError, RuntimeError, ValueError) as exc:
+                    errors.append(f"{source}: {type(exc).__name__}: {exc}")
+                    continue
+                covered = source
+                break
+            if covered is None:
+                raise RuntimeError("Trading calendar unavailable: " + "; ".join(errors))
         return self.repository.get_trading_dates(
             market=self.market,
             start_date=start_date,
             end_date=end_date,
-            source=self.source,
+            source=covered,
         )

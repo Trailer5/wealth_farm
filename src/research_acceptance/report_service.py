@@ -17,7 +17,7 @@ from src.data_access import (
     TOTAL_RETURN_BAR_DATASETS,
 )
 from src.fund_research import DisclosureExtractionStatus
-from src.fundamental_analysis import MetricStatus
+from src.fundamental_analysis import MetricStatus, valuation_model_lines
 from src.master_data import ASSET_TYPE_OPEN_FUND, MasterDataService
 from src.peer_analysis import (
     PeerComparisonBundle,
@@ -30,7 +30,7 @@ from src.research_workflow.execution_models import (
     ResearchPhaseStatus,
 )
 from src.research_workflow.profiles import default_profile_registry
-from src.research_contracts import ResearchQuestionType
+from src.research_contracts import PROFILE_HIGH_GROWTH_UNPROFITABLE, ResearchQuestionType
 from src.strategy import (
     ConditionGroup,
     ConditionOperator,
@@ -812,6 +812,7 @@ def _fact_sections(
                 facts=historical_facts,
             )
         )
+    sections.extend(_open_fund_decision_sections(execution))
     profile_facts = _profile_facts(bundle.profile_snapshot)
     if profile_facts:
         sections.append(
@@ -831,6 +832,201 @@ def _fact_sections(
             )
         )
     return tuple(sections)
+
+
+def _open_fund_decision_sections(
+    execution: ResearchExecutionResult,
+) -> list[ResearchFactSection]:
+    """申赎规则、费率拖累、现任经理任期与底层估值；口径见 docs/modules/3-分析工具/基金与ETF研究数据模块.md。"""
+
+    facts = execution.open_fund_decision
+    if not facts:
+        return []
+    as_of = execution.task.as_of_date
+    asset_id = execution.task.asset_id
+    sections = []
+    dealing = facts.get("dealing")
+    if dealing:
+        page = (dealing["source_urls"] or ["eastmoney:fundf10"])[0]
+        limits = (f"天天基金页面 {dealing['fetched_on']} 的当前规则。",)
+        channel = ("销售渠道不同，申购费折扣可能不同。",)
+        status = "、".join(
+            item for item in (dealing["purchase_status"], dealing["redemption_status"]) if item
+        ) or "未知"
+        ladder = "；".join(
+            f"{item['period_text']} {_percent_text(item['rate'])}" for item in dealing["redemption_fees"]
+        )
+        rows = [
+            ("申赎状态", f"{status}；申购起点 {dealing['min_purchase_amount'] or '未知'} 元；日累计申购限额 {dealing['daily_purchase_limit'] or '未知'}"),
+            (
+                "成交与确认",
+                "交易日 15:00 前提交按当日净值成交（未知价），之后顺延到下一交易日；"
+                f"申购 T+{dealing['purchase_confirm_days'] if dealing['purchase_confirm_days'] is not None else '?'} 确认，"
+                f"赎回 T+{dealing['redemption_confirm_days'] if dealing['redemption_confirm_days'] is not None else '?'} 确认",
+            ),
+            (
+                "申购费率",
+                f"原费率 {_percent_text(dealing['purchase_rate_original'])}，天天基金优惠费率 {_percent_text(dealing['purchase_rate_discounted'])}（100 万元以下档）",
+            ),
+            ("赎回费率", ladder or "未取得"),
+        ]
+        if dealing["fee_free_from_days"] is not None:
+            rows.append(("免赎回费", f"持有满 {dealing['fee_free_from_days']} 天后赎回不收赎回费"))
+        if dealing["round_trips"]:
+            rows.append(
+                (
+                    "往返交易成本",
+                    "；".join(
+                        f"持有 {item['holding_days']} 天 {_percent_text(item['round_trip_cost'])}" for item in dealing["round_trips"]
+                    ),
+                )
+            )
+        sections.append(
+            ResearchFactSection(
+                section_id="open_fund_dealing",
+                title="申赎规则与交易成本",
+                facts=tuple(
+                    ResearchFact(
+                        label=label,
+                        value=value,
+                        as_of_date=min(dealing["fetched_on"], as_of),
+                        kind=ResearchFactKind.DERIVED if label == "往返交易成本" else ResearchFactKind.REPORTED,
+                        evidence_refs=(
+                            (f"derived:open_fund_dealing:{asset_id}:{dealing['fetched_on']}",)
+                            if label == "往返交易成本"
+                            else (page,)
+                        ),
+                        limitations=(
+                            limits + channel + ("前端申购费按净额外扣法：成本 = 1 − (1 − 赎回费率) ÷ (1 + 申购费率)。",)
+                            if label == "往返交易成本"
+                            else limits + channel
+                            if label == "申购费率"
+                            else limits
+                        ),
+                    )
+                    for label, value in rows
+                ),
+            )
+        )
+        if dealing["fee_drag"]:
+            drag = "；".join(
+                f"{item['years']} 年 {_percent_text(item['ongoing_drag'])}"
+                + (f"（含申赎 {_percent_text(item['total_drag'])}）" if item["total_drag"] else "")
+                for item in dealing["fee_drag"]
+            )
+            sections.append(
+                ResearchFactSection(
+                    section_id="open_fund_fee_drag",
+                    title="费率累计拖累",
+                    facts=(
+                        ResearchFact(
+                            label="持续运作费率",
+                            value=f"{_percent_text(dealing['ongoing_fee_rate'])}/年（管理费 + 托管费 + 销售服务费）",
+                            as_of_date=min(dealing["fetched_on"], as_of),
+                            kind=ResearchFactKind.REPORTED,
+                            evidence_refs=(page,),
+                            limitations=limits,
+                        ),
+                        ResearchFact(
+                            label="累计拖累（占资产）",
+                            value=drag,
+                            as_of_date=as_of,
+                            kind=ResearchFactKind.DERIVED,
+                            evidence_refs=(f"derived:open_fund_fee_drag:{asset_id}:{dealing['fetched_on']}",),
+                            limitations=(
+                                "持续费用已从净值中扣除，历史收益是费后的；这里说明费用在长期中拿走了多少。",
+                                "拖累 = 1 − (1 − 年费率)^年数；含申赎时再乘以该持有期的往返成本。",
+                            ),
+                        ),
+                    ),
+                )
+            )
+    tenure = facts.get("manager_tenure")
+    if tenure and tenure["periods"]:
+        sections.append(
+            ResearchFactSection(
+                section_id="open_fund_manager_tenure",
+                title="现任经理任期表现",
+                facts=tuple(
+                    ResearchFact(
+                        label=f"{item['label']}（{item['start_date']} 起）",
+                        value=(
+                            f"累计 {item['total_return']:.2%}"
+                            + (
+                                f"，年化 {item['annualized_return']:.2%}"
+                                if item["annualized_return"] is not None
+                                else "（不足一年不年化）"
+                            )
+                            + f"，最大回撤 {item['max_drawdown']:.2%}，共 {item['years']:.1f} 年（至 {item['end_date']}）"
+                        ),
+                        as_of_date=item["end_date"],
+                        kind=ResearchFactKind.DERIVED,
+                        evidence_refs=(f"derived:open_fund_manager_tenure:{asset_id}:{item['start_date']}",),
+                        limitations=(
+                            f"现任经理：{'、'.join(tenure['current_managers'])}；任期来自天天基金基金经理变动表。"
+                            "增减共同经理也算一次变动，主经理是否更换看“连续管理”一行。",
+                            "按复权净值计算，不含申赎费；未与同期业绩基准对照。",
+                        ),
+                    )
+                    for item in tenure["periods"]
+                ),
+            )
+        )
+    valuation = facts.get("underlying_valuation")
+    if valuation:
+        valuation_facts = []
+        index = valuation.get("index")
+        if index and index.get("pe_ttm"):
+            pe = index["pe_ttm"]
+            basis = "跟踪指数" if valuation["basis"] == "tracking_index" else "业绩基准权益部分"
+            weight = valuation.get("component_weight")
+            text = (
+                f"{index['name']}（{basis}" + (f"，权重 {weight:.0%}" if weight else "") + "）"
+                f"滚动市盈率 {pe['value']:.2f} 倍（{pe['window_end']}），近 10 年分位 {pe['percentile']:.0%}（{pe['sample_count']} 个观测）"
+            )
+            if index.get("pb"):
+                text += f"；市净率 {index['pb']['value']:.2f} 倍，分位 {index['pb']['percentile']:.0%}"
+            valuation_facts.append(
+                ResearchFact(
+                    label="底层指数估值",
+                    value=text,
+                    as_of_date=pe["window_end"],
+                    kind=ResearchFactKind.DERIVED,
+                    evidence_refs=(f"macro:{pe['series_id']}",),
+                    limitations=tuple(item for item in (valuation.get("note"), index["source"]) if item),
+                )
+            )
+        else:
+            context = (valuation.get("market_context") or {}).get("pe_ttm")
+            value = valuation.get("note") or "底层指数估值不可用"
+            if context:
+                value += (
+                    f"；沪深300 滚动市盈率 {context['value']:.2f} 倍，近 10 年分位 {context['percentile']:.0%}（{context['window_end']}）"
+                )
+            valuation_facts.append(
+                ResearchFact(
+                    label="底层指数估值",
+                    value=value,
+                    as_of_date=as_of,
+                    kind=ResearchFactKind.DERIVED,
+                    evidence_refs=("macro:csi300_pe_ttm",) if context else ("derived:open_fund_underlying_valuation",),
+                    limitations=("市场整体估值不代表基金底层。",),
+                )
+            )
+        sections.append(
+            ResearchFactSection(
+                section_id="open_fund_underlying_valuation",
+                title="底层估值位置",
+                facts=tuple(valuation_facts),
+            )
+        )
+    return sections
+
+
+def _percent_text(value: object) -> str:
+    if value is None:
+        return "未知"
+    return f"{float(value):.2%}"
 
 
 def _open_fund_identity_facts(
@@ -1792,6 +1988,7 @@ _METRIC_DISPLAY: dict[str, tuple[str, str]] = {
     "market_cap": ("总市值", "amount"),
     "enterprise_value": ("企业价值", "amount"),
     "pe_ttm": ("市盈率（TTM）", "multiple"),
+    "pe_ttm_recurring": ("扣非市盈率（TTM）", "multiple"),
     "pb": ("市净率", "multiple"),
     "ps_ttm": ("市销率（TTM）", "multiple"),
     "pcf_ttm": ("市现率（TTM）", "multiple"),
@@ -1801,6 +1998,8 @@ _METRIC_DISPLAY: dict[str, tuple[str, str]] = {
     "fcf_yield": ("自由现金流收益率", "percent"),
     "dividend_yield": ("股息率", "percent"),
     "roe": ("ROE", "percent"),
+    "roe_recurring": ("扣非 ROE", "percent"),
+    "non_recurring_share": ("非经常性损益占归母净利润", "percent"),
     "roa": ("ROA", "percent"),
     "roic": ("ROIC", "percent"),
     "gross_margin": ("毛利率", "percent"),
@@ -1808,6 +2007,7 @@ _METRIC_DISPLAY: dict[str, tuple[str, str]] = {
     "net_margin": ("净利率", "percent"),
     "revenue_growth": ("营业收入同比增速", "percent"),
     "net_profit_growth": ("净利润同比增速", "percent"),
+    "recurring_profit_growth": ("扣非净利润同比增速", "percent"),
     "operating_cash_flow_growth": ("经营现金流同比增速", "percent"),
     "free_cash_flow_growth": ("自由现金流同比增速", "percent"),
     "debt_to_assets": ("资产负债率", "percent"),
@@ -1826,11 +2026,17 @@ _METRIC_DISPLAY: dict[str, tuple[str, str]] = {
     "momentum_5": ("5日涨跌幅", "percent"),
     "return_1d": ("最近一日涨跌幅", "percent"),
     "commodity_sensitivity": ("商品价格敏感度", "number"),
+    "rd_intensity": ("研发费用率", "percent"),
+    "cash_burn": ("年度现金消耗（负值为净流入）", "amount"),
+    "cash_burn_ratio": ("年度现金消耗占货币资金", "percent"),
+    "cash_runway_years": ("现金跑道", "years"),
+    "financing_dependence": ("筹资现金占现金消耗", "percent"),
 }
 _VALUATION_METRICS = (
     "market_cap",
     "enterprise_value",
     "pe_ttm",
+    "pe_ttm_recurring",
     "pb",
     "ps_ttm",
     "pcf_ttm",
@@ -1841,6 +2047,8 @@ _VALUATION_METRICS = (
 )
 _PROFITABILITY_METRICS = (
     "roe",
+    "roe_recurring",
+    "non_recurring_share",
     "roa",
     "roic",
     "gross_margin",
@@ -1850,6 +2058,7 @@ _PROFITABILITY_METRICS = (
 _GROWTH_METRICS = (
     "revenue_growth",
     "net_profit_growth",
+    "recurring_profit_growth",
     "operating_cash_flow_growth",
     "free_cash_flow_growth",
 )
@@ -1864,6 +2073,13 @@ _BANK_METRICS = (
     "capital_adequacy",
     "net_interest_margin",
     "non_performing_loan_ratio",
+)
+_CASH_METRICS = (
+    "rd_intensity",
+    "cash_burn",
+    "cash_burn_ratio",
+    "cash_runway_years",
+    "financing_dependence",
 )
 _SPECIAL_FACTOR_LIMITATIONS = {
     "premium_discount": "按行情快照的最新价与 IOPV 计算，是单一时点值。",
@@ -1926,6 +2142,8 @@ def _format_value(kind: str, value) -> str:
         return f"{_number(number / 100_000_000, digits=2)}亿元"
     if kind == "count":
         return _number(number, digits=0)
+    if kind == "years":
+        return f"{_number(number, digits=1)}年"
     return _number(number, digits=3)
 
 
@@ -1987,6 +2205,12 @@ def _security_fact_sections(
             broad_fallback=broad_fallback,
         ),
     )
+    add("industry_benchmark", "相对行业表现", _industry_benchmark_facts(execution))
+    position = (
+        execution.industry_context.valuation_position
+        if execution.industry_context is not None
+        else None
+    )
     fundamental = execution.fundamental_result
     if fundamental is not None:
         snapshot = fundamental.snapshot
@@ -2006,7 +2230,9 @@ def _security_fact_sections(
                 (
                     f"基于{snapshot.report_period}报告期财报与"
                     f"截至{price_date}的最新收盘价，流量项为{basis}。",
-                    "仅当前一个时点，尚无历史估值分位；"
+                    "历史与同行分位见“估值位置”一节。"
+                    if position is not None
+                    else "仅当前一个时点，尚无历史估值分位；"
                     "未与同行比较，需要时在探索阶段查询同行。",
                 ),
             ),
@@ -2020,21 +2246,26 @@ def _security_fact_sections(
                 (
                     f"基于{snapshot.report_period}报告期财报，"
                     f"流量项为{basis}。",
-                    "仅当前一期，未形成多期趋势。",
+                    "多期趋势见“成长趋势”一节。"
+                    if execution.growth_trend
+                    else "仅当前一期，未形成多期趋势。",
                 ),
             ),
         )
         add(
             "growth",
             "成长",
-            _fundamental_facts(
-                fundamental.metrics,
-                _GROWTH_METRICS,
-                (
-                    f"{snapshot.report_period}报告期相对上年同期计算，"
-                    f"流量项为{basis}。",
+            [
+                *_fundamental_facts(
+                    fundamental.metrics,
+                    _GROWTH_METRICS,
+                    (
+                        f"{snapshot.report_period}报告期相对上年同期计算，"
+                        f"流量项为{basis}。",
+                    ),
                 ),
-            ),
+                *_ytd_growth_facts(snapshot),
+            ],
         )
         add(
             "balance_sheet",
@@ -2045,11 +2276,39 @@ def _security_fact_sections(
                 (f"基于{snapshot.report_period}报告期末资产负债表。",),
             ),
         )
+        add(
+            "cash_and_rd",
+            "研发与现金消耗" if execution.task.profile_id == PROFILE_HIGH_GROWTH_UNPROFITABLE else "研发投入",
+            _fundamental_facts(
+                fundamental.metrics,
+                _CASH_METRICS if execution.task.profile_id == PROFILE_HIGH_GROWTH_UNPROFITABLE else ("rd_intensity",),
+                (
+                    f"基于{snapshot.report_period}报告期，流量项为{basis}。",
+                    "现金消耗 = −（经营现金流 − 购建长期资产支出）；现金跑道 = 货币资金 ÷ 现金消耗。"
+                    "货币资金不含理财类金融资产（偏保守），也没有扣除有息负债的到期偿还（偏乐观），借款多的公司要结合负债期限看。"
+                    if execution.task.profile_id == PROFILE_HIGH_GROWTH_UNPROFITABLE
+                    else "研发费用率 = 费用化研发支出 ÷ 营业收入，不含资本化部分。",
+                ),
+            ),
+        )
+    add("growth_trend", "成长趋势", _growth_trend_facts(execution))
+    add("dividends", "分红", _dividend_facts(execution))
     add(
         "bank_metrics",
         "银行经营指标",
-        _fundamental_facts(execution.profile_metrics, _BANK_METRICS, ()),
+        _fundamental_facts(
+            execution.profile_metrics,
+            _BANK_METRICS,
+            (
+                f"基于{execution.profile_metrics[0].report_period}报告期披露数据；"
+                "ROE 为年初至今的披露值按 12 ÷ 月数年化，四季度常低于前三季度的年化值。",
+            )
+            if execution.profile_metrics
+            else (),
+        ),
     )
+    add("valuation_position", "估值位置", _valuation_position_facts(position))
+    add("implied_expectations", "隐含预期与内在价值", _valuation_model_facts(execution.valuation_model))
     add("special_metrics", "专项指标", _special_factor_facts(execution))
     if rule is not None:
         add(
@@ -2155,6 +2414,221 @@ def _security_benchmark_facts(
                     f"derived:{metric.source_dataset}:{factor_name}",
                 ),
                 limitations=limitations,
+            )
+        )
+    return facts
+
+
+def _industry_benchmark_facts(
+    execution: ResearchExecutionResult,
+) -> list[ResearchFact]:
+    context = execution.industry_context
+    result = context.industry_benchmark if context is not None else None
+    if result is None or not result.metrics:
+        return []
+    by_name = {item.factor_name: item for item in result.metrics}
+    first = result.metrics[0]
+    limitations = (
+        f"申万行业指数为价格指数，不含分红；实际区间为{first.input_start_date}至"
+        f"{first.input_end_date}。行业按申万当前成分归属。",
+    )
+    facts = [
+        ResearchFact(
+            label="行业基准",
+            value=context.industry_benchmark_name or "申万一级行业指数",
+            as_of_date=first.as_of_date,
+            kind=ResearchFactKind.REPORTED,
+            evidence_refs=("shenwan_2021:industry_index",),
+        )
+    ]
+    for factor_name, label in (
+        ("benchmark_total_return", "区间累计收益率（行业指数）"),
+        ("excess_total_return", "相对行业超额收益"),
+        ("correlation", "与行业指数相关系数"),
+    ):
+        metric = by_name.get(factor_name)
+        if metric is None:
+            continue
+        facts.append(
+            ResearchFact(
+                label=label,
+                value=_format_value(
+                    "number" if factor_name == "correlation" else "percent",
+                    metric.value,
+                ),
+                as_of_date=metric.as_of_date,
+                kind=ResearchFactKind.DERIVED,
+                evidence_refs=(f"derived:{metric.source_dataset}:industry:{factor_name}",),
+                limitations=limitations,
+            )
+        )
+    return facts
+
+
+_POSITION_METRICS = (("pe_ttm", "市盈率(TTM)", "倍"), ("pb", "市净率", "倍"), ("ps", "市销率", "倍"))
+
+
+def _valuation_position_facts(position: dict | None) -> list[ResearchFact]:
+    if position is None:
+        return []
+    facts = []
+    limitation = (position.get("note") or "") + "。"
+    peers = position.get("peers") or {}
+    for metric, label, unit in _POSITION_METRICS:
+        own = position["own_history"].get(metric) or {}
+        if own.get("percentile") is not None:
+            facts.append(
+                ResearchFact(
+                    label=f"{label}自身历史分位",
+                    value=(
+                        f"{own['percentile']:.0%}（当前{own['value']:.2f}{unit}；"
+                        f"{own['window_start']}至{own['window_end']} 共{own['sample_count']}个样本，"
+                        f"中位数{own['median']:.2f}{unit}）"
+                    ),
+                    as_of_date=own.get("current_date") or position["as_of_date"],
+                    kind=ResearchFactKind.DERIVED,
+                    evidence_refs=("akshare:stock_value_em",),
+                    limitations=(limitation,),
+                )
+            )
+        elif own.get("current") is not None and float(own["current"]) <= 0:
+            facts.append(
+                ResearchFact(
+                    label=f"{label}自身历史分位",
+                    value="当前为负（亏损），不给分位",
+                    as_of_date=own.get("current_date") or position["as_of_date"],
+                    kind=ResearchFactKind.DERIVED,
+                    evidence_refs=("akshare:stock_value_em",),
+                    limitations=(limitation,),
+                )
+            )
+        peer = (peers.get("metrics") or {}).get(metric) or {}
+        if peer.get("percentile") is not None:
+            industry = peers.get("industry") or {}
+            facts.append(
+                ResearchFact(
+                    label=f"{label}同行分位",
+                    value=(
+                        f"{peer['percentile']:.0%}（申万{industry.get('name', '')} "
+                        f"{peer['peer_count']}家有效样本，同行中位数{peer['median']:.2f}{unit}）"
+                    ),
+                    as_of_date=position["as_of_date"],
+                    kind=ResearchFactKind.DERIVED,
+                    evidence_refs=("akshare:stock_value_em", "shenwan_2021:members"),
+                    limitations=(limitation,),
+                )
+            )
+    return facts
+
+
+def _valuation_model_facts(model: dict | None) -> list[ResearchFact]:
+    if model is None:
+        return []
+    limitations = tuple(model["notes"]) + tuple(model["gaps"])
+    return [
+        ResearchFact(
+            label=name,
+            value=text,
+            as_of_date=model["as_of_date"],
+            kind=ResearchFactKind.DERIVED,
+            evidence_refs=(f"valuation_model:{model['method']}:{model['report_period']}", "macro:cgb_10y"),
+            limitations=limitations,
+        )
+        for name, text in valuation_model_lines(model)
+    ]
+
+
+def _ytd_growth_facts(snapshot) -> list[ResearchFact]:
+    """Year-to-date change, unsmoothed: TTM growth lags turning points by up to three quarters."""
+
+    if snapshot.flow_basis != "ttm":
+        return []
+    period = snapshot.report_period
+    prior = f"{int(period[:4]) - 1}{period[4:]}"
+    parts = []
+    for field, label in (("revenue", "营业收入"), ("earnings", "归母净利润"), ("recurring_earnings", "扣非归母净利润")):
+        items = snapshot.evidence.get(field, ())
+        current = next((item.value for item in items if item.report_period == period), None)
+        base = next((item.value for item in items if item.report_period == prior), None)
+        if current is not None and base:
+            change = current / base - 1 if base > 0 else None
+            parts.append(
+                f"{label} {change:+.2%}" if change is not None else f"{label} 上年同期为负，不计算同比"
+            )
+    if not parts:
+        return []
+    return [
+        ResearchFact(
+            label=f"年初至{period}累计同比（不滚动）",
+            value="；".join(parts),
+            as_of_date=snapshot.as_of_date,
+            kind=ResearchFactKind.DERIVED,
+            evidence_refs=(f"derived:ytd_growth:{snapshot.asset_id}:{period}",),
+            limitations=("TTM 增速反映过去四个季度，拐点会滞后；两者方向不同时，本行更接近最新趋势。",),
+        )
+    ]
+
+
+def _dividend_facts(execution: ResearchExecutionResult) -> list[ResearchFact]:
+    data = execution.dividends
+    if not data:
+        return []
+    as_of = execution.task.as_of_date
+    ref = (f"derived:dividend_history:{execution.task.asset_id}:{as_of}",)
+    events = "；".join(
+        f"除息日 {item['ex_date']} 每股 {float(item['cash_per_share']):.3f} 元" for item in data["ttm_events"]
+    ) or "近 12 个月没有除息"
+    ttm = f"近 12 个月每股现金分红 {float(data['ttm_per_share']):.3f} 元（{events}）"
+    if data["ttm_yield"] is not None:
+        ttm += f"，按现价 {float(data['price']):.2f} 元股息率 {float(data['ttm_yield']):.2%}"
+    facts = [
+        ResearchFact(
+            label="近 12 个月分红",
+            value=ttm,
+            as_of_date=as_of,
+            kind=ResearchFactKind.DERIVED,
+            evidence_refs=ref,
+            limitations=(
+                data["source"],
+                "只算已实施的现金分红（含税），已公告未除息的方案不计入；未按送转股调整。",
+            ),
+        )
+    ]
+    if data["by_year"]:
+        facts.append(
+            ResearchFact(
+                label="按除息年度的每股分红",
+                value="；".join(f"{year} 年 {float(value):.3f} 元" for year, value in data["by_year"].items()),
+                as_of_date=as_of,
+                kind=ResearchFactKind.DERIVED,
+                evidence_refs=ref,
+                limitations=("按除息日所在年度归属，不等于按会计年度的分配方案。",),
+            )
+        )
+    return facts
+
+
+def _growth_trend_facts(execution: ResearchExecutionResult) -> list[ResearchFact]:
+    trend = execution.growth_trend
+    if not trend or not trend["periods"]:
+        return []
+    facts = []
+    for metric in trend["metrics"]:
+        points = [
+            f"{item['period_end']} {_format_metric(metric, item[metric])}"
+            for item in trend["periods"]
+            if item.get(metric) is not None
+        ]
+        if not points:
+            continue
+        facts.append(
+            ResearchFact(
+                label=f"{_metric_label(metric)}（按报告期）",
+                value="；".join(points),
+                as_of_date=execution.task.as_of_date,
+                kind=ResearchFactKind.DERIVED,
+                evidence_refs=(f"derived:metric_history:{metric}",),
+                limitations=(trend["note"],),
             )
         )
     return facts

@@ -11,9 +11,9 @@
 - 普通股票默认 `ordinary_company`。
 - 银行、保险、证券和多元金融使用 `financial_institution`。
 - 贵金属、工业金属、煤炭、油气、钢铁等强周期资源公司使用 `cyclical_resource`。
-- ETF、LOF 和封闭式基金使用 `exchange_fund`。
+- ETF、LOF 和封闭式基金的场内交易使用 `exchange_fund`。LOF 同一代码也能场外按净值申赎，规划器在开放式基金目录里找到它时按 `open_fund` 研究（如 163417）；用户要在场内买卖时，按 `--asset-type` 指定场内身份，并说明场内价格有折溢价。
 - 场外开放式基金使用 `open_fund`。
-- `high_growth_unprofitable` 已有 profile 定义，但尚未接入默认执行 dispatcher，不得作为可运行入口。
+- `high_growth_unprofitable` 由规划器按财务规则自动识别（TTM 亏损且营收同比 ≥ 20%，或科创板 U 后缀且亏损），用 `ResearchExecutionService(profile_id=high_growth_unprofitable)` 执行，基础包读法见 `run-recipe --help`。
 
 股票专业 profile 应依据项目已验证的行业 assignment 或明确业务事实选择；不确定时不得为了运行而套普通公司指标。
 
@@ -67,7 +67,7 @@ python -m src.research_orchestration.cli run-single
 
 也可使用 `--asset-id` 代替 symbol 身份参数。数据库、Provider、执行服务、基础装配、复查、图表和报告发布由默认容器统一管理。
 
-Agent 使用规划器返回的 profile、question 和 horizon，不自行重选 execution service。当前仍没有将规划结果直接执行并创建探索 handoff 的 `run-bootstrap`；不得声称一次 `plan-single` 已生成报告。
+Agent 使用规划器返回的 profile、question 和 horizon，不自行重选 execution service。`plan-single` 只规划；规划并运行基础包用 `run-recipe`（见 `mainline.md`），它会生成 workflow run 与 handoff；不得声称一次 `plan-single` 已生成报告。
 
 ## 状态处理
 

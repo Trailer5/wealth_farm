@@ -25,6 +25,7 @@ from src.fund_research import (
     FundResearchBundle,
     FundResearchService,
     OpenFundBenchmarkResolver,
+    OpenFundDecisionFactsService,
     OpenFundHistoricalSummaryCalculator,
 )
 from src.master_data import ASSET_TYPE_OPEN_FUND, MasterDataService
@@ -79,6 +80,7 @@ class OpenFundResearchExecutionService:
         benchmark_service: BenchmarkAnalysisService,
         benchmark_resolver: OpenFundBenchmarkResolver,
         chart_renderer: ChartRenderer,
+        decision_facts: OpenFundDecisionFactsService | None = None,
     ) -> None:
         self.master_data = master_data
         self.fund_research = fund_research
@@ -87,6 +89,7 @@ class OpenFundResearchExecutionService:
         self.benchmark_service = benchmark_service
         self.benchmark_resolver = benchmark_resolver
         self.chart_renderer = chart_renderer
+        self.decision_facts = decision_facts
         self.summary_calculator = OpenFundHistoricalSummaryCalculator()
 
     def execute(
@@ -500,6 +503,34 @@ class OpenFundResearchExecutionService:
             )
         )
 
+        decision = None
+        if self.decision_facts is not None:
+            try:
+                decision = self.decision_facts.build(
+                    asset,
+                    as_of_date=task.as_of_date,
+                    nav_points=[
+                        (str(record["trade_date"]), float(record["close"]))
+                        for record in nav_response.records
+                        if record.get("close") is not None
+                    ],
+                    allow_remote=config.allow_remote,
+                    timeout_seconds=config.provider_timeout_seconds,
+                )
+                gaps.extend(
+                    ResearchExecutionGap("fund_research", "open_fund_decision_fact_gap", text, False)
+                    for text in decision["gaps"]
+                )
+            except Exception as exc:  # noqa: BLE001 - decision facts are optional context
+                gaps.append(
+                    ResearchExecutionGap(
+                        "fund_research",
+                        "open_fund_decision_facts_failed",
+                        f"申赎规则、任期与底层估值计算失败：{_error(exc)}",
+                        False,
+                    )
+                )
+
         artifacts = ()
         try:
             cumulative_values = list(risk.series)
@@ -603,6 +634,7 @@ class OpenFundResearchExecutionService:
             benchmark_result=benchmark,
             fund_bundle=bundle,
             chart_artifacts=artifacts,
+            open_fund_decision=decision,
         )
 
     def _validate(self, task: ResearchTaskSpec):

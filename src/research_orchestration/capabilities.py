@@ -9,6 +9,7 @@ from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
+    PROFILE_HIGH_GROWTH_UNPROFITABLE,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
     DecisionContextRequirement,
@@ -418,6 +419,38 @@ def default_capability_registry() -> ResearchCapabilityRegistry:
                 ),
             ),
             ResearchProfileCapability(
+                profile_id=PROFILE_HIGH_GROWTH_UNPROFITABLE,
+                supported_questions=all_questions,
+                automated_capabilities=(
+                    *common_automated,
+                    "stock_bars",
+                    "fundamental_metrics",
+                    "cash_runway_metrics",
+                    "growth_trend",
+                    "revenue_reverse_dcf",
+                    "benchmark_comparison",
+                    "strategy_evaluation",
+                ),
+                agent_query_capabilities=(
+                    *common_agent_queries,
+                    "industry_assignment_query",
+                    "peer_comparison_query",
+                ),
+                unsupported_capabilities=common_unsupported,
+                public_entrypoints=(
+                    *common_entrypoints,
+                    "src.research_workflow.ResearchExecutionService",
+                ),
+                evidence_requirements=common_evidence,
+                candidate_questions=(
+                    "现金跑道能否支撑到商业化或盈亏平衡？",
+                    "当前市值隐含的营收增速是否超出可信区间？",
+                ),
+                candidate_hypotheses=(
+                    "营收高增长可持续，且在现金耗尽前无需大幅稀释融资。",
+                ),
+            ),
+            ResearchProfileCapability(
                 profile_id=PROFILE_FINANCIAL_INSTITUTION,
                 supported_questions=all_questions,
                 automated_capabilities=(
@@ -515,13 +548,15 @@ def default_capability_registry() -> ResearchCapabilityRegistry:
                     "fund_risk_metrics",
                     "official_disclosure_facts",
                     "composite_benchmark_comparison",
+                    "fund_dealing_rules_and_costs",
+                    "fund_fee_drag",
+                    "current_manager_tenure",
+                    "underlying_index_valuation",
                 ),
                 agent_query_capabilities=common_agent_queries,
                 unsupported_capabilities=(
                     *common_unsupported,
                     "open_fund_investment_execution",
-                    "open_fund_timing_execution",
-                    "open_fund_position_sizing",
                 ),
                 public_entrypoints=(
                     *common_entrypoints,
@@ -539,13 +574,6 @@ def default_capability_registry() -> ResearchCapabilityRegistry:
                 ),
                 candidate_hypotheses=(
                     "历史超额收益有可解释且可持续的来源。",
-                ),
-                unsupported_lanes=(
-                    (DecisionLane.TIMING, "open_fund_timing_execution"),
-                    (
-                        DecisionLane.POSITION_SIZING,
-                        "open_fund_position_sizing",
-                    ),
                 ),
             ),
         )

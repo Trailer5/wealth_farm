@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any, Union
 
 from src.research_contracts import (
+    InvestmentThesis,
     Plan,
     SettleableAction,
     StateAssessment,
@@ -19,7 +20,7 @@ from src.research_contracts import (
     to_payload,
 )
 
-Artifact = Union[View, SettleableAction, StateAssessment, Plan]
+Artifact = Union[View, SettleableAction, StateAssessment, Plan, InvestmentThesis]
 
 
 class LedgerEntryType(str, Enum):
@@ -27,6 +28,7 @@ class LedgerEntryType(str, Enum):
     VIEW = "view"
     ACTION = "action"
     PLAN = "plan"
+    THESIS = "thesis"
 
 
 class LedgerScope(str, Enum):
@@ -39,6 +41,7 @@ _ARTIFACT_TYPES: dict[LedgerEntryType, type] = {
     LedgerEntryType.VIEW: View,
     LedgerEntryType.ACTION: SettleableAction,
     LedgerEntryType.PLAN: Plan,
+    LedgerEntryType.THESIS: InvestmentThesis,
 }
 
 
@@ -184,6 +187,13 @@ def _artifact_index(artifact: Artifact) -> tuple[str, str, str, str]:
             artifact.subject_id,
             artifact.as_of_date,
             artifact.as_of_date,
+        )
+    if isinstance(artifact, InvestmentThesis):
+        return (
+            artifact.thesis_id,
+            artifact.asset_id,
+            artifact.as_of_date,
+            artifact.expires_on,
         )
     dates = [
         artifact.as_of_date,

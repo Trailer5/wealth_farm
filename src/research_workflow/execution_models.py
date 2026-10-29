@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 from src.benchmark_analysis import BenchmarkCalculationResult
 from src.data_access import DataAccessResponse
@@ -125,6 +126,16 @@ class ResearchPhaseResult:
 
 
 @dataclass(frozen=True)
+class IndustryContext:
+    """Valuation percentiles and the Shenwan level-1 industry benchmark."""
+
+    valuation_position: dict[str, Any] | None = None
+    industry_benchmark: BenchmarkCalculationResult | None = None
+    industry_benchmark_name: str | None = None
+    gaps: tuple[ResearchExecutionGap, ...] = ()
+
+
+@dataclass(frozen=True)
 class ResearchExecutionResult:
     task: ResearchTaskSpec
     windows: ResearchWindows
@@ -145,6 +156,12 @@ class ResearchExecutionResult:
     fund_bundle: FundResearchBundle | None = None
     chart_artifacts: tuple[ChartArtifact, ...] = ()
     strategy_result: StrategyResult | None = None
+    industry_context: IndustryContext | None = None
+    valuation_model: dict[str, Any] | None = None
+    # Per-report-period growth and cost metrics for the high-growth unprofitable profile.
+    growth_trend: dict[str, Any] | None = None
+    open_fund_decision: dict[str, Any] | None = None
+    dividends: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         phase_ids = [phase.phase_id for phase in self.phases]

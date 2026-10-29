@@ -8,7 +8,7 @@ from src.research_ledger import LedgerScope, ResearchLedgerService
 
 
 class StateArchiveBuilder(Protocol):
-    def build(self, as_of_date: str, *, allow_remote: bool = True) -> Any: ...
+    def build(self, as_of_date: str, *, allow_remote: bool = True, **kwargs: Any) -> Any: ...
 
 
 class StateArchiveRecorder:
@@ -29,10 +29,11 @@ class StateArchiveRecorder:
         *,
         record: bool = True,
         allow_remote: bool = True,
+        **build_kwargs: Any,
     ) -> dict[str, Any]:
         """Archive JSON; recording is idempotent because the ID hashes the content."""
 
-        archive = self.archive.build(as_of_date, allow_remote=allow_remote)
+        archive = self.archive.build(as_of_date, allow_remote=allow_remote, **build_kwargs)
         payload = archive.to_dict()
         payload["ledger_entry_id"] = None
         if record:
@@ -40,7 +41,9 @@ class StateArchiveRecorder:
                 (archive.assessment,),
                 scope=LedgerScope.OBJECTIVE,
                 user_id=None,
-                source_ref=f"{self.source_prefix}:{as_of_date}",
+                source_ref=":".join(
+                    (self.source_prefix, *map(str, build_kwargs.values()), as_of_date)
+                ),
             )
             payload["ledger_entry_id"] = entry.entry_id
         return payload

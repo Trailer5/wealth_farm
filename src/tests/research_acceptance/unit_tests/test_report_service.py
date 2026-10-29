@@ -588,6 +588,90 @@ class ResearchReportAssemblyTest(unittest.TestCase):
         self.assertIn("open_fund_required_official_periodic_missing", codes)
         self.assertIn("open_fund_benchmark_definition_missing", codes)
 
+    def test_open_fund_decision_facts_render_as_sections(self):
+        fund = self._register(
+            "fund:decision-facts",
+            ASSET_TYPE_OPEN_FUND,
+            "160003",
+            market="cn_fund",
+            exchange=None,
+        )
+        task = ResearchTaskFactory(self.master).create(
+            asset_id=fund.asset_id,
+            profile_id=PROFILE_OPEN_FUND,
+            question_type=ResearchQuestionType.UNDERSTANDING,
+            horizon=ResearchHorizon.LONG,
+            as_of_date="2026-08-22",
+        )
+        execution = replace(
+            _execution(task),
+            strategy_result=None,
+            fund_bundle=_fund_bundle(fund),
+            risk_result=_risk_result(fund.asset_id),
+            open_fund_standard_metrics=_standard_metrics(fund.asset_id),
+            open_fund_decision={
+                "as_of_date": "2026-08-22",
+                "dealing": {
+                    "fetched_on": "2026-10-28",
+                    "purchase_status": "开放申购",
+                    "redemption_status": "开放赎回",
+                    "min_purchase_amount": 10.0,
+                    "daily_purchase_limit": "无限额",
+                    "purchase_confirm_days": 1,
+                    "redemption_confirm_days": 1,
+                    "purchase_rate_original": "0.015",
+                    "purchase_rate_discounted": "0.0015",
+                    "redemption_fees": [
+                        {"period_text": "小于7天", "min_days": 0, "max_days": 7, "rate": "0.015"},
+                        {"period_text": "大于等于7天", "min_days": 7, "max_days": None, "rate": "0"},
+                    ],
+                    "fee_free_from_days": 7,
+                    "ongoing_fee_rate": "0.014",
+                    "round_trips": [
+                        {"holding_days": 7, "purchase_rate": "0.0015", "redemption_rate": "0", "round_trip_cost": "0.0015"}
+                    ],
+                    "fee_drag": [{"years": 10, "ongoing_drag": "0.1316", "total_drag": "0.1329"}],
+                    "source_urls": ["https://fundf10.eastmoney.com/jjfl_160003.html"],
+                    "parse_issues": [],
+                },
+                "manager_tenure": {
+                    "current_managers": ["甲"],
+                    "lineup_start": "2020-01-02",
+                    "periods": [
+                        {
+                            "label": "现任经理组合",
+                            "start_date": "2020-01-02",
+                            "first_nav_date": "2020-01-02",
+                            "end_date": "2026-08-21",
+                            "years": 6.63,
+                            "total_return": 0.8,
+                            "annualized_return": 0.093,
+                            "max_drawdown": -0.35,
+                        }
+                    ],
+                },
+                "underlying_valuation": {
+                    "basis": "benchmark_component",
+                    "component_weight": 0.6,
+                    "index": {
+                        "name": "沪深300",
+                        "pe_ttm": {"value": 13.8, "percentile": 0.55, "sample_count": 121, "window_start": "2016-08-31", "window_end": "2026-08-21", "series_id": "csi300_pe_ttm"},
+                        "source": "乐咕乐股",
+                    },
+                    "note": "主动基金的持仓可以偏离业绩比较基准",
+                },
+                "gaps": [],
+            },
+        )
+
+        report = self.service.assemble(execution)
+        sections = {section.section_id: section for section in report.fact_sections}
+
+        self.assertIn("免赎回费", [fact.label for fact in sections["open_fund_dealing"].facts])
+        self.assertIn("10 年 13.16%", sections["open_fund_fee_drag"].facts[1].value)
+        self.assertIn("年化 9.30%", sections["open_fund_manager_tenure"].facts[0].value)
+        self.assertIn("近 10 年分位 55%", sections["open_fund_underlying_valuation"].facts[0].value)
+
     def test_open_fund_fact_matrix_blocks_missing_core_risk(self):
         fund = self._register(
             "fund:missing-risk",

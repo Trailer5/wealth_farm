@@ -7,7 +7,7 @@ from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 from typing import Any
 
-from src.research_contracts import Plan, View, ViewOrigin
+from src.research_contracts import InvestmentThesis, Plan, View, ViewOrigin
 
 from .models import (
     Artifact,
@@ -236,7 +236,7 @@ def _check_ownership(
     owner = None
     if isinstance(artifact, Plan):
         owner = artifact.user_id
-    elif isinstance(artifact, View) and artifact.origin is ViewOrigin.USER:
+    elif isinstance(artifact, (View, InvestmentThesis)) and artifact.origin is ViewOrigin.USER:
         owner = artifact.user_id
     if owner is not None and (
         scope is not LedgerScope.PERSONAL or user_id != owner

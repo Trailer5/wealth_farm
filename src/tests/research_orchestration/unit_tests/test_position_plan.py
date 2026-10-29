@@ -362,36 +362,26 @@ class PositionPlanTest(unittest.TestCase):
                 plan.assembly_gaps,
             )
 
-    def test_open_fund_position_sizing_is_explicitly_unsupported(self):
+    def test_open_fund_position_sizing_uses_dealing_liquidity(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            container = create_default_container(
-                db_path=Path(temp_dir) / "open-fund.sqlite3",
-                report_root=Path(temp_dir) / "report",
-            )
-            session, brief, suitability, entry_plan = _upstream(
+            fixture = _fixture(
+                Path(temp_dir),
                 PROFILE_OPEN_FUND,
-            )
-            context = container.user_space.default_context()
-
-            plan = container.position.assemble(
-                context=context,
-                session=session,
-                suitability=suitability,
-                entry_plan=entry_plan,
-                decision_brief=brief,
-                calculation_inputs=None,
+                held=False,
             )
 
+            plan = fixture.container.position.assemble(
+                **fixture.assemble_kwargs()
+            )
+
+            self.assertIs(plan.status, PositionPlanStatus.AVAILABLE)
             self.assertIs(
-                plan.status,
-                PositionPlanStatus.UNSUPPORTED,
+                plan.action,
+                PositionAction.NEW_ALLOCATION,
             )
-            self.assertTrue(
-                any(
-                    "profile_position_sizing_unsupported"
-                    in item
-                    for item in plan.assembly_gaps
-                )
+            self.assertIn(
+                "按净值申赎",
+                " ".join(plan.limitations),
             )
 
     def test_missing_recorded_mandate_requires_user_context(self):
@@ -549,11 +539,10 @@ def _fixture(
         profile_id,
         tranche_state=tranche_state,
     )
-    asset_type = (
-        ASSET_TYPE_EXCHANGE_FUND
-        if profile_id == PROFILE_EXCHANGE_FUND
-        else ASSET_TYPE_STOCK
-    )
+    asset_type = {
+        PROFILE_EXCHANGE_FUND: ASSET_TYPE_EXCHANGE_FUND,
+        PROFILE_OPEN_FUND: ASSET_TYPE_OPEN_FUND,
+    }.get(profile_id, ASSET_TYPE_STOCK)
     _register_asset(
         container,
         session.task.asset_id,

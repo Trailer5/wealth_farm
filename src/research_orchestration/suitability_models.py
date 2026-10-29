@@ -56,6 +56,7 @@ class SuitabilityInputKind(str, Enum):
         "financial_institution_quality"
     )
     CYCLE_ECONOMICS = "cycle_economics"
+    GROWTH_RUNWAY = "growth_runway"
     ETF_EXPOSURE_EFFICIENCY = "etf_exposure_efficiency"
     OPEN_FUND_MANAGER_STYLE = "open_fund_manager_style"
     BENCHMARK_RELATIVE = "benchmark_relative"

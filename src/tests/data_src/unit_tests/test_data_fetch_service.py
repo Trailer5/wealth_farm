@@ -72,11 +72,12 @@ class IdentityLookupTest(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def _service(self, *, fail=False):
+    def _service(self, *, fail=False, listing_fetcher=None):
         return DataFetchService(
             store=SQLiteDataStore(Path(self.temp_dir.name) / "ids.sqlite3"),
             akshare_source=FundCatalogSource(self.funds),
             baostock_source=ExchangeListingSource(self.listings, fail=fail),
+            listing_fetcher=listing_fetcher or _unavailable_listing,
         )
 
     def _types(self, service, symbol):
@@ -121,6 +122,64 @@ class IdentityLookupTest(unittest.TestCase):
         with self.assertRaises(DataSourceError):
             service.fetch_and_store_identities("000001")
         self.assertEqual(self._types(service, "000001"), [])
+
+    def test_exchange_lists_replace_a_failed_identity_source(self):
+        calls = []
+
+        def fetch(segment):
+            calls.append(segment)
+            return _DIRECTORY.get(segment, [_listing_row("999999", "sh", "stock")])
+
+        service = self._service(fail=True, listing_fetcher=fetch)
+
+        service.fetch_and_store_identities("000001")
+        service.fetch_and_store_identities("000002", asset_type=ASSET_TYPE_STOCK)
+
+        self.assertEqual(
+            self._types(service, "000001"),
+            sorted([ASSET_TYPE_INDEX, ASSET_TYPE_STOCK, ASSET_TYPE_OPEN_FUND]),
+        )
+        stock = service.master_data.find_assets(standard_symbol="000001", asset_type=ASSET_TYPE_STOCK)[0]
+        self.assertEqual((stock.exchange, stock.display_name), ("sz", "平安银行"))
+        self.assertEqual(self._types(service, "000002"), [ASSET_TYPE_STOCK])
+        # Each segment is fetched once and then served from the cached directory.
+        self.assertEqual(sorted(calls), sorted(set(calls)))
+
+    def test_incomplete_exchange_lists_keep_the_original_error(self):
+        def fetch(segment):
+            if segment == "index":
+                raise DataSourceError("index list down")
+            return _DIRECTORY.get(segment, [_listing_row("999999", "sh", "stock")])
+
+        service = self._service(fail=True, listing_fetcher=fetch)
+
+        with self.assertRaisesRegex(DataSourceError, "BaoStock session dropped"):
+            service.fetch_and_store_identities("000001")
+        self.assertEqual(self._types(service, "000001"), [])
+
+
+def _unavailable_listing(segment):
+    raise DataSourceError(f"{segment} unavailable in unit tests")
+
+
+def _listing_row(code, exchange, asset_type, name="x", listed_on=None, delisted_on=None):
+    return {
+        "code": code,
+        "exchange": exchange,
+        "asset_type": asset_type,
+        "name": name,
+        "listed_on": listed_on,
+        "delisted_on": delisted_on,
+        "board": None,
+        "source": "akshare:unit-test",
+    }
+
+
+_DIRECTORY = {
+    "sz_stock": [_listing_row("000001", "sz", "stock", "平安银行", "1991-04-03")],
+    "sz_delisted": [_listing_row("000002", "sz", "stock", "某退", "1991-01-29", "2020-01-01")],
+    "index": [_listing_row("000001", "sh", "index", "上证指数", "1991-07-15")],
+}
 
 
 class FakeDailySource:

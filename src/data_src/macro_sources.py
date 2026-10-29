@@ -46,6 +46,16 @@ _LEGU_INDEX = {
     "csi300_pe_ttm": ("stock_index_pe_lg", "沪深300", "滚动市盈率", "倍"),
     "csi300_pb": ("stock_index_pb_lg", "沪深300", "市净率", "倍"),
     "csi500_pe_ttm": ("stock_index_pe_lg", "中证500", "滚动市盈率", "倍"),
+    "csi1000_pe_ttm": ("stock_index_pe_lg", "中证1000", "滚动市盈率", "倍"),
+    "csi800_pe_ttm": ("stock_index_pe_lg", "中证800", "滚动市盈率", "倍"),
+    "csi100_pe_ttm": ("stock_index_pe_lg", "中证100", "滚动市盈率", "倍"),
+    "sse50_pe_ttm": ("stock_index_pe_lg", "上证50", "滚动市盈率", "倍"),
+    "sse180_pe_ttm": ("stock_index_pe_lg", "上证180", "滚动市盈率", "倍"),
+    "sse380_pe_ttm": ("stock_index_pe_lg", "上证380", "滚动市盈率", "倍"),
+    "chinext50_pe_ttm": ("stock_index_pe_lg", "创业板50", "滚动市盈率", "倍"),
+    "szse100_pe_ttm": ("stock_index_pe_lg", "深证100", "滚动市盈率", "倍"),
+    "szse_dividend_pe_ttm": ("stock_index_pe_lg", "深证红利", "滚动市盈率", "倍"),
+    "sse_dividend_pe_ttm": ("stock_index_pe_lg", "上证红利", "滚动市盈率", "倍"),
 }
 _HIGH_LOW_COLUMNS = {"new_high_60": "high60", "new_low_60": "low60"}
 

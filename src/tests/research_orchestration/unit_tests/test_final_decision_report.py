@@ -32,6 +32,13 @@ from src.research_orchestration import (
     ResearchExplorationService,
     ResearchRunRequest,
     ResearchRunStatus,
+    BehavioralHint,
+    ExitAction,
+    ExitCondition,
+    ExitDimension,
+    ExitPlan,
+    ExitState,
+    HoldingFacts,
     SuitabilityAction,
     SuitabilityClaimBlock,
     SuitabilityClaimKind,
@@ -405,6 +412,69 @@ class FinalDecisionReportTests(unittest.TestCase):
         self.assertNotIn("final_report_section_missing", codes)
         self.assertNotIn("decision_summary_missing", codes)
 
+    def test_holding_review_requires_an_exit_condition(self):
+        inputs = _inputs()
+        inputs["decision_brief"] = _namespace(
+            inputs["decision_brief"],
+            decision_intent=DecisionIntent.REVIEW_HOLDING,
+            position_state=PositionState.HELD,
+        )
+        lanes = {
+            key: inputs[key]
+            for key in (
+                "handoff",
+                "session",
+                "decision_brief",
+                "suitability",
+                "entry_plan",
+                "position_plan",
+            )
+        }
+        assembly = FinalDecisionReportAssemblyService()
+        reviewer = FinalDecisionReportReviewer()
+        without = reviewer.review(assembly.assemble(**inputs), **lanes)
+        self.assertIn("exit_condition_missing", {item.code for item in without.findings})
+
+        plan = ExitPlan(
+            plan_id="exit-plan:test",
+            user_id="user:test",
+            asset_id="stock:test",
+            asset_name="测试标的",
+            as_of_date=AS_OF,
+            holding=HoldingFacts(
+                quantity=Decimal("100"),
+                price=Decimal("40"),
+                price_date=AS_OF,
+                average_cost=Decimal("50"),
+                unrealized_return=Decimal("-0.2"),
+            ),
+            conditions=(
+                ExitCondition(
+                    "valuation-0",
+                    ExitDimension.VALUATION,
+                    ExitState.ARMED,
+                    ExitAction.REDUCE,
+                    "乐观情景每股价值 60.00 元",
+                    trigger_text="收盘价高于 60.00 元时分批减持",
+                    observability_key="price_above:60.00",
+                ),
+            ),
+            behavioral_hints=(
+                BehavioralHint("cost_anchor", "caution", "以成本价为锚", "浮亏 20.0%", "按今天是否会买复核"),
+            ),
+        )
+        report = assembly.assemble(**inputs, exit_plan=plan)
+        markdown = FinalDecisionReportRenderer().render(report)
+        review = reviewer.review_markdown(report, markdown, prior=reviewer.review(report, **lanes))
+
+        self.assertTrue(review.passed, review.findings)
+        self.assertEqual(FinalDecisionResearchReport.from_dict(report.to_dict()), report)
+        self.assertIn("### 退出计划", markdown)
+        self.assertIn("估值透支｜已设定｜分批减持", markdown)
+        self.assertIn("### 行为偏差提示", markdown)
+        with self.assertRaisesRegex(ValueError, "exit plan must match"):
+            assembly.assemble(**inputs, exit_plan=replace(plan, asset_id="stock:other"))
+
     def test_report_content_id_rejects_tampering(self):
         report = FinalDecisionReportAssemblyService().assemble(
             **_inputs()
@@ -483,7 +553,7 @@ class FinalDecisionReportTests(unittest.TestCase):
         ):
             FinalDecisionReportAssemblyService().assemble(**inputs)
 
-    def test_open_fund_unavailable_lanes_are_user_readable(self):
+    def test_unsupported_lanes_are_user_readable(self):
         inputs = _inputs()
         task = _namespace(
             inputs["session"].task,
@@ -520,7 +590,7 @@ class FinalDecisionReportTests(unittest.TestCase):
             profile_id="open_fund",
             entry_plan_id=inputs["entry_plan"].plan_id,
             status=PositionPlanStatus.UNSUPPORTED,
-            assembly_gaps=("open_fund_position_sizing",),
+            assembly_gaps=("profile_position_sizing_unsupported:open_fund",),
         )
 
         report = FinalDecisionReportAssemblyService(
@@ -542,7 +612,7 @@ class FinalDecisionReportTests(unittest.TestCase):
         self.assertIn("尚无可执行的时点模型", markdown)
         self.assertIn("不支持个性化执行仓位", markdown)
         self.assertNotIn("profile_timing_execution_unsupported", markdown)
-        self.assertNotIn("open_fund_position_sizing", markdown)
+        self.assertNotIn("profile_position_sizing_unsupported", markdown)
 
     def test_partial_baseline_status_remains_visible(self):
         inputs = _inputs()

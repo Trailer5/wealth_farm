@@ -8,12 +8,16 @@ from .profiles import (
 )
 from .service import ResearchTaskFactory
 from .profile_assignment import (
+    HIGH_GROWTH_REVENUE_GROWTH,
     ResearchProfileAssignment,
     ResearchProfileAssignmentService,
     SQLiteResearchProfileAssignmentRepository,
+    high_growth_unprofitable_reason,
 )
 
 __all__ = [
+    "HIGH_GROWTH_REVENUE_GROWTH",
+    "high_growth_unprofitable_reason",
     "AssetResearchProfile",
     "ResearchProfileRegistry",
     "ResearchProfileAssignment",

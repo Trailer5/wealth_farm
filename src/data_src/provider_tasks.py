@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal
 
 from .akshare import AkShareDataSource
 from .baostock import BaoStockDataSource
@@ -23,6 +24,7 @@ from .tencent import TencentExchangeFundDataSource
 from .ths import ThsDataSource
 from .total_return_bars import (
     sina_stock_total_return_bars,
+    sina_tdx_fund_total_return_bars,
     ths_tdx_total_return_bars,
 )
 
@@ -138,6 +140,8 @@ def fetch_total_return_bars(
             )
     if source == "sina" and not fund:
         return sina_stock_total_return_bars(symbol, start_date, end_date)
+    if source == "sina" and fund:
+        return sina_tdx_fund_total_return_bars(symbol, start_date, end_date)
     if source == "akshare" and fund:
         return AkShareDataSource().get_etf_total_return_bars(
             symbol,
@@ -257,6 +261,7 @@ def fetch_index_daily_bars(
             symbol,
             start_date,
             end_date,
+            exchange=exchange,
         )
     if source == "ths":
         return ThsDataSource().get_index_daily_bars(
@@ -354,6 +359,9 @@ def fetch_sw_constituents(*, codes: list[str], workers: int = 6):
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         list(pool.map(one, codes))
+    # Concurrent calls are intermittently rejected; retry failures one at a time.
+    for code in [code for code, outcome in results.items() if isinstance(outcome, str)]:
+        one(code)
     return results
 
 
@@ -442,6 +450,10 @@ def fetch_delisted_a_shares():
     return AkShareDataSource().get_delisted_a_shares()
 
 
+def fetch_exchange_listing_segment(*, segment: str):
+    return AkShareDataSource().get_exchange_listing_segment(segment)
+
+
 def fetch_index_members_on(*, index_symbol: str, day: str):
     with BaoStockDataSource() as provider:
         return provider.get_index_members_on(index_symbol, day)
@@ -468,6 +480,8 @@ def fetch_trade_calendar(
     if source == "baostock":
         with BaoStockDataSource() as provider:
             return provider.get_trade_dates(start_date, end_date)
+    if source == "sina":
+        return AkShareDataSource().get_trade_dates(start_date, end_date)
     raise ValueError(f"Unsupported trade calendar source: {source}")
 
 
@@ -604,6 +618,59 @@ def fetch_fund_purchase_status(*, source: str):
     raise ValueError(
         f"Unsupported fund purchase status source: {source}"
     )
+
+
+def fetch_open_fund_dealing_info(*, symbol: str):
+    from src.data_src.eastmoney.fund_dealing import EastmoneyFundDealingDataSource
+
+    return EastmoneyFundDealingDataSource().get_dealing_info(symbol)
+
+
+def fetch_fund_portfolio_disclosure(*, symbol: str):
+    from src.data_src.eastmoney.fund_portfolio import EastmoneyFundPortfolioDataSource
+
+    return EastmoneyFundPortfolioDataSource().get_portfolio(symbol)
+
+
+def fetch_index_constituent_weights(*, symbol: str) -> list[dict[str, str]]:
+    """Latest month-end constituent weights from China Securities Index; weight is a fraction."""
+
+    rows = []
+    for record in AkShareDataSource().call_api("index_stock_cons_weight_csindex", symbol=symbol):
+        code = str(record.get("成分券代码") or "").strip()
+        weight = record.get("权重")
+        if not code or weight in (None, ""):
+            continue
+        rows.append(
+            {
+                "weight_date": str(record.get("日期"))[:10],
+                "index_name": str(record.get("指数名称") or ""),
+                "code": code.zfill(6),
+                "name": str(record.get("成分券名称") or code),
+                "exchange": str(record.get("交易所") or ""),
+                "weight": str(float(weight) / 100),
+            }
+        )
+    return rows
+
+
+def fetch_stock_dividend_events(*, symbol: str) -> list[dict[str, str]]:
+    """Implemented cash dividends (Sina history); 派息 is per 10 shares."""
+
+    events = []
+    for record in AkShareDataSource().call_api("stock_history_dividend_detail", symbol=symbol, indicator="分红"):
+        cash = record.get("派息")
+        ex_date = str(record.get("除权除息日") or "")[:10]
+        if record.get("进度") != "实施" or not cash or len(ex_date) != 10 or not ex_date[0].isdigit():
+            continue
+        events.append(
+            {
+                "announce_date": str(record.get("公告日期"))[:10],
+                "ex_date": ex_date,
+                "cash_per_share": str(Decimal(str(cash)) / 10),
+            }
+        )
+    return events
 
 
 def fetch_fund_scale(

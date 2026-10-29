@@ -563,8 +563,113 @@ def financial_institution_strategy_specs() -> tuple[StrategySpec, ...]:
             signal_on_fail="bank_quality_or_risk_insufficient",
             limitations=(
                 "银行专用研究规则，不使用 EV/EBITDA 与自由现金流收益率",
-                "报告期 ROE 可能未年化",
+                "中期 ROE 按披露的年初累计值 × 12 ÷ 月数年化，四季度常低于前三季度年化值",
                 "阈值是研究假设，未经回测",
+            ),
+        ),
+    )
+
+
+def high_growth_strategy_specs() -> tuple[StrategySpec, ...]:
+    """Return the medium-long rule for high-growth unprofitable companies.
+
+    Design notes: docs/evidence/strategy_sources/growth_runway.md.
+    Runway is expressed as cash_burn_ratio (burn / cash) rather than cash_runway_years because the
+    engine treats any missing metric as a blocking gap, and runway years is not applicable when the
+    company does not burn cash; burn ratio is always computable (negative when cash flow is positive).
+    """
+
+    return (
+        StrategySpec(
+            strategy_id="growth_runway_check",
+            name="中长期高成长未盈利就绪度规则",
+            version="v1",
+            maturity=StrategyMaturity.RESEARCH_RULE,
+            supported_profiles=(PROFILE_HIGH_GROWTH_UNPROFITABLE,),
+            horizons=(ResearchHorizon.MEDIUM_LONG,),
+            required_metrics=(
+                "revenue_growth",
+                "gross_margin",
+                "cash_burn_ratio",
+                "ps_ttm",
+                "debt_to_assets",
+            ),
+            required_evidence_types=("financial_statement",),
+            data_window_days=730,
+            valid_for_days=90,
+            hard_filters=(
+                MetricCondition(
+                    "growth_revenue_gate",
+                    "revenue_growth",
+                    ConditionOperator.GTE,
+                    Decimal("0.20"),
+                    "营业收入同比不低于 20%",
+                ),
+                MetricCondition(
+                    "growth_runway_gate",
+                    "cash_burn_ratio",
+                    ConditionOperator.LTE,
+                    Decimal("0.67"),
+                    "年度现金消耗不超过货币资金的 67%（现金跑道约 1.5 年以上）",
+                ),
+            ),
+            vetoes=(
+                MetricCondition(
+                    "growth_runway_veto",
+                    "cash_burn_ratio",
+                    ConditionOperator.GT,
+                    Decimal("1"),
+                    "年度现金消耗超过货币资金（现金跑道不足一年）",
+                ),
+                MetricCondition(
+                    "growth_leverage_veto",
+                    "debt_to_assets",
+                    ConditionOperator.GT,
+                    Decimal("0.70"),
+                    "杠杆过高否决",
+                ),
+            ),
+            score_rules=(
+                _weighted(
+                    "growth_revenue_score",
+                    "revenue_growth",
+                    ConditionOperator.GTE,
+                    "0.30",
+                    "营业收入同比不低于 30%",
+                    "0.30",
+                ),
+                _weighted(
+                    "growth_margin_score",
+                    "gross_margin",
+                    ConditionOperator.GTE,
+                    "0.40",
+                    "毛利率不低于 40%",
+                    "0.25",
+                ),
+                _weighted(
+                    "growth_runway_score",
+                    "cash_burn_ratio",
+                    ConditionOperator.LTE,
+                    "0.33",
+                    "现金跑道约 3 年以上",
+                    "0.25",
+                ),
+                _weighted(
+                    "growth_valuation_score",
+                    "ps_ttm",
+                    ConditionOperator.LTE,
+                    "10",
+                    "市销率不高于 10 倍",
+                    "0.20",
+                ),
+            ),
+            passing_score=Decimal("0.6"),
+            signal_on_pass="growth_runway_research_supportive",
+            signal_on_fail="growth_or_runway_insufficient",
+            limitations=(
+                "阈值是初始研究假设，未经回测",
+                "现金消耗按自由现金流计，货币资金不含理财类金融资产，跑道偏保守",
+                "营收为零或上年同期为零的公司无法计算增速，规则不适用",
             ),
         ),
     )
@@ -719,6 +824,7 @@ def default_strategy_registry() -> StrategyRegistry:
         *exchange_fund_strategy_specs(),
         *financial_institution_strategy_specs(),
         *cycle_strategy_specs(),
+        *high_growth_strategy_specs(),
     ):
         registry.register(spec)
     return registry

@@ -177,6 +177,42 @@ class HypothesisImpactRecord:
 
 @dataclass(frozen=True)
 class ResearchFinding:
+    """One structured finding of an exploration round.
+
+    kind: fact / inference / assumption / unknown; a fact needs evidence_refs and a known source_tier
+    (primary = official original, secondary = third party, derived = project calculation, user_context).
+
+    Suitability findings (suitability_dimension set) need evidence, limitations, suitability_input_kind and a
+    known tier. alternative / opportunity_cost go on ExplorationTrack.ALTERNATIVE with subject_asset_id (the
+    alternative, not this asset) and comparable_exposure (same value on both); the rest on SUITABILITY.
+    Dimension -> input kind: expected_return_source -> the profile input (company_fundamentals,
+    financial_institution_quality, cycle_economics, growth_runway, etf_exposure_efficiency,
+    open_fund_manager_style); downside -> downside_risk; priced_expectation -> benchmark_relative;
+    alternative, opportunity_cost -> comparable_alternative. Missing the first two is a core gap
+    (insufficient); missing the other three caps consider at watch.
+
+    Timing findings go on ExplorationTrack.TIMING with timing_dimension, timing_input_kind, timing_state,
+    signal_horizon, timing_valid_from/until (the as-of date inside; catalyst windows inside too),
+    observability_key, evidence, limitations and tier. States per dimension: current_regime
+    supportive/neutral/adverse/unknown; next_tradable_time met/unknown plus a tz-aware next_tradable_at;
+    catalyst_window needs the window; execution_constraint may also be adverse; horizon_conflict (input
+    cross_horizon) met/not_met/unknown; others met/not_met/watch/unknown.
+    signal_horizon must equal the execution horizon (brief and task); only a finding that shows another
+    horizon's different conclusion uses another horizon, together with a horizon_conflict finding. Wrong
+    horizons surface as execution_horizon_input_missing.
+    Timing assembly needs all nine dimensions (current_regime, entry_condition, wait_condition, tranche_rule,
+    avoid_condition, catalyst_window, invalidation_condition, next_tradable_time, execution_constraint).
+    Ordinary companies also need inputs valuation_regime, trend_state, catalyst_timeline, liquidity_state,
+    market_risk_state, trading_calendar; open funds need fund_dealing_rule, valuation_regime,
+    market_risk_state, trading_calendar. The signal window is the intersection of all validity windows and
+    caps the report's review date; keep short-lived conditions' windows aligned.
+
+    Evidence refs: official originals by their HTTPS link (the published citation url must match); project
+    queries by result.evidence_refs (evidence:query:<id>); third-party reports by evidence_id; baseline pack
+    metrics by the pack's relative path (derived); external official web by evidence:external:* plus the
+    original link in the same finding.
+    """
+
     finding_id: str
     text: str
     kind: ResearchFindingKind
@@ -718,6 +754,14 @@ class HypothesisStatusEvent:
 
 @dataclass(frozen=True)
 class ResearchExplorationRound:
+    """One exploration round.
+
+    objective and queries (query IDs or source notes) non-empty; needs structured_findings, evidence_refs,
+    next_step and at least one hypothesis impact (on the round or a finding). Referenced hypotheses and
+    questions must exist; finding dates not after the as-of date. Assembly only accepts references that
+    appear in some round's evidence_refs.
+    """
+
     round_id: str
     objective: str
     queries: tuple[str, ...]

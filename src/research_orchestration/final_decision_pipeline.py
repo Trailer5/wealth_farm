@@ -16,6 +16,7 @@ from src.research_visualization import (
 from src.research_contracts import ResearchDecisionBrief
 
 from .entry_models import EntryPlan
+from .exit_plan_models import ExitPlan
 from .exploration_models import ResearchExplorationSession
 from .final_decision import (
     FinalDecisionReportAssemblyService,
@@ -104,7 +105,18 @@ class FinalDecisionReportService:
         entry_plan: EntryPlan,
         position_plan: PositionPlan,
         narrative: FinalReportNarrativeInput,
+        exit_plan: ExitPlan | None = None,
     ) -> FinalDecisionPublishResult:
+        """Assemble, review and publish the final decision report (once per workflow run).
+
+        Holding reviews (brief intent review_holding) need exit_plan with at least one triggered or set sell
+        condition, else exit_condition_missing. published is None when a review fails (see review); on
+        success the report is written under report/ and the three tracks are recorded in the ledger.
+        Dry run first: assembly.assemble(...) with the same arguments, then renderer.render(report),
+        reviewer.review(report) and reviewer.review_markdown(report, markdown).
+        Citation rules: see FinalReportNarrativeInput.
+        """
+
         report = self.assembly.assemble(
             handoff=handoff,
             session=session,
@@ -113,6 +125,7 @@ class FinalDecisionReportService:
             entry_plan=entry_plan,
             position_plan=position_plan,
             narrative=narrative,
+            exit_plan=exit_plan,
         )
         review = self.reviewer.review(
             report,

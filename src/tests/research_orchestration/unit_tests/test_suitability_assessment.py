@@ -25,6 +25,7 @@ from src.research_orchestration import (
 )
 from src.research_contracts import (
     PROFILE_EXCHANGE_FUND,
+    PROFILE_HIGH_GROWTH_UNPROFITABLE,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
     DecisionIntent,
@@ -46,6 +47,10 @@ class SuitabilityAssessmentTest(unittest.TestCase):
             (
                 PROFILE_ORDINARY_COMPANY,
                 SuitabilityInputKind.COMPANY_FUNDAMENTALS,
+            ),
+            (
+                PROFILE_HIGH_GROWTH_UNPROFITABLE,
+                SuitabilityInputKind.GROWTH_RUNWAY,
             ),
             (
                 PROFILE_EXCHANGE_FUND,
@@ -93,6 +98,21 @@ class SuitabilityAssessmentTest(unittest.TestCase):
                     SuitabilityAssessment.from_dict(payload),
                     assessment,
                 )
+
+    def test_missing_portfolio_role_caps_at_watch(self):
+        session = _session(
+            PROFILE_ORDINARY_COMPANY,
+            SuitabilityInputKind.COMPANY_FUNDAMENTALS,
+        )
+        brief = replace(_brief(session), portfolio_role=None)
+
+        assessment = self.service.assemble(
+            session=session,
+            decision_brief=brief,
+        )
+
+        self.assertIs(assessment.action, SuitabilityAction.WATCH)
+        self.assertIn("portfolio_role_missing", assessment.assembly_gaps)
 
     def test_missing_comparable_alternative_cannot_be_consider(self):
         session = _session(

@@ -201,6 +201,66 @@ class AkShareDataSource:
             )
         return bars
 
+    def get_etf_daily_bars_sina_history(
+        self, symbol: str, start_date: str, end_date: str
+    ) -> list[DailyBar]:
+        """Unadjusted Sina daily bars of an exchange fund over its full history (fund_etf_hist_sina)."""
+
+        code = normalize_a_share_code(symbol)
+        bars = []
+        for record in self._records_from_api("fund_etf_hist_sina", symbol=f"{infer_a_share_exchange(code)}{code}"):
+            day = to_date_string(record.get("date"))
+            if not day or day < start_date[:10] or day > end_date[:10]:
+                continue
+            bars.append(
+                DailyBar(
+                    symbol=code,
+                    trade_date=day,
+                    open=to_optional_float(record.get("open")),
+                    high=to_optional_float(record.get("high")),
+                    low=to_optional_float(record.get("low")),
+                    close=to_optional_float(record.get("close")),
+                    volume=to_optional_float(record.get("volume")),
+                    amount=to_optional_float(record.get("amount")),
+                    source=f"{self.source}:fund_etf_hist_sina",
+                    raw={key: record.get(key) for key in ("open", "high", "low", "close", "volume", "amount")},
+                )
+            )
+        if not bars:
+            raise DataSourceError(f"Sina fund history has no rows for {code} in range")
+        return bars
+
+    def get_a_share_daily_bars_sina_history(
+        self, symbol: str, start_date: str, end_date: str
+    ) -> list[DailyBar]:
+        """Unadjusted Sina daily bars over the full listing history (stock_zh_a_daily), cut to the range."""
+
+        code = normalize_a_share_code(symbol)
+        bars = []
+        for record in self._records_from_api(
+            "stock_zh_a_daily", symbol=f"{infer_a_share_exchange(code)}{code}", adjust=""
+        ):
+            day = to_date_string(record.get("date"))
+            if not day or day < start_date[:10] or day > end_date[:10]:
+                continue
+            bars.append(
+                DailyBar(
+                    symbol=code,
+                    trade_date=day,
+                    open=to_optional_float(record.get("open")),
+                    high=to_optional_float(record.get("high")),
+                    low=to_optional_float(record.get("low")),
+                    close=to_optional_float(record.get("close")),
+                    volume=to_optional_float(record.get("volume")),
+                    amount=to_optional_float(record.get("amount")),
+                    source=f"{self.source}:stock_zh_a_daily",
+                    raw=dict(record, date=day),
+                )
+            )
+        if not bars:
+            raise DataSourceError(f"Sina daily history has no rows for {code} in range")
+        return bars
+
     def get_a_share_hfq_factors(self, symbol: str) -> list[tuple[str, float]]:
         """Sina multiplicative back-adjustment factors, effective from each date."""
 
@@ -417,10 +477,21 @@ class AkShareDataSource:
         start_date: str,
         end_date: str,
         period: str = "daily",
+        exchange: str | None = None,
     ) -> list[DailyBar]:
-        """Fetch mainland index historical bars."""
+        """Fetch mainland index historical bars.
+
+        With an exchange, Sina's full history (stock_zh_index_daily, from the index's first day) is
+        tried first: it is the only long-history index source left besides BaoStock, and Eastmoney
+        (index_zh_a_hist) often drops connections.
+        """
 
         normalized_symbol = to_akshare_symbol(symbol)
+        if exchange in ("sh", "sz") and period == "daily":
+            try:
+                return self._sina_index_daily_bars(normalized_symbol, exchange, start_date, end_date)
+            except DataSourceError:
+                pass
         frame = self._call_dataframe(
             "index_zh_a_hist",
             symbol=normalized_symbol,
@@ -436,6 +507,32 @@ class AkShareDataSource:
             )
             for record in dataframe_to_records(frame)
         ]
+
+    def _sina_index_daily_bars(
+        self, code: str, exchange: str, start_date: str, end_date: str
+    ) -> list[DailyBar]:
+        bars = []
+        for record in self._records_from_api("stock_zh_index_daily", symbol=f"{exchange}{code}"):
+            day = to_date_string(record.get("date"))
+            if not day or day < start_date[:10] or day > end_date[:10]:
+                continue
+            bars.append(
+                DailyBar(
+                    symbol=code,
+                    trade_date=day,
+                    open=to_optional_float(record.get("open")),
+                    high=to_optional_float(record.get("high")),
+                    low=to_optional_float(record.get("low")),
+                    close=to_optional_float(record.get("close")),
+                    volume=to_optional_float(record.get("volume")),
+                    amount=None,
+                    source=f"{self.source}:stock_zh_index_daily",
+                    raw=dict(record, date=day),
+                )
+            )
+        if not bars:
+            raise DataSourceError(f"Sina index history has no rows for {exchange}{code} in range")
+        return bars
 
     def get_index_constituents(
         self,
@@ -1111,6 +1208,89 @@ class AkShareDataSource:
             }
         return [observations[trade_date] for trade_date in sorted(observations)]
 
+    def get_exchange_listing_segment(self, segment: str) -> list[dict[str, Any]]:
+        """One segment of the exchange listing directory, with listing and delisting dates.
+
+        Segments: sh_stock, sz_stock, bj_stock (listed A shares, from each exchange's own list),
+        sh_delisted, sz_delisted, etf, lof (Sina fund lists, exchange from the code prefix it returns),
+        index (CSI/exchange index list; publish date as listed_on).
+        """
+
+        if segment == "sh_stock":
+            records = [
+                {**record, "_board": board}
+                for board in ("主板A股", "科创板")
+                for record in self._records_from_api("stock_info_sh_name_code", symbol=board)
+            ]
+            return [
+                _listing(record.get("证券代码"), "sh", "stock", record.get("证券简称"), record.get("上市日期"),
+                         board=record["_board"], source="stock_info_sh_name_code")
+                for record in records
+            ]
+        if segment == "sz_stock":
+            return [
+                _listing(record.get("A股代码"), "sz", "stock", record.get("A股简称"), record.get("A股上市日期"),
+                         board=record.get("板块"), source="stock_info_sz_name_code")
+                for record in self._records_from_api("stock_info_sz_name_code", symbol="A股列表")
+            ]
+        if segment == "bj_stock":
+            return [
+                _listing(record.get("证券代码"), "bj", "stock", record.get("证券简称"), record.get("上市日期"),
+                         board="北交所", source="stock_info_bj_name_code")
+                for record in self._records_from_api("stock_info_bj_name_code")
+            ]
+        if segment == "sh_delisted":
+            return [
+                _listing(record.get("公司代码"), "sh", "stock", record.get("公司简称"), record.get("上市日期"),
+                         delisted_on=record.get("暂停上市日期"), source="stock_info_sh_delist")
+                for record in self._records_from_api("stock_info_sh_delist", symbol="全部")
+            ]
+        if segment == "sz_delisted":
+            return [
+                _listing(record.get("证券代码"), "sz", "stock", record.get("证券简称"), record.get("上市日期"),
+                         delisted_on=record.get("终止上市日期"), source="stock_info_sz_delist")
+                for record in self._records_from_api("stock_info_sz_delist", symbol="终止上市公司")
+            ]
+        if segment in ("etf", "lof"):
+            category = "ETF基金" if segment == "etf" else "LOF基金"
+            rows = []
+            for record in self._records_from_api("fund_etf_category_sina", symbol=category):
+                prefixed = str(record.get("代码") or "").strip().lower()
+                if prefixed[:2] in ("sh", "sz") and len(prefixed) == 8:
+                    rows.append(
+                        _listing(prefixed[2:], prefixed[:2], "exchange_fund", record.get("名称"), None,
+                                 board=segment.upper(), source="fund_etf_category_sina")
+                    )
+            return rows
+        if segment == "index":
+            # The list carries no exchange; 399xxx are Shenzhen indexes, the rest are quoted in Shanghai.
+            return [
+                _listing(record.get("index_code"), "sz" if str(record.get("index_code")).startswith("399") else "sh",
+                         "index", record.get("display_name"), record.get("publish_date"), source="index_stock_info")
+                for record in self._records_from_api("index_stock_info")
+            ]
+        raise ValueError(f"Unknown exchange listing segment: {segment}")
+
+    def get_trade_dates(self, start_date: str, end_date: str) -> list[dict[str, Any]]:
+        """Every calendar day in the range with is_trading_day, from Sina's trade-date list.
+
+        Same record shape as BaoStock's query_trade_dates; the fallback calendar when BaoStock is down.
+        """
+
+        api_name = "tool_trade_date_hist_sina"
+        trading = {
+            to_date_string(record.get("trade_date"))
+            for record in dataframe_to_records(self._call_dataframe(api_name))
+        }
+        start, end = date.fromisoformat(start_date), date.fromisoformat(end_date)
+        if not trading or max(trading) < end.isoformat():
+            raise DataSourceError(f"{api_name} does not cover {end_date}")
+        days = (start + timedelta(days=offset) for offset in range((end - start).days + 1))
+        return [
+            {"calendar_date": day.isoformat(), "is_trading_day": "1" if day.isoformat() in trading else "0"}
+            for day in days
+        ]
+
     def get_50etf_qvix_history(
         self,
     ) -> list[dict[str, object]]:
@@ -1722,6 +1902,35 @@ class AkShareDataSource:
             source=f"{self.source}:{report_type}",
             raw=dict(record),
         )
+
+
+EXCHANGE_LISTING_SEGMENTS = (
+    "sh_stock", "sz_stock", "bj_stock", "sh_delisted", "sz_delisted", "etf", "lof", "index",
+)
+
+
+def _listing(
+    code: Any,
+    exchange: str,
+    asset_type: str,
+    name: Any,
+    listed_on: Any,
+    *,
+    source: str,
+    delisted_on: Any = None,
+    board: Any = None,
+) -> dict[str, Any]:
+    return {
+        "code": str(code or "").strip().zfill(6),
+        "exchange": exchange,
+        "asset_type": asset_type,
+        # Shenzhen pads names with half- and full-width spaces ("万  科Ａ").
+        "name": "".join(str(name or "").split()) or None,
+        "listed_on": to_date_string(listed_on) or None,
+        "delisted_on": to_date_string(delisted_on) or None,
+        "board": str(board) if board else None,
+        "source": f"akshare:{source}",
+    }
 
 
 def _first_present(record: dict[str, Any], names: tuple[str, ...]) -> Any:

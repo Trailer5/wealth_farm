@@ -179,6 +179,15 @@ class FinalDecisionReportReviewer:
                     "Final report requires falsification conditions.",
                 )
             )
+        if decision_brief.decision_intent is DecisionIntent.REVIEW_HOLDING and (
+            report.exit_plan is None or not report.exit_plan.has_exit_condition
+        ):
+            findings.append(
+                ReviewFinding(
+                    "exit_condition_missing",
+                    "A holding review needs an exit plan with at least one set or met sell condition.",
+                )
+            )
         if (
             report.monitoring_plan.alert_rule_refs
             or (
@@ -341,7 +350,8 @@ class FinalDecisionReportReviewer:
                 break
         image_paths = tuple(
             match.group(1)
-            for match in re.finditer(r"!\[[^\]]*\]\(([^)]+)\)", markdown)
+            # Asset names such as "兴全合宜混合(LOF)A" put one level of parentheses inside the path.
+            for match in re.finditer(r"!\[[^\]]*\]\(((?:[^()]|\([^()]*\))+)\)", markdown)
         )
         if any(not _valid_chart_path(path) for path in image_paths):
             findings.append(

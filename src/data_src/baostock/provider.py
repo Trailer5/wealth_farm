@@ -17,6 +17,12 @@ from ..common import (
     to_optional_float,
 )
 from ..models import DailyBar, SecurityInfo, StockIndustryInfo
+from ..throttle import NO_THROTTLE, default_throttle
+
+_BLACKLIST_CODE = "10001011"
+# A blacklisted IP stays blocked for a long time; retry at most one login per cooldown.
+_BLACKLIST_COOLDOWN_SECONDS = 6 * 3600
+_LOGIN_FAILURE_COOLDOWN_SECONDS = 60
 
 _INDEX_MEMBER_APIS = {
     "000300": "query_hs300_stocks",
@@ -69,9 +75,12 @@ class BaoStockDataSource:
         ]
     )
 
-    def __init__(self, baostock_module: Any | None = None) -> None:
+    def __init__(self, baostock_module: Any | None = None, throttle: Any | None = None) -> None:
         self._baostock = baostock_module
         self._logged_in = False
+        if throttle is None:
+            throttle = default_throttle() if baostock_module is None else NO_THROTTLE
+        self._throttle = throttle
 
     def __enter__(self) -> "BaoStockDataSource":
         self.login()
@@ -85,8 +94,19 @@ class BaoStockDataSource:
 
         if self._logged_in:
             return
+        self._throttle.acquire("baostock")
+        self._throttle.acquire("baostock:login")
         with _library_output_to_stderr():
             result = self._load_baostock().login()
+        code = str(getattr(result, "error_code", "0"))
+        if code != "0":
+            blacklisted = code == _BLACKLIST_CODE or "黑名单" in str(getattr(result, "error_msg", ""))
+            reason = f"BaoStock login failed: {getattr(result, 'error_msg', '')}"
+            self._throttle.trip(
+                "baostock",
+                _BLACKLIST_COOLDOWN_SECONDS if blacklisted else _LOGIN_FAILURE_COOLDOWN_SECONDS,
+                reason,
+            )
         ensure_baostock_success(result, "BaoStock login")
         self._logged_in = True
 
@@ -341,6 +361,7 @@ class BaoStockDataSource:
         api = getattr(bs, api_name, None)
         if api is None:
             raise DataSourceError(f"BaoStock API is not available: {api_name}")
+        self._throttle.acquire("baostock")
         result = api(*args, **kwargs)
         ensure_baostock_success(result, f"BaoStock API call {api_name}")
         return result

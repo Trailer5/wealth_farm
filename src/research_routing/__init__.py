@@ -22,9 +22,12 @@ from .executor import (
     StepOutcomeStatus,
 )
 from .models import (
+    PREFERENCE_RECORDED,
+    PREFERENCE_WITH_MEANING,
     USER_CONTEXT_QUESTIONS,
     USER_CONTEXT_REF_PREFIXES,
     VIEW_HORIZON_QUESTION,
+    PORTFOLIO_CASH_QUESTION,
     AvoidCheck,
     ElementCoverage,
     OutputElement,
@@ -52,9 +55,12 @@ from .router import (
 __all__ = [
     "PROFILE_LANE_GAP_STAGE",
     "RESOLVED",
+    "PREFERENCE_RECORDED",
+    "PREFERENCE_WITH_MEANING",
     "USER_CONTEXT_QUESTIONS",
     "USER_CONTEXT_REF_PREFIXES",
     "VIEW_HORIZON_QUESTION",
+    "PORTFOLIO_CASH_QUESTION",
     "VISION_SCENARIO_VERSION",
     "AvoidCheck",
     "CoverageRow",

@@ -58,6 +58,8 @@ from .trading_calendar import TradingCalendarService
 _MAX_LEADING_GAP_DAYS = 15
 # After the first source answers, wait this long for the others to cross-check.
 _FAN_OUT_GRACE_SECONDS = 10.0
+# Ask the two preferred sources at once (cross-check, speed); the rest only if both fail.
+_CONCURRENT_SOURCES = 2
 
 class AssetResolutionRequiredError(ValueError):
     """Raised when a data request does not resolve to one canonical asset."""
@@ -1162,7 +1164,7 @@ class DataAccessService:
         outcomes = fan_out(
             {
                 source: partial(self._fetch_remote, asset, request, source)
-                for source in remote_sources
+                for source in remote_sources[:_CONCURRENT_SOURCES]
             },
             accept=lambda result: result.fetched_count > 0,
             grace_seconds=_FAN_OUT_GRACE_SECONDS,
@@ -1178,6 +1180,15 @@ class DataAccessService:
                 )
             else:
                 successful.append(source)
+        rest = remote_sources[_CONCURRENT_SOURCES:]
+        if not successful and rest:
+            try:
+                _, source, attempted, fallback_errors = self._fetch_with_fallback(asset, request, rest)
+            except DataAccessFetchError as exc:
+                errors.update(exc.provider_errors)
+            else:
+                errors.update(fallback_errors)
+                return (source,), (*remote_sources[:_CONCURRENT_SOURCES], *attempted), errors
         if not successful:
             raise DataAccessFetchError(
                 f"All remote sources failed for {request.dataset}: "
@@ -1366,7 +1377,7 @@ class DataAccessService:
         if request.dataset == DATASET_STOCK_TOTAL_RETURN_BARS:
             return ("baostock", "sina", "ths")
         if request.dataset == DATASET_EXCHANGE_FUND_TOTAL_RETURN_BARS:
-            return ("baostock", "ths", "akshare")
+            return ("baostock", "sina", "ths", "akshare")
         if request.dataset == DATASET_EXCHANGE_FUND_DAILY_BARS:
             return ("mootdx", "tencent", "sina", "ths", "baostock", "akshare")
         return ("mootdx", "tencent", "sina", "ths", "baostock", "akshare")

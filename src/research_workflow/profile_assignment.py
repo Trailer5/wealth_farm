@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 from src.data_src import StockIndustryInfo
@@ -306,6 +308,29 @@ def _classify(industry_name: str) -> tuple[str, float, str]:
         "industry_default:non_specialized; "
         "high_growth_unprofitable_not_detected",
     )
+
+
+HIGH_GROWTH_REVENUE_GROWTH = Decimal("0.20")
+# STAR-market companies unprofitable at listing carry a "U" in the name suffix (e.g. "-U", "-UW").
+_STAR_UNPROFITABLE_SUFFIX = re.compile(r"-[A-Z]*U[A-Z]*$")
+
+
+def high_growth_unprofitable_reason(
+    *,
+    earnings_ttm: Decimal | None,
+    revenue_growth: Decimal | None,
+    display_name: str | None,
+    symbol: str,
+) -> str | None:
+    """Decision 9 of stage 7: TTM parent loss with revenue growth of at least 20%, or STAR unprofitable listing."""
+
+    if earnings_ttm is None or earnings_ttm >= 0:
+        return None
+    if symbol.startswith(("688", "689")) and _STAR_UNPROFITABLE_SUFFIX.search((display_name or "").strip()):
+        return "financial_rule:star_unprofitable_listing"
+    if revenue_growth is not None and revenue_growth >= HIGH_GROWTH_REVENUE_GROWTH:
+        return "financial_rule:ttm_loss_revenue_growth"
+    return None
 
 
 def _assignment(row: sqlite3.Row) -> ResearchProfileAssignment:

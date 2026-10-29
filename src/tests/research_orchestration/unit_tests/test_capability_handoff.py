@@ -91,14 +91,11 @@ class ResearchCapabilityRegistryTest(unittest.TestCase):
             question_type=ResearchQuestionType.INVESTMENT,
             decision_lane=DecisionLane.POSITION_SIZING,
         )
-        self.assertNotIn(
+        self.assertIn(
             "personalized_position_plan",
             sizing.automated_capabilities,
         )
-        self.assertIn(
-            "open_fund_position_sizing",
-            sizing.unsupported_capabilities,
-        )
+        self.assertEqual(sizing.lane_unsupported_capabilities, ())
 
     def test_unsupported_lanes_are_declared_per_profile(self):
         def blockers(profile_id, lane):
@@ -108,19 +105,8 @@ class ResearchCapabilityRegistryTest(unittest.TestCase):
                 decision_lane=lane,
             ).lane_unsupported_capabilities
 
-        self.assertEqual(
-            blockers(PROFILE_OPEN_FUND, DecisionLane.TIMING),
-            ("open_fund_timing_execution",),
-        )
-        self.assertEqual(
-            blockers(PROFILE_OPEN_FUND, DecisionLane.POSITION_SIZING),
-            ("open_fund_position_sizing",),
-        )
-        self.assertEqual(
-            blockers(PROFILE_OPEN_FUND, DecisionLane.SUITABILITY),
-            (),
-        )
         for lane in DecisionLane:
+            self.assertEqual(blockers(PROFILE_OPEN_FUND, lane), ())
             self.assertEqual(blockers(PROFILE_ORDINARY_COMPANY, lane), ())
 
     def test_suitability_assessment_and_final_review_are_declared(self):

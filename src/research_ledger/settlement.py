@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Protocol
 
 from src.research_contracts import (
@@ -16,6 +16,7 @@ from src.research_contracts import (
     SettlementRule,
     TriggerKind,
     View,
+    disclosure_deadline,
     settlement_checkpoints,
 )
 
@@ -49,6 +50,17 @@ def _level_at_period(metric_key: str) -> str | None:
     except ValueError:
         return None
     return period
+
+
+def _report_deadline(metric_id: str, period: str | None) -> str | None:
+    """Statutory disclosure deadline of a company report period; None for macro series."""
+
+    if period is None or not metric_id.startswith("fin:"):
+        return None
+    try:
+        return disclosure_deadline(period)
+    except ValueError:
+        return None
 
 
 @dataclass(frozen=True)
@@ -89,11 +101,73 @@ class MetricSeriesSource(Protocol):
 
 
 @dataclass(frozen=True)
+class TriggerCondition:
+    """Parsed ``observability_key``: price_above/price_below:<price> or metric_above/metric_below:<value>:<metric_id>."""
+
+    kind: str
+    threshold: Decimal
+    observed_id: str
+
+    @property
+    def on_price(self) -> bool:
+        return self.kind.startswith("price_")
+
+    def met(self, value: Decimal) -> bool:
+        return value > self.threshold if self.kind.endswith("_above") else value < self.threshold
+
+
+_CONDITION_KINDS = ("price_above", "price_below", "metric_above", "metric_below")
+
+
+def parse_trigger_condition(key: str | None, asset_id: str) -> TriggerCondition | None:
+    if not key:
+        return None
+    kind, _, rest = key.partition(":")
+    if kind not in _CONDITION_KINDS:
+        return None
+    value, _, metric_id = rest.partition(":")
+    try:
+        threshold = Decimal(value)
+    except InvalidOperation:
+        return None
+    if not threshold.is_finite():
+        return None
+    if kind.startswith("price_"):
+        return None if metric_id else TriggerCondition(kind, threshold, asset_id)
+    return TriggerCondition(kind, threshold, metric_id) if metric_id else None
+
+
+def trigger_date(
+    condition: TriggerCondition,
+    series: tuple[PricePoint, ...] | tuple[MetricPoint, ...],
+    valid_from: str,
+    valid_until: str,
+) -> str | None:
+    """First date after ``valid_from`` on which the condition is observed: a close, or a report's publication."""
+
+    observed = sorted(
+        (
+            (item.date, item.value)
+            if condition.on_price
+            else (item.available_at, item.value)
+            for item in series
+        ),
+    )
+    return next(
+        (day for day, value in observed if valid_from < day <= valid_until and condition.met(value)),
+        None,
+    )
+
+
+@dataclass(frozen=True)
 class SettlementSchedule:
     start: str
     checkpoints: tuple[str, ...]
     rule: SettlementRule | None
     unsettleable_reason: str | None = None
+    # Set for conditional actions with a machine-checkable trigger; checkpoints follow the trigger date.
+    condition: TriggerCondition | None = None
+    valid_until: str | None = None
 
 
 def settlement_schedule(artifact: Artifact) -> SettlementSchedule | None:
@@ -130,19 +204,31 @@ def settlement_schedule(artifact: Artifact) -> SettlementSchedule | None:
         )
     if isinstance(artifact, SettleableAction):
         trigger = artifact.trigger
+        condition = None
         if trigger.kind is TriggerKind.SCHEDULED:
             start = trigger.scheduled_on
             reason = None
         else:
             start = trigger.valid_from
-            reason = "条件触发动作尚无触发记录，无法确定执行日"
+            condition = parse_trigger_condition(trigger.observability_key, artifact.asset_id)
+            reason = (
+                None
+                if condition is not None
+                else f"条件触发动作的观察键不可机器判定（{trigger.observability_key}），只记录不结算"
+            )
         if artifact.settlement_rule.method is SettlementMethod.METRIC_OBSERVATION:
             reason = "动作只按价格结算"
         return SettlementSchedule(
             start=start,
-            checkpoints=settlement_checkpoints(artifact.horizon, start),
+            checkpoints=(
+                (trigger.valid_until,)
+                if condition is not None
+                else settlement_checkpoints(artifact.horizon, start)
+            ),
             rule=artifact.settlement_rule,
             unsettleable_reason=reason,
+            condition=condition,
+            valid_until=trigger.valid_until,
         )
     return None
 
@@ -158,6 +244,7 @@ def settle_checkpoint(
         tuple[PricePoint, ...] | tuple[MetricPoint, ...] | PriceDataUnavailable,
     ],
     computed_at: str,
+    note: str | None = None,
 ) -> Settlement:
     """Settle one checkpoint using only observations dated on or before it."""
 
@@ -253,7 +340,14 @@ def settle_checkpoint(
         entry_id=entry_id,
         checkpoint_date=checkpoint,
         status=SettlementStatus.SETTLED,
-        claim_result=_claim_result(artifact, asset_return, excess),
+        claim_result=_claim_result(
+            artifact,
+            asset_return,
+            # A switch (exit with an alternative) is right when the alternative did better.
+            excess
+            if excess is not None or relative["alternative"] is None or isinstance(artifact, View)
+            else asset_return - relative["alternative"],
+        ),
         computed_at=computed_at,
         reference_date=reference.date,
         reference_value=reference.value,
@@ -266,6 +360,7 @@ def settle_checkpoint(
         max_adverse=adverse,
         max_favorable=favorable,
         note=_join_notes(
+            note,
             _basis_note(legs),
             _stale_note(observation.date, checkpoint),
         ),
@@ -307,15 +402,26 @@ def _settle_metric(
         ),
         key=lambda item: item.period_end,
     )
+    claim = artifact.claim
+    key = claim.metric_key if claim is not None else "level"
+    target_period = _level_at_period(key)
+    deadline = _report_deadline(metric_id, target_period)
+    if (
+        deadline is not None
+        and target_period > reference.period_end
+        and checkpoint < deadline
+        and not any(item.period_end == target_period for item in path)
+    ):
+        return unsettled(
+            SettlementStatus.NOT_SETTLEABLE,
+            f"检查点早于目标期 {target_period} 的法定披露截止日 {deadline}，由之后的检查点结算",
+        )
     if not path:
         return unsettled(
             SettlementStatus.DATA_INSUFFICIENT,
             f"{metric_id} 在 {schedule.start} 之后到检查点前没有发布新一期数据",
         )
     latest = path[-1]
-    claim = artifact.claim
-    key = claim.metric_key if claim is not None else "level"
-    target_period = _level_at_period(key)
     if target_period is not None:
         if target_period <= reference.period_end:
             return unsettled(

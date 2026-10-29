@@ -16,9 +16,12 @@ from src.research_orchestration import default_capability_registry
 from src.research_orchestration.routing_adapters import RegistryLaneSupport
 from src.research_routing import (
     PROFILE_LANE_GAP_STAGE,
+    PREFERENCE_RECORDED,
+    PREFERENCE_WITH_MEANING,
     RESOLVED,
     USER_CONTEXT_QUESTIONS,
     VIEW_HORIZON_QUESTION,
+    PORTFOLIO_CASH_QUESTION,
     OutputElement,
     QuestionRouter,
     RecipeDefinition,
@@ -42,14 +45,14 @@ SYSTEM_MAP = PROJECT_ROOT / "docs" / "long_term" / "系统模块总图.md"
 EXPECTED = {
     "Q1": ("market_brief", RoutingStatus.PARTIAL),
     "Q2": ("sector_brief", RoutingStatus.PARTIAL),
-    "Q3": ("asset_decision", RoutingStatus.PARTIAL),
+    "Q3": ("asset_decision", RoutingStatus.EXECUTABLE),
     "Q4": ("strategy_evaluation", RoutingStatus.PARTIAL),
     "Q5": ("portfolio_rebalance", RoutingStatus.NEEDS_USER_CONTEXT),
     "Q6": ("sector_discovery", RoutingStatus.PARTIAL),
     "Q7": ("view_test", RoutingStatus.PARTIAL),
     "Q8": ("holding_review", RoutingStatus.PARTIAL),
     "Q9": ("sector_view_recommendation", RoutingStatus.PARTIAL),
-    "Q10": ("plan_schedule", RoutingStatus.PARTIAL),
+    "Q10": ("plan_schedule", RoutingStatus.EXECUTABLE),
 }
 
 
@@ -84,7 +87,35 @@ class QuestionRouterTest(unittest.TestCase):
                 personal_refs=("mandate:a", "preference:aggressiveness:equity"),
             )
         )
-        self.assertEqual(confirmed.status, RoutingStatus.PARTIAL)
+        self.assertEqual(confirmed.status, RoutingStatus.EXECUTABLE)
+
+    def test_aggressive_rebalance_needs_a_recorded_preference_with_meanings(self):
+        probe = _Holdings({("user:a", None)})
+        probe.preferences = {"preference:plain": PREFERENCE_RECORDED, "preference:bold": PREFERENCE_WITH_MEANING}
+        router = QuestionRouter(context_probe=probe)
+
+        statuses = {
+            ref: router.route(_replace(self.requests["Q5"], personal_refs=(ref,))).status
+            for ref in ("preference:unknown", "preference:plain", "preference:bold")
+        }
+
+        self.assertEqual(statuses["preference:unknown"], RoutingStatus.NEEDS_USER_CONTEXT)
+        self.assertEqual(statuses["preference:plain"], RoutingStatus.NEEDS_USER_CONTEXT)
+        self.assertEqual(statuses["preference:bold"], RoutingStatus.EXECUTABLE)
+
+    def test_user_without_a_preference_is_asked_for_the_baseline_and_cash(self):
+        probe = _Holdings({("user:a", None)})
+        probe.preferences = {"preference:plain": PREFERENCE_RECORDED}
+        router = QuestionRouter(context_probe=probe)
+
+        fresh = router.route(_replace(self.requests["Q5"], personal_refs=()))
+        recorded = router.route(_replace(self.requests["Q5"], personal_refs=("preference:plain",)))
+
+        baseline = USER_CONTEXT_QUESTIONS[UserContextNeed.INVESTMENT_PREFERENCE]
+        self.assertEqual(fresh.user_questions[0], baseline)
+        self.assertIn(USER_CONTEXT_QUESTIONS[UserContextNeed.AGGRESSIVENESS_MEANING], fresh.user_questions)
+        self.assertNotIn(baseline, recorded.user_questions)
+        self.assertEqual(fresh.user_questions[-1], PORTFOLIO_CASH_QUESTION)
 
     def test_holding_review_needs_positions_recorded_for_the_asset(self):
         probe = _Holdings(set())
@@ -154,7 +185,7 @@ class QuestionRouterTest(unittest.TestCase):
         self.assertEqual(result.status, RoutingStatus.UNRESOLVED_SUBJECT)
         self.assertEqual(result.subjects[0].candidates, ("stock:a", "fund:a"))
 
-    def test_open_fund_timing_and_position_become_registry_gaps(self):
+    def test_open_fund_timing_and_position_are_available(self):
         router = QuestionRouter(
             subject_resolver=_Resolver(
                 SubjectResolution(
@@ -170,18 +201,17 @@ class QuestionRouterTest(unittest.TestCase):
         result = router.route(self.requests["Q3"])
 
         steps = {item.step.step_id: item for item in result.steps}
-        self.assertEqual(steps["suitability"].status, StepStatus.AVAILABLE)
-        for step_id in ("timing", "position"):
-            self.assertEqual(steps[step_id].status, StepStatus.PLANNED)
-            self.assertEqual(
+        for step_id in ("suitability", "timing", "position"):
+            self.assertEqual(steps[step_id].status, StepStatus.AVAILABLE)
+            self.assertNotEqual(
                 steps[step_id].roadmap_stage,
                 PROFILE_LANE_GAP_STAGE,
             )
-            self.assertTrue(steps[step_id].notes)
-        lanes = next(
-            item for item in result.gaps if item.element_id == "decision_lanes"
+        if result.request.personalization.value != "none":
+            self.assertIn("持有多久", result.user_questions[0])
+        self.assertFalse(
+            [item for item in result.gaps if item.element_id == "decision_lanes"]
         )
-        self.assertEqual(lanes.status, StepStatus.PARTIAL)
 
     def test_view_test_recipe_requires_counter_evidence(self):
         with self.assertRaisesRegex(ValueError, "counter-evidence"):
@@ -255,9 +285,13 @@ class _Resolver:
 class _Holdings:
     def __init__(self, held):
         self.held = held
+        self.preferences = {}
 
     def has_positions(self, user_id, asset_id):
         return (user_id, asset_id) in self.held
+
+    def preference_status(self, user_id, ref):
+        return self.preferences.get(ref)
 
 
 def _replace(request: ResearchRequest, **changes) -> ResearchRequest:

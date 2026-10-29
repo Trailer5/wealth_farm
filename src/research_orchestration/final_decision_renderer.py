@@ -11,6 +11,7 @@ from src.research_contracts import (
     ResearchHorizon,
 )
 
+from .exit_plan_models import SEVERITY_LABELS, exit_plan_lines
 from .final_decision_models import (
     FinalDecisionOutcome,
     FinalDecisionResearchReport,
@@ -338,6 +339,8 @@ class FinalDecisionReportRenderer:
             f"- 监测边界：{self._sanitize(item, report)}"
             for item in report.monitoring_plan.limitations
         )
+        if report.exit_plan is not None:
+            lines.extend(self._exit_plan_lines(report))
 
         lines.extend(("", "## 关键证据与未知"))
         lines.extend(("", "### 关键证据"))
@@ -396,6 +399,35 @@ class FinalDecisionReportRenderer:
             for item in report.limitations
         )
         return "\n".join(lines).strip() + "\n"
+
+    def _exit_plan_lines(self, report: FinalDecisionResearchReport) -> list[str]:
+        plan = report.exit_plan
+        holding = plan.holding
+        facts = [f"现价 {holding.price:.2f}（{holding.price_date}）"]
+        if holding.unrealized_return is not None:
+            facts.append(f"相对成本 {holding.unrealized_return:+.1%}")
+        if holding.weight is not None:
+            basis = "，只按已记录持仓现算、不含现金" if any("现算" in gap for gap in plan.gaps) else ""
+            facts.append(f"组合权重 {holding.weight:.1%}（{holding.weight_as_of}{basis}）")
+        lines = [
+            "",
+            "### 退出计划",
+            "- 持仓：" + "，".join(facts) + "。各维度结论并列列出，冲突时不取平均。",
+        ]
+        lines.extend(
+            f"- {self._sanitize(text, report)}" for text in exit_plan_lines(plan)
+        )
+        lines.extend(
+            f"- 退出计划缺口：{self._sanitize(item, report)}" for item in plan.gaps
+        )
+        if plan.behavioral_hints:
+            lines.extend(("", "### 行为偏差提示"))
+            lines.extend(
+                f"- {SEVERITY_LABELS.get(item.severity, item.severity)}｜{self._sanitize(item.title, report)}："
+                f"{self._sanitize(item.evidence, report)}。{self._sanitize(item.guidance, report)}"
+                for item in plan.behavioral_hints
+            )
+        return lines
 
     def render_review_blocked(self, review: object) -> str:
         messages = tuple(

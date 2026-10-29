@@ -20,7 +20,7 @@ from src.factor_engineering import (
     CommoditySensitivityService,
     FactorService,
 )
-from src.fundamental_analysis import FundamentalAnalysisService
+from src.fundamental_analysis import DividendHistoryService, FundamentalAnalysisService, ValuationModelService
 from src.master_data import (
     ASSET_TYPE_INDEX,
     ASSET_TYPE_STOCK,
@@ -44,6 +44,7 @@ from src.strategy import (
     StrategyRegistry,
     StrategyRunStatus,
 )
+from src.valuation_position import ValuationPositionService
 
 from .execution_models import (
     CycleResearchExecutionOptions,
@@ -60,6 +61,8 @@ from .execution_service import (
     _rolling_risk_factor_names,
     _status,
 )
+from .industry_context import collect_industry_context
+from .valuation_context import collect_dividends, collect_valuation_model
 from .return_bars import fetch_total_return_bars, risk_parameters_for
 
 
@@ -80,7 +83,11 @@ class CyclicalResourceResearchExecutionService:
         chart_renderer: ChartRenderer,
         strategy_builder: StrategyInputBuilder | None = None,
         strategy_executor: StrategyExecutor | None = None,
+        valuation_position: ValuationPositionService | None = None,
+        valuation_models: ValuationModelService | None = None,
+        dividends: DividendHistoryService | None = None,
     ) -> None:
+        self.dividends = dividends
         self.master_data = master_data
         self.data_access = data_access
         self.data_fetch = data_fetch
@@ -92,6 +99,8 @@ class CyclicalResourceResearchExecutionService:
         self.evidence_service = evidence_service
         self.strategy_registry = strategy_registry
         self.chart_renderer = chart_renderer
+        self.valuation_position = valuation_position
+        self.valuation_models = valuation_models
         self.strategy_builder = (
             strategy_builder or StrategyInputBuilder()
         )
@@ -267,6 +276,7 @@ class CyclicalResourceResearchExecutionService:
             )
 
         fundamental = None
+        dividends = None
         try:
             financials = self.data_access.get_financial_bundle(
                 asset_id=asset.asset_id,
@@ -283,9 +293,21 @@ class CyclicalResourceResearchExecutionService:
                 for record in bars.records
                 if str(record.get("trade_date")) <= task.as_of_date
             ]
+            price = Decimal(str(prices[-1]["close"]))
+            dividends, dividend_gaps = collect_dividends(
+                self.dividends,
+                asset=asset,
+                as_of_date=task.as_of_date,
+                price=price,
+                config=options,
+            )
+            gaps.extend(dividend_gaps)
             fundamental = self.fundamental_service.analyze(
                 financials,
-                market_price=Decimal(str(prices[-1]["close"])),
+                market_price=price,
+                dividend_per_share_ttm=(
+                    None if dividends is None else Decimal(dividends["ttm_per_share"])
+                ),
             )
             phases.append(
                 ResearchPhaseResult(
@@ -564,6 +586,23 @@ class CyclicalResourceResearchExecutionService:
                 )
             )
 
+        context = collect_industry_context(
+            self.valuation_position,
+            self.benchmark_service,
+            task=task,
+            asset=asset,
+            windows=windows,
+            config=options,
+        )
+        gaps.extend(context.gaps)
+        valuation_model, model_gaps = collect_valuation_model(
+            self.valuation_models,
+            task=task,
+            asset=asset,
+            fundamental=fundamental,
+            config=options,
+        )
+        gaps.extend(model_gaps)
         phases = _complete_phases(phases)
         return ResearchExecutionResult(
             task=task,
@@ -582,6 +621,9 @@ class CyclicalResourceResearchExecutionService:
             evidence_bundle=evidence,
             chart_artifacts=artifacts,
             strategy_result=strategy_result,
+            industry_context=context,
+            valuation_model=valuation_model,
+            dividends=dividends,
         )
 
     def _validate(self, task):

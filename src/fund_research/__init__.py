@@ -41,6 +41,29 @@ from .models import (
     OpenFundShareFlow,
 )
 from .service import FundResearchService
+from .decision_facts import DEALING_MAX_AGE_DAYS, OpenFundDecisionFactsService
+from .portfolio_disclosure import (
+    FundPortfolioService,
+    IndexWeightService,
+    default_class,
+    fund_asset_class,
+    look_through,
+    tracked_index_code,
+)
+from .dealing import (
+    dealing_summary,
+    manager_tenure,
+    ongoing_fee_rate,
+    purchase_fee_rate,
+    redemption_fee_rate,
+    round_trip_cost,
+)
+from .underlying_valuation import (
+    INDEX_VALUATION_SERIES,
+    UnderlyingValuationService,
+    benchmark_components,
+    match_index,
+)
 from .share_flow import (
     EXCHANGE_FUND_FLOW_VERSION,
     BroadETFFlowValue,
@@ -73,6 +96,24 @@ from .total_return import (
 )
 
 __all__ = [
+    "DEALING_MAX_AGE_DAYS",
+    "INDEX_VALUATION_SERIES",
+    "OpenFundDecisionFactsService",
+    "FundPortfolioService",
+    "IndexWeightService",
+    "tracked_index_code",
+    "default_class",
+    "fund_asset_class",
+    "look_through",
+    "UnderlyingValuationService",
+    "benchmark_components",
+    "dealing_summary",
+    "manager_tenure",
+    "match_index",
+    "ongoing_fee_rate",
+    "purchase_fee_rate",
+    "redemption_fee_rate",
+    "round_trip_cost",
     "ETFComparisonPanel",
     "ETFComparisonRow",
     "ETFComparisonSeries",

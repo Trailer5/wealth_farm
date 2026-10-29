@@ -69,6 +69,10 @@ def _decode(annotation: Any, value: Any, name: str) -> Any:
             return Decimal(value)
         except InvalidOperation as exc:
             raise ValueError(f"{name} must be a decimal string") from exc
+    if annotation is bool:
+        if not isinstance(value, bool):
+            raise TypeError(f"{name} must be a boolean")
+        return value
     if annotation is int:
         if not isinstance(value, int) or isinstance(value, bool):
             raise TypeError(f"{name} must be an integer")

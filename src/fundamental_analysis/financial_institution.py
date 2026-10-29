@@ -133,9 +133,11 @@ class FinancialInstitutionAnalysisService:
             raise ValueError(
                 "book_value_per_share must be positive"
             )
+        months = Decimal(int(report_period[5:7]))
         values = {
             "pb": market_price / book_value,
-            "roe": _value(fields["roe"]),
+            # Disclosed ROE is year-to-date; annualize so interim periods compare with annual thresholds.
+            "roe": _value(fields["roe"]) * Decimal(12) / months,
             "capital_adequacy": _value(
                 fields["capital_adequacy"]
             ),
@@ -161,6 +163,8 @@ class FinancialInstitutionAnalysisService:
                 formula=(
                     "market_price/book_value_per_share"
                     if metric_name == "pb"
+                    else "provider_reported_ytd*12/months"
+                    if metric_name == "roe"
                     else "provider_reported"
                 ),
                 numerator=(

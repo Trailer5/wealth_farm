@@ -186,6 +186,7 @@ class FundamentalMetricCalculator:
                 computed_at,
             )
         )
+        results.extend(self._cash_metrics(snapshot, config, computed_at))
         results.sort(key=lambda metric: metric.metric_name)
         return FundamentalMetricSet(
             snapshot=snapshot,
@@ -204,6 +205,7 @@ class FundamentalMetricCalculator:
         if market_cap is None:
             for name, denominator in (
                 ("pe_ttm", "earnings"),
+                ("pe_ttm_recurring", "recurring_earnings"),
                 ("pb", "total_equity"),
                 ("ps_ttm", "revenue"),
                 ("pcf_ttm", "operating_cash_flow"),
@@ -227,6 +229,7 @@ class FundamentalMetricCalculator:
         else:
             for name, denominator in (
                 ("pe_ttm", "earnings"),
+                ("pe_ttm_recurring", "recurring_earnings"),
                 ("pb", "total_equity"),
                 ("ps_ttm", "revenue"),
                 ("pcf_ttm", "operating_cash_flow"),
@@ -362,6 +365,26 @@ class FundamentalMetricCalculator:
                 config,
                 computed_at,
             ),
+            self._average_balance_ratio(
+                snapshot,
+                "roe_recurring",
+                "recurring_earnings",
+                "total_equity",
+                "recurring_earnings / average_equity",
+                config,
+                computed_at,
+            ),
+            self._positive_ratio(
+                snapshot,
+                "non_recurring_share",
+                snapshot.fields.get("non_recurring_profit"),
+                "earnings",
+                "ratio",
+                "non_recurring_profit / earnings",
+                ("non_recurring_profit", "earnings"),
+                config,
+                computed_at,
+            ),
         ]
         results.append(
             self._roic(snapshot, config, computed_at)
@@ -387,6 +410,7 @@ class FundamentalMetricCalculator:
         for name, field_name in (
             ("revenue_growth", "revenue"),
             ("net_profit_growth", "earnings"),
+            ("recurring_profit_growth", "recurring_earnings"),
             (
                 "operating_cash_flow_growth",
                 "operating_cash_flow",
@@ -572,6 +596,87 @@ class FundamentalMetricCalculator:
             config,
             computed_at,
         )
+
+    def _cash_metrics(
+        self,
+        snapshot: FundamentalSnapshot,
+        config: FundamentalMetricParameters,
+        computed_at: str,
+    ) -> list[FundamentalMetricResult]:
+        """R&D intensity and, for cash-consuming companies, runway and reliance on financing."""
+
+        fields = snapshot.fields
+        results = [
+            self._positive_ratio(
+                snapshot,
+                "rd_intensity",
+                fields.get("research_expense"),
+                "revenue",
+                "ratio",
+                "research_expense / revenue",
+                ("research_expense", "revenue"),
+                config,
+                computed_at,
+            )
+        ]
+        fcf = fields.get("free_cash_flow")
+        burn_inputs = ("operating_cash_flow", "capital_expenditure")
+        results.append(
+            self._positive_ratio(
+                snapshot,
+                "cash_burn_ratio",
+                None if fcf is None else -fcf,
+                "cash_and_equivalents",
+                "ratio",
+                "cash_burn / cash_and_equivalents",
+                (*burn_inputs, "cash_and_equivalents"),
+                config,
+                computed_at,
+            )
+        )
+        if fcf is None:
+            results.append(
+                self._missing(
+                    snapshot, "cash_burn", "CNY", "-(operating_cash_flow - capital_expenditure)",
+                    burn_inputs, "operating_cash_flow is missing", config, computed_at,
+                )
+            )
+        else:
+            results.append(
+                self._available(
+                    snapshot, "cash_burn", -fcf, "CNY", "-(operating_cash_flow - capital_expenditure)",
+                    -fcf, Decimal("1"), burn_inputs, config, computed_at,
+                )
+            )
+        for name, numerator_name, formula in (
+            ("cash_runway_years", "cash_and_equivalents", "cash_and_equivalents / cash_burn"),
+            ("financing_dependence", "financing_cash_flow", "financing_cash_flow / cash_burn"),
+        ):
+            unit = "years" if name == "cash_runway_years" else "ratio"
+            inputs = (numerator_name, *burn_inputs)
+            numerator = fields.get(numerator_name)
+            if fcf is None or numerator is None:
+                results.append(
+                    self._missing(
+                        snapshot, name, unit, formula, inputs,
+                        f"{numerator_name} or cash_burn is missing", config, computed_at,
+                    )
+                )
+            elif fcf >= 0:
+                results.append(
+                    self._not_applicable(
+                        snapshot, name, unit, formula, inputs,
+                        "free cash flow is not negative; the company does not burn cash", config, computed_at,
+                    )
+                )
+            else:
+                results.append(
+                    self._available(
+                        snapshot, name, numerator / -fcf, unit, formula,
+                        numerator, -fcf, inputs, config, computed_at,
+                    )
+                )
+        return results
 
     def _average_balance_ratio(
         self,

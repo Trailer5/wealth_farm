@@ -192,33 +192,48 @@ class DataAccessServiceTest(unittest.TestCase):
             [record["close"] for record in cached.records],
             closes,
         )
-        self.assertEqual(self.fetch_service.calls, 3)
+        self.assertEqual(self.fetch_service.calls, 2)
 
     def test_concurrent_sources_merge_by_priority_and_report_conflicts(self):
-        self.fetch_service.failed_sources = {"mootdx"}
         self.fetch_service.closes = {"tencent": 10.3, "sina": 10.5}
         request = DataAccessRequest(
             asset=AssetInput(raw_symbol="600519"),
             dataset=DATASET_STOCK_DAILY_BARS,
             start_date="2026-07-01",
             end_date="2026-07-01",
-            remote_sources=("mootdx", "tencent", "sina"),
+            remote_sources=("tencent", "sina", "mootdx"),
         )
 
         response = self.service.get(request)
 
-        self.assertEqual(self.fetch_service.calls, 3)
+        self.assertEqual(self.fetch_service.calls, 2)
         self.assertEqual(response.records[0]["source"], "tencent:remote")
         self.assertEqual(
             response.metadata["successful_sources"],
             ["tencent", "sina"],
         )
-        self.assertIn("mootdx", response.metadata["provider_errors"])
         self.assertEqual(response.metadata["source_conflict_count"], 1)
         self.assertEqual(
             response.metadata["source_conflicts"][0]["values"],
             {"tencent": 10.3, "sina": 10.5},
         )
+
+    def test_later_sources_are_asked_only_when_the_first_two_fail(self):
+        self.fetch_service.failed_sources = {"mootdx", "tencent"}
+        request = DataAccessRequest(
+            asset=AssetInput(raw_symbol="600519"),
+            dataset=DATASET_STOCK_DAILY_BARS,
+            start_date="2026-07-01",
+            end_date="2026-07-01",
+            remote_sources=("mootdx", "tencent", "sina", "ths"),
+        )
+
+        response = self.service.get(request)
+
+        self.assertEqual(self.fetch_service.calls, 3)
+        self.assertEqual(response.metadata["successful_sources"], ["sina"])
+        self.assertEqual(response.metadata["attempted_sources"], ["mootdx", "tencent", "sina"])
+        self.assertEqual(set(response.metadata["provider_errors"]), {"mootdx", "tencent"})
 
     def test_sequential_mode_stops_at_first_success(self):
         request = DataAccessRequest(
@@ -420,6 +435,34 @@ class DataAccessServiceTest(unittest.TestCase):
         self.assertFalse(second.fetched_remote)
         self.assertEqual(self.fetch_service.calls, 1)
         self.assertEqual(self.fetch_service.calendar_calls, 2)
+
+    def test_trading_calendar_falls_back_when_primary_source_fails(self):
+        fetch = self.fetch_service
+        original = fetch.fetch_trade_calendar
+        sources = []
+
+        def flaky(start_date, end_date, source="baostock", timeout_seconds=None):
+            sources.append(source)
+            if source == "baostock":
+                raise RuntimeError("BaoStock login failed")
+            return original(start_date, end_date, source, timeout_seconds)
+
+        fetch.fetch_trade_calendar = flaky
+        calendar = TradingCalendarService(repository=self.repository, fetch_service=fetch)
+
+        self.assertEqual(calendar.first_trading_date("2026-07-04", "2026-07-10"), "2026-07-06")
+        self.assertEqual(sources, ["baostock", "sina"])
+        calendar.first_trading_date("2026-07-04", "2026-07-10")
+        self.assertEqual(sources, ["baostock", "sina"])
+
+    def test_trading_calendar_reports_every_failed_source(self):
+        def broken(start_date, end_date, source="baostock", timeout_seconds=None):
+            raise RuntimeError(f"{source} down")
+
+        self.fetch_service.fetch_trade_calendar = broken
+        calendar = TradingCalendarService(repository=self.repository, fetch_service=self.fetch_service)
+        with self.assertRaisesRegex(RuntimeError, "baostock.*sina"):
+            calendar.first_trading_date("2026-07-04", "2026-07-10")
 
     def test_truncated_fetch_does_not_cover_missing_leading_range(self):
         service = DataAccessService(

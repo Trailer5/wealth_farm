@@ -18,6 +18,7 @@ from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
+    PROFILE_HIGH_GROWTH_UNPROFITABLE,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
     DecisionLane,
@@ -403,8 +404,6 @@ class PositionPlanService:
             ),
         )
         limitations = _merge_texts(
-            suitability.limitations,
-            entry_plan.limitations,
             calculation_inputs.limitations,
             tuple(f"预算提示：{item}" for item in budget.warnings),
             (
@@ -599,11 +598,7 @@ class PositionPlanService:
             "tranche_adjustments": (),
             "calculation_inputs": None,
             "evidence_refs": (),
-            "limitations": _merge_texts(
-                suitability.limitations,
-                entry_plan.limitations,
-                ("所有已列缺口解决前不给出仓位区间。",),
-            ),
+            "limitations": ("所有已列缺口解决前不给出仓位区间。",),
             "assembly_gaps": state.gaps,
         }
         return _make_plan(values)
@@ -816,6 +811,16 @@ def default_position_policies() -> tuple[PositionProfilePolicy, ...]:
             ),
         ),
         PositionProfilePolicy(
+            profile_id=PROFILE_HIGH_GROWTH_UNPROFITABLE,
+            policy_id=(
+                f"{PROFILE_HIGH_GROWTH_UNPROFITABLE}:position_v1"
+            ),
+            sizing_supported=True,
+            liquidity_semantics=(
+                "高成长未盈利公司波动和融资稀释风险较高，仓位上限应由用户确认的压力冲击和流动性输入共同约束。"
+            ),
+        ),
+        PositionProfilePolicy(
             profile_id=PROFILE_EXCHANGE_FUND,
             policy_id=f"{PROFILE_EXCHANGE_FUND}:position_v1",
             sizing_supported=True,
@@ -826,9 +831,9 @@ def default_position_policies() -> tuple[PositionProfilePolicy, ...]:
         PositionProfilePolicy(
             profile_id=PROFILE_OPEN_FUND,
             policy_id=f"{PROFILE_OPEN_FUND}:position_v1",
-            sizing_supported=False,
+            sizing_supported=True,
             liquidity_semantics=(
-                "场外基金申赎与个性化执行仓位当前不支持。"
+                "场外基金按净值申赎，没有盘口冲击；流动性输入填日累计申购限额（无限额时填基金规模的 10%，即巨额赎回阈值）、参与率 1，执行周期按分批天数；风险用基金自身净值的波动与回撤。"
             ),
         ),
     )

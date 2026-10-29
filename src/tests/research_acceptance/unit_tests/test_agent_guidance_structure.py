@@ -29,7 +29,14 @@ REQUIRED_RESEARCH_GUIDES = (
     "agent_acceptance.md",
     "discovery_handoff.md",
     "event_name_discovery.md",
+    "playbooks/market_macro.md",
+    "playbooks/sector.md",
+    "playbooks/holding.md",
+    "playbooks/portfolio.md",
+    "playbooks/strategy.md",
 )
+FLOW_GUIDES = ("question_routing.md", "playbooks/market_macro.md", "playbooks/sector.md",
+               "playbooks/holding.md", "playbooks/portfolio.md", "playbooks/strategy.md")
 
 
 class AgentGuidanceTest(unittest.TestCase):
@@ -43,7 +50,11 @@ class AgentGuidanceTest(unittest.TestCase):
         for path in paths:
             content = self._read(path)
             for reference in re.findall(r"`([^`\n]+\.md)`", content):
-                candidates = (PROJECT_ROOT / reference, path.parent / reference)
+                candidates = (
+                    PROJECT_ROOT / reference,
+                    path.parent / reference,
+                    RESEARCH_DOCS / reference,
+                )
                 if not any(candidate.is_file() for candidate in candidates):
                     missing.append(f"{path.name}: {reference}")
 
@@ -59,11 +70,22 @@ class AgentGuidanceTest(unittest.TestCase):
         for filename in REQUIRED_RESEARCH_GUIDES:
             content = self._read(RESEARCH_DOCS / filename)
             mentioned.update(re.findall(r"cli ([a-z][a-z-]+)", content))
-        routing = self._read(RESEARCH_DOCS / "question_routing.md")
-        for command in ("route", "run-recipe", "ledger", "macro", "market-archive", "macro-archive"):
-            self.assertIn(command, routing)
+            # Commands written with options in backticks, e.g. `route --request-json <path>`.
+            mentioned.update(re.findall(r"`([a-z][a-z-]+) --", content))
+        flows = "\n".join(self._read(RESEARCH_DOCS / filename) for filename in FLOW_GUIDES)
+        for command in ("route", "run-recipe", "routine", "macro", "market-archive", "macro-archive",
+                        "record-view", "record-preference", "portfolio-plan", "decision-review"):
+            self.assertIn(command, flows)
             self.assertIn(command, commands)
         self.assertEqual(sorted(mentioned - commands), [])
+
+    def test_commands_used_by_flows_carry_help_details(self):
+        from src.research_orchestration.cli_help import EPILOGS
+
+        flows = "\n".join(self._read(RESEARCH_DOCS / filename) for filename in FLOW_GUIDES)
+        for command in re.findall(r"`([a-z][a-z-]+) --help`", flows):
+            with self.subTest(command=command):
+                self.assertIn(command, EPILOGS)
 
     def test_research_entry_starts_from_router_and_mainline_links_stage_guides(self):
         mainline = self._read(RESEARCH_DOCS / "mainline.md")

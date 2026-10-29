@@ -379,6 +379,16 @@ class PersistentResearchExplorationService:
         *,
         session_id: str,
     ) -> ResearchExplorationSession:
+        """Lock the session for assembly; afterwards no rounds or findings can be added.
+
+        Requires: at least one round; no open blocking question; every requested track has no open question
+        and has findings; the alternative question is not open when suitability is requested; every main
+        hypothesis (seeds included) has falsification conditions and no unresolved conflict;
+        strongest-counterargument is no longer active and has evidence. Seed hypotheses you will not test
+        become weakened or rejected with a reason. Assemble the three tracks in memory and check
+        assembly_gaps first; a locked session with errors needs a new run-recipe.
+        """
+
         current = self._require_session(context, session_id)
         updated = self.state_machine.mark_ready(current)
         return self._save_mutation(
@@ -598,9 +608,6 @@ def _seed_hypotheses(
             statement=statement,
             track=track_for(statement),
             role=HypothesisRole.THESIS,
-            expected_observations=(
-                "后续事实应与该假设的因果方向一致。",
-            ),
         )
         for index, statement in enumerate(statements, start=1)
     )
@@ -611,9 +618,6 @@ def _seed_hypotheses(
             statement="当前核心论文的最强反方尚待独立验证。",
             track=ExplorationTrack.COUNTERARGUMENT,
             role=HypothesisRole.COUNTERARGUMENT,
-            expected_observations=(
-                "应找到能解释主要事实且削弱核心论文的证据。",
-            ),
         ),
     )
 

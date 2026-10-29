@@ -20,7 +20,9 @@ from src.financial_data import (
     DATASET_STOCK_FINANCIAL_INDICATORS,
 )
 from src.fundamental_analysis import (
+    DividendHistoryService,
     FinancialInstitutionAnalysisService,
+    ValuationModelService,
 )
 from src.master_data import (
     ASSET_TYPE_INDEX,
@@ -45,6 +47,7 @@ from src.strategy import (
     StrategyRegistry,
     StrategyRunStatus,
 )
+from src.valuation_position import ValuationPositionService
 
 from .execution_models import (
     ResearchExecutionGap,
@@ -61,6 +64,8 @@ from .execution_service import (
     _rolling_risk_factor_names,
     _status,
 )
+from .industry_context import collect_industry_context
+from .valuation_context import collect_bank_valuation_model, collect_dividends
 from .return_bars import fetch_total_return_bars, risk_parameters_for
 
 
@@ -79,7 +84,11 @@ class FinancialInstitutionResearchExecutionService:
         chart_renderer: ChartRenderer,
         strategy_builder: StrategyInputBuilder | None = None,
         strategy_executor: StrategyExecutor | None = None,
+        valuation_position: ValuationPositionService | None = None,
+        valuation_models: ValuationModelService | None = None,
+        dividends: DividendHistoryService | None = None,
     ) -> None:
+        self.dividends = dividends
         self.master_data = master_data
         self.data_access = data_access
         self.quality_service = quality_service
@@ -89,6 +98,8 @@ class FinancialInstitutionResearchExecutionService:
         self.evidence_service = evidence_service
         self.strategy_registry = strategy_registry
         self.chart_renderer = chart_renderer
+        self.valuation_position = valuation_position
+        self.valuation_models = valuation_models
         self.strategy_builder = (
             strategy_builder or StrategyInputBuilder()
         )
@@ -230,6 +241,7 @@ class FinancialInstitutionResearchExecutionService:
             )
 
         profile_metrics = ()
+        dividends = None
         try:
             indicators = self.data_access.get(
                 DataAccessRequest(
@@ -250,6 +262,14 @@ class FinancialInstitutionResearchExecutionService:
                 for record in bars.records
                 if str(record.get("trade_date")) <= task.as_of_date
             ]
+            dividends, dividend_gaps = collect_dividends(
+                self.dividends,
+                asset=asset,
+                as_of_date=task.as_of_date,
+                price=Decimal(str(prices[-1]["close"])),
+                config=config,
+            )
+            gaps.extend(dividend_gaps)
             profile_metrics = self.financial_service.analyze(
                 asset_id=asset.asset_id,
                 as_of_date=task.as_of_date,
@@ -533,6 +553,23 @@ class FinancialInstitutionResearchExecutionService:
                 )
             )
 
+        context = collect_industry_context(
+            self.valuation_position,
+            self.benchmark_service,
+            task=task,
+            asset=asset,
+            windows=windows,
+            config=config,
+        )
+        gaps.extend(context.gaps)
+        valuation_model, model_gaps = collect_bank_valuation_model(
+            self.valuation_models,
+            as_of_date=task.as_of_date,
+            metrics=tuple(profile_metrics),
+            indicator_records=[dict(record) for record in indicators.records],
+            allow_remote=config.allow_remote,
+        )
+        gaps.extend(model_gaps)
         phases = _complete_phases(phases)
         return ResearchExecutionResult(
             task=task,
@@ -551,6 +588,9 @@ class FinancialInstitutionResearchExecutionService:
             evidence_bundle=evidence,
             chart_artifacts=artifacts,
             strategy_result=strategy_result,
+            industry_context=context,
+            valuation_model=valuation_model,
+            dividends=dividends,
         )
 
     def _validate(self, task):

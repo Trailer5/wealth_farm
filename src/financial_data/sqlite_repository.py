@@ -13,6 +13,7 @@ from .models import (
     FinancialPeriodKind,
     FinancialValueScope,
 )
+from .normalizer import canonical_field_name
 
 
 class SQLiteFinancialDataRepository:
@@ -280,7 +281,7 @@ def _point_from_row(row: sqlite3.Row) -> FinancialDataPoint:
         published_at=str(row["published_at"]),
         period_kind=FinancialPeriodKind(row["period_kind"]),
         value_scope=FinancialValueScope(row["value_scope"]),
-        field_name=str(row["field_name"]),
+        field_name=canonical_field_name(str(row["field_label"])),
         field_label=str(row["field_label"]),
         normalized_value=Decimal(str(row["normalized_value"])),
         raw_value=str(row["raw_value"]),

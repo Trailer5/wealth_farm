@@ -13,6 +13,7 @@ from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
+    PROFILE_HIGH_GROWTH_UNPROFITABLE,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
     ResearchHorizon,
@@ -427,7 +428,9 @@ class EntryPlan:
             PROFILE_ORDINARY_COMPANY,
             PROFILE_FINANCIAL_INSTITUTION,
             PROFILE_CYCLICAL_RESOURCE,
+            PROFILE_HIGH_GROWTH_UNPROFITABLE,
             PROFILE_EXCHANGE_FUND,
+            PROFILE_OPEN_FUND,
         ):
             raise ValueError(
                 "entry profile does not support actionable plans"

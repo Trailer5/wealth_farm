@@ -29,6 +29,7 @@ from .entry_models import (
     EntryPlanStatus,
     TimingConditionState,
 )
+from .exit_plan_models import ExitPlan
 from .exploration_models import (
     EvidenceTier,
     ExplorationStatus,
@@ -74,7 +75,18 @@ from .workflow import BaselineResearchHandoff
 
 @dataclass(frozen=True)
 class FinalReportNarrativeInput:
-    """Agent-reviewed scenario and citation metadata for assembly."""
+    """Agent-reviewed scenario and citation metadata for assembly.
+
+    scenarios: exactly optimistic, base and pessimistic, each with assumptions, observable variables,
+    decision impact and limitations. evidence_citations must equal the references the report uses (thesis,
+    track statements, scenarios, strongest counterargument, monitoring plan incl. every main hypothesis's
+    falsifiers); a mismatch lists uncited and unused references. Each reference must appear in some
+    finding's evidence_refs, with a compatible kind: primary -> official or reported, secondary -> reported,
+    derived -> derived (methodology in plain words, plus limitations), user_context -> user_context.
+    official needs published_at (not after the finding) and the same url as the finding.
+    chart_paths only from the handoff's published charts. claim_probability only when suitability is
+    consider or avoid.
+    """
 
     scenarios: tuple[FinalScenarioBlock, ...]
     evidence_citations: tuple[FinalEvidenceCitation, ...]
@@ -117,6 +129,7 @@ class FinalDecisionReportAssemblyService:
         entry_plan: EntryPlan,
         position_plan: PositionPlan,
         narrative: FinalReportNarrativeInput,
+        exit_plan: ExitPlan | None = None,
     ) -> FinalDecisionResearchReport:
         self._validate_identity(
             handoff=handoff,
@@ -126,6 +139,12 @@ class FinalDecisionReportAssemblyService:
             entry_plan=entry_plan,
             position_plan=position_plan,
         )
+        if exit_plan is not None and (
+            exit_plan.asset_id != session.task.asset_id
+            or exit_plan.user_id != decision_brief.user_id
+            or exit_plan.as_of_date != session.task.as_of_date
+        ):
+            raise ValueError("exit plan must match the report asset, user and cutoff")
         baseline_path = _baseline_filename(
             handoff.report_path,
             session.baseline_path,
@@ -263,6 +282,8 @@ class FinalDecisionReportAssemblyService:
                 else to_payload(narrative.claim_probability)
             ),
         }
+        if exit_plan is not None:
+            report_payload["exit_plan"] = exit_plan.to_dict()
         report_payload["report_id"] = final_decision_report_id(
             report_payload
         )
@@ -1058,7 +1079,8 @@ def _validate_evidence_provenance(
             }
             if citation.url not in associated_urls:
                 raise ValueError(
-                    "official citation URL is not registered with evidence"
+                    f"official citation URL is not registered with evidence: {citation.reference_id} "
+                    f"({citation.url}); put the URL in the evidence_refs of the finding that cites it"
                 )
         if citation.published_at is not None and any(
             citation.published_at > finding.as_of_date

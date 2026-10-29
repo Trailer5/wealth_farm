@@ -20,6 +20,15 @@ from .artifacts import (
     ViewOrigin,
 )
 from .codec import from_payload, to_payload
+from .asset_classes import (
+    ASSET_CLASS_BOND,
+    ASSET_CLASS_CASH,
+    ASSET_CLASS_COMMODITY,
+    ASSET_CLASS_EQUITY,
+    ASSET_CLASS_LABELS,
+    ASSET_CLASS_OTHER,
+    ASSET_CLASS_OVERSEAS,
+)
 from .decisions import (
     DecisionContextRequirement,
     DecisionContextStatus,
@@ -58,6 +67,12 @@ from .tasks import (
     ResearchQuestionType,
     ResearchTaskSpec,
 )
+from .thesis import (
+    MAX_THESIS_INDICATORS,
+    InvestmentThesis,
+    ThesisIndicator,
+    disclosure_deadline,
+)
 
 __all__ = [
     "ActionTrigger",
@@ -70,6 +85,8 @@ __all__ = [
     "DecisionContextStatus",
     "DecisionIntent",
     "DecisionLane",
+    "InvestmentThesis",
+    "MAX_THESIS_INDICATORS",
     "PROFILE_CYCLICAL_RESOURCE",
     "PROFILE_EXCHANGE_FUND",
     "PROFILE_FINANCIAL_INSTITUTION",
@@ -98,11 +115,20 @@ __all__ = [
     "SubjectRef",
     "SubjectType",
     "TargetRange",
+    "ThesisIndicator",
     "TriggerKind",
     "View",
     "ViewClaim",
     "ViewOrigin",
+    "disclosure_deadline",
     "from_payload",
+    "ASSET_CLASS_BOND",
+    "ASSET_CLASS_CASH",
+    "ASSET_CLASS_COMMODITY",
+    "ASSET_CLASS_EQUITY",
+    "ASSET_CLASS_LABELS",
+    "ASSET_CLASS_OTHER",
+    "ASSET_CLASS_OVERSEAS",
     "last_default_checkpoint",
     "required_user_context",
     "settlement_checkpoints",

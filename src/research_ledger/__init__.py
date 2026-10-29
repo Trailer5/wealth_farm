@@ -14,8 +14,18 @@ from .models import (
     new_review,
     new_settlement,
 )
-from .metrics import MACRO_METRIC_PREFIX, MacroMetricSeriesSource, macro_metric_id
+from .metrics import (
+    FIN_METRIC_PREFIX,
+    MACRO_METRIC_PREFIX,
+    CompositeMetricSource,
+    FinancialMetricSeriesSource,
+    MacroMetricSeriesSource,
+    fin_metric_id,
+    macro_metric_id,
+    parse_fin_metric_id,
+)
 from .prices import DataAccessPriceSeriesSource
+from .decision_review import due_review_nodes, summarize_decisions, timing_contribution
 from .service import ResearchLedgerService
 from .settlement import (
     METRIC_CLAIM_KEYS,
@@ -25,15 +35,21 @@ from .settlement import (
     PricePoint,
     PriceSeriesSource,
     SettlementSchedule,
+    TriggerCondition,
+    parse_trigger_condition,
     settle_checkpoint,
     settlement_schedule,
+    trigger_date,
 )
 from .settlement_service import LedgerSettlementService, SettlementRunSummary
 from .sqlite_repository import SQLiteResearchLedgerRepository
 
 __all__ = [
     "ClaimResult",
+    "CompositeMetricSource",
     "DataAccessPriceSeriesSource",
+    "FIN_METRIC_PREFIX",
+    "FinancialMetricSeriesSource",
     "LedgerAccessError",
     "LedgerConflictError",
     "LedgerEntry",
@@ -56,9 +72,17 @@ __all__ = [
     "SettlementRunSummary",
     "SettlementSchedule",
     "SettlementStatus",
+    "TriggerCondition",
+    "parse_trigger_condition",
+    "trigger_date",
+    "due_review_nodes",
+    "summarize_decisions",
+    "timing_contribution",
     "new_review",
     "new_settlement",
     "macro_metric_id",
+    "fin_metric_id",
+    "parse_fin_metric_id",
     "settle_checkpoint",
     "settlement_schedule",
 ]

@@ -435,11 +435,16 @@ class Plan:
     actions: tuple[SettleableAction, ...]
     review_nodes: tuple[ReviewNode, ...]
     targets: tuple[TargetRange, ...] = ()
+    # How portfolio-level conflicts were resolved, and actions left out with the reason.
+    conflicts: tuple[str, ...] = ()
+    excluded_actions: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         require_text(self.plan_id, "plan_id")
         require_text(self.user_id, "user_id")
         require_date(self.as_of_date, "as_of_date")
+        require_texts(self.conflicts, "conflicts")
+        require_texts(self.excluded_actions, "excluded_actions")
         if (
             not isinstance(self.version, int)
             or isinstance(self.version, bool)

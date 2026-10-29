@@ -14,6 +14,7 @@ from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
+    PROFILE_HIGH_GROWTH_UNPROFITABLE,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
     DecisionIntent,
@@ -33,6 +34,7 @@ DEFAULT_EXECUTION_PROFILES = (
     PROFILE_ORDINARY_COMPANY,
     PROFILE_FINANCIAL_INSTITUTION,
     PROFILE_CYCLICAL_RESOURCE,
+    PROFILE_HIGH_GROWTH_UNPROFITABLE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_OPEN_FUND,
 )
@@ -235,6 +237,7 @@ class ResearchRequestPlanner:
         supported_profile_ids: tuple[str, ...] = (
             DEFAULT_EXECUTION_PROFILES
         ),
+        growth_detector: Any | None = None,
     ) -> None:
         self.master_data = master_data
         self.task_factory = task_factory
@@ -244,6 +247,8 @@ class ResearchRequestPlanner:
         self.supported_profile_ids = frozenset(
             supported_profile_ids
         )
+        # Callable (asset, as_of_date) -> reason or None; applied to ordinary-company plans.
+        self.growth_detector = growth_detector
 
     def plan(
         self,
@@ -401,6 +406,32 @@ class ResearchRequestPlanner:
         ]
 
     def _profile_for(
+        self,
+        asset: Asset,
+        as_of_date: str,
+    ) -> tuple[str, str]:
+        profile_id, note = self._base_profile_for(asset, as_of_date)
+        if (
+            profile_id != PROFILE_ORDINARY_COMPANY
+            or self.growth_detector is None
+            or self._manual_profile(asset, as_of_date)
+        ):
+            return profile_id, note
+        try:
+            reason = self.growth_detector(asset, as_of_date)
+        except Exception:  # noqa: BLE001 - the industry profile stands when financials are unavailable
+            return profile_id, f"{note}; growth_rule_unavailable"
+        if reason is None:
+            return profile_id, note
+        return PROFILE_HIGH_GROWTH_UNPROFITABLE, reason
+
+    def _manual_profile(self, asset: Asset, as_of_date: str) -> bool:
+        if self.profile_assignment is None:
+            return False
+        assignment = self.profile_assignment.get_assignment(asset.asset_id, as_of_date=as_of_date)
+        return assignment is not None and assignment.manual_override
+
+    def _base_profile_for(
         self,
         asset: Asset,
         as_of_date: str,

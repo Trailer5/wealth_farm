@@ -128,6 +128,18 @@ class FundamentalSnapshotAssembler:
             "earnings",
             ("parent_net_profit", "net_profit"),
         )
+        _apply_alias(
+            fields,
+            evidence,
+            "recurring_earnings",
+            ("deducted_parent_net_profit",),
+        )
+        _apply_alias(
+            prior_fields,
+            prior_evidence,
+            "recurring_earnings",
+            ("deducted_parent_net_profit",),
+        )
         _derive_fields(fields, evidence)
         _derive_prior_fields(prior_fields, prior_evidence)
         _validate_currencies(evidence, currency)
@@ -396,6 +408,14 @@ def _derive_fields(
         evidence["free_cash_flow"] = (
             evidence.get("operating_cash_flow", ())
             + evidence.get("capital_expenditure", ())
+        )
+    if "earnings" in fields and "recurring_earnings" in fields:
+        fields["non_recurring_profit"] = (
+            fields["earnings"] - fields["recurring_earnings"]
+        )
+        evidence["non_recurring_profit"] = (
+            evidence.get("earnings", ())
+            + evidence.get("recurring_earnings", ())
         )
     if (
         "income_tax" in fields

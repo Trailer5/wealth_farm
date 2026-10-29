@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .budget import InvestmentMandate
+from .preference import InvestmentPreference
+from .trades import TradeRecord
 from .models import (
     PortfolioConstraintSnapshot,
     PortfolioPositionMetric,
@@ -87,6 +89,30 @@ class SQLitePortfolioRepository:
 
                 CREATE INDEX IF NOT EXISTS idx_investment_mandates_user
                 ON investment_mandates (user_id, mandate_id);
+
+                CREATE TABLE IF NOT EXISTS investment_preferences (
+                    preference_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    version INTEGER NOT NULL,
+                    recorded_on TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
+                    UNIQUE (user_id, version)
+                );
+
+                CREATE TABLE IF NOT EXISTS trade_records (
+                    trade_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    asset_id TEXT NOT NULL,
+                    trade_date TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_trade_records_user_date
+                ON trade_records (user_id, trade_date);
 
                 CREATE TABLE IF NOT EXISTS portfolio_constraint_snapshots (
                     snapshot_id TEXT PRIMARY KEY,
@@ -409,6 +435,76 @@ class SQLitePortfolioRepository:
         return InvestmentMandate.from_dict(
             json.loads(str(row["payload_json"]))
         )
+
+    def save_preference(self, preference: InvestmentPreference) -> None:
+        """Append one preference version; re-saving the same content is a no-op."""
+
+        payload_json = _canonical_json(preference.to_dict())
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM investment_preferences WHERE user_id = ? AND version = ?",
+                [preference.user_id, preference.version],
+            ).fetchone()
+            if row is not None:
+                if str(row["payload_json"]) != payload_json:
+                    raise ValueError("this preference version is already recorded with other content")
+                return
+            conn.execute(
+                """
+                INSERT INTO investment_preferences (
+                    preference_id, user_id, version, recorded_on, payload_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    preference.preference_id,
+                    preference.user_id,
+                    preference.version,
+                    preference.recorded_on,
+                    payload_json,
+                    _utc_now(),
+                ],
+            )
+
+    def list_preferences(self, user_id: str) -> list[InvestmentPreference]:
+        """Every preference version of one user, oldest first."""
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT payload_json FROM investment_preferences WHERE user_id = ? ORDER BY version",
+                [user_id],
+            ).fetchall()
+        return [InvestmentPreference.from_dict(json.loads(str(row["payload_json"]))) for row in rows]
+
+    def save_trade(self, trade: TradeRecord) -> bool:
+        """Append one trade; the same content again is a no-op and returns False."""
+
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                INSERT OR IGNORE INTO trade_records (
+                    trade_id, user_id, asset_id, trade_date, payload_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    trade.trade_id,
+                    trade.user_id,
+                    trade.asset_id,
+                    trade.trade_date,
+                    _canonical_json(trade.to_dict()),
+                    _utc_now(),
+                ],
+            )
+        return cursor.rowcount == 1
+
+    def list_trades(self, user_id: str) -> list[TradeRecord]:
+        """Every recorded trade of one user, oldest first."""
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT payload_json FROM trade_records WHERE user_id = ? ORDER BY trade_date, created_at, trade_id",
+                [user_id],
+            ).fetchall()
+        return [TradeRecord.from_dict(json.loads(str(row["payload_json"]))) for row in rows]
 
     def list_mandates(self, user_id: str) -> list[InvestmentMandate]:
         """Return every mandate recorded for one user, oldest first."""

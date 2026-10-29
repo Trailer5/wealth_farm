@@ -38,6 +38,8 @@ class HoldingPosition:
     note: str = ""
     created_at: str = ""
     updated_at: str = ""
+    # User-stated date of the first purchase; None when not told.
+    first_bought_on: str | None = None
 
 
 @dataclass(frozen=True)

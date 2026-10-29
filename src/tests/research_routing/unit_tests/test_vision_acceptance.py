@@ -51,7 +51,7 @@ class VisionAcceptanceTest(unittest.TestCase):
         )
 
     def test_capability_drift_is_reported(self):
-        scenario = self.scenarios[2]
+        scenario = self.scenarios[6]
         routing = self.router.route(scenario.request)
         upgraded = replace(
             routing,
@@ -67,32 +67,28 @@ class VisionAcceptanceTest(unittest.TestCase):
         self.assertFalse(outcome.passed)
         self.assertIn("status_changed:executable", outcome.findings)
         self.assertIn(
-            "element_status_changed:priced_expectations",
+            "element_status_changed:indicators",
             outcome.findings,
         )
 
     def test_run_outputs_cannot_overstate_execution(self):
-        scenario = self.scenarios[4]
-        routing = self.router.route(scenario.request)
-        leaked = RecipeRunResult(
-            routing=routing,
-            status=RecipeRunStatus.EXECUTED,
-            step_outcomes=(
-                StepOutcome(
-                    "adjustment_plan",
-                    StepOutcomeStatus.COMPLETED,
-                    "伪造的调整方案",
+        def leaked(scenario, step_id):
+            routing = self.router.route(scenario.request)
+            return self.runner.evaluate(
+                scenario,
+                routing,
+                RecipeRunResult(
+                    routing=routing,
+                    status=RecipeRunStatus.EXECUTED,
+                    step_outcomes=(StepOutcome(step_id, StepOutcomeStatus.COMPLETED, "伪造的结果"),),
                 ),
-            ),
-        )
+            )
 
-        outcome = self.runner.evaluate(scenario, routing, leaked)
+        blocked = leaked(self.scenarios[4], "adjustment_plan")
+        planned = leaked(self.scenarios[0], "asset_class_implications")
 
-        self.assertIn(
-            "planned_step_reported_complete:adjustment_plan",
-            outcome.findings,
-        )
-        self.assertIn("blocked_routing_had_side_effects", outcome.findings)
+        self.assertIn("blocked_routing_had_side_effects", blocked.findings)
+        self.assertIn("planned_step_reported_complete:asset_class_implications", planned.findings)
 
     def test_coverage_gap_modules_match_system_module_map(self):
         expected = _system_map_gap_modules()
@@ -124,7 +120,7 @@ def _system_map_gap_modules() -> dict[str, set[str]]:
         cells = [item.strip() for item in line.split("|")]
         match = re.match(r"(Q\d+) ", cells[1]) if len(cells) > 3 else None
         if match:
-            result[match.group(1)] = set(cells[3].split("、"))
+            result[match.group(1)] = set() if cells[3] == "无" else set(cells[3].split("、"))
     return result
 
 

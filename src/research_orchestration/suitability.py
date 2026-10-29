@@ -8,6 +8,7 @@ from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
+    PROFILE_HIGH_GROWTH_UNPROFITABLE,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
     DecisionContextRequirement,
@@ -528,7 +529,8 @@ class SuitabilityAssessmentService:
                 or DecisionContextRequirement.PORTFOLIO_ROLE
                 in decision_brief.missing_user_context
             ):
-                core.append("portfolio_role_missing")
+                # Without the user's role the evidence still supports a non-personalized watch/avoid, never consider.
+                positive.append("portfolio_role_missing")
             if (
                 decision_brief.decision_intent
                 is DecisionIntent.UNDERSTANDING
@@ -569,7 +571,8 @@ def default_suitability_policies(
                 "earnings, cash flow, reinvestment, and valuation"
             ),
             priced_expectations_basis=(
-                "company valuation relative to fundamentals and benchmark"
+                "reverse-DCF implied growth versus history (valuation-model), "
+                "valuation percentiles and benchmark"
             ),
         ),
         SuitabilityProfilePolicy(
@@ -587,7 +590,8 @@ def default_suitability_policies(
                 "asset quality, capital, margins, and valuation"
             ),
             priced_expectations_basis=(
-                "book-value expectations and credit-cycle benchmark"
+                "PB-ROE implied ROE versus reported ROE (valuation-model) "
+                "and credit-cycle benchmark"
             ),
         ),
         SuitabilityProfilePolicy(
@@ -602,7 +606,24 @@ def default_suitability_policies(
                 "cycle position, cost curve, and balance-sheet resilience"
             ),
             priced_expectations_basis=(
-                "cycle-normalized valuation and commodity benchmark"
+                "normalized-earnings reverse DCF (valuation-model) "
+                "and commodity benchmark"
+            ),
+        ),
+        SuitabilityProfilePolicy(
+            profile_id=PROFILE_HIGH_GROWTH_UNPROFITABLE,
+            policy_id="high_growth_unprofitable:suitability_v1",
+            core_input_kinds=(
+                SuitabilityInputKind.GROWTH_RUNWAY,
+                *common_core,
+            ),
+            positive_input_kinds=common_positive,
+            return_source_basis=(
+                "revenue growth reaching scale economics before cash runs out"
+            ),
+            priced_expectations_basis=(
+                "revenue reverse DCF implied growth versus revenue history "
+                "(valuation-model), PS percentiles and benchmark"
             ),
         ),
         SuitabilityProfilePolicy(

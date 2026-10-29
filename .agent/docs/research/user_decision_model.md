@@ -44,7 +44,9 @@
 
 `ResearchDecisionBrief` 只拥有对话意图、决策轨道、持仓状态、期限、组合角色、约束引用和用户确认状态，并由 `ResearchStateService` 按用户与标的持久化。数值风险约束由 `InvestmentMandate` 与组合约束快照统一拥有，简报不复制计划资金、目标波动、最大回撤或仓位上限。
 
-当前统一编排尚未自动创建简报、mandate 或组合约束。Agent 可以通过公共研究状态与组合风险服务显式保存简报、`InvestmentMandate`、同日组合估值和 `PortfolioConstraintSnapshot`，但不得声称基础运行已经自动加载或替用户确认这些约束。
+`run-recipe` 在请求带 `user_id` 时按请求保存决策简报（缺的用户信息列在 `missing_user_context`），但不会自动创建 mandate 或组合约束。Agent 可以通过公共研究状态与组合风险服务显式更新简报、保存 `InvestmentMandate`、同日组合估值和 `PortfolioConstraintSnapshot`，但不得声称基础运行已经自动加载或替用户确认这些约束。
+
+组合层的用户偏好由 `InvestmentPreference` 按版本拥有（期限、权益比例区间、目标波动、可接受回撤、单只与行业上限、现金底线、近期用钱），用 `record-preference` 在用户确认后记录。单标的 mandate 可以由最新偏好换算（`mandate_for_asset`），换算出的数值仍归 mandate 所有，简报只引用 mandate ID。偏好的档位默认值与“激进”含义的换算规则见 `docs/modules/4-个人数据/组合与风险管理模块.md` 的“投资偏好”。用户自述的实际买卖用 `record-trade` 记为交易流水（不改变持仓）；`decision-review` 用它核对计划执行，并把自述的回撤与波动和实际表现、交易行为对照，只给提示、不改偏好。
 
 `SuitabilityAssessment` 只回答是否轨道。Agent 先把收益来源、定价预期、下行、替代方案和机会成本记录为带证据、限制、截止日、profile 输入类型和时间尺度的结构化探索发现，再由 `SuitabilityAssessmentService` 装配。consider 必须有同风险暴露的替代方案与对应机会成本；最强反方未解决、决策简报或核心证据不足时为 insufficient。该对象不包含时点、仓位或最终用户报告，也不使用统一评分。
 

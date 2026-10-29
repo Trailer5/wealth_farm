@@ -33,6 +33,9 @@ ENTRY_BASELINE = "cli run-single / container.pipeline.run"
 ENTRY_EXPLORATION = "container.exploration / container.queries"
 ENTRY_LEDGER = "container.ledger"
 ENTRY_PORTFOLIO = "container.portfolio_risk"
+ENTRY_DIAGNOSIS = "run-recipe / cli portfolio-diagnose"
+ENTRY_ADJUSTMENT = "run-recipe / cli adjustment-proposal"
+ENTRY_DECISION_REVIEW = "run-recipe / cli decision-review"
 ENTRY_AGENT_SOURCES = (
     "Agent 外部官方资料核查（.agent/docs/research/exploration_playbook.md）"
 )
@@ -161,44 +164,48 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
             steps=(
                 RecipeStep(
                     "sector_definition",
-                    "领域范围、分类与成分定义",
+                    "领域范围、分类与成分定义：申万行业可用，主题由 Agent 映射为行业组合",
                     "W5",
-                    X,
+                    P,
                     produces=("scope",),
                     roadmap_stage=6,
+                    entry="run-recipe / cli industry",
                 ),
                 RecipeStep(
                     "sector_fundamentals",
-                    "景气、供需、竞争格局与利润分布的行业档案",
+                    "行业档案：成分股财报汇总的盈利、拥挤度与宽度可用，景气、供需与竞争格局待建",
                     "R4",
-                    X,
+                    P,
                     produces=("fundamentals",),
                     roadmap_stage=6,
+                    entry="run-recipe / cli sector-archive",
                 ),
                 RecipeStep(
                     "sector_valuation_position",
-                    "行业估值的历史分位与相对市场位置",
+                    "行业估值的历史分位与相对大盘强弱（行业档案）",
                     "T3",
-                    X,
+                    P,
                     produces=("valuation",),
                     roadmap_stage=6,
+                    entry="run-recipe / cli sector-archive",
                 ),
                 RecipeStep(
                     "sector_flows_policy",
-                    "行业资金、政策与周期位置（市场状态服务尚未接入正式入口）",
+                    "行业资金、政策与周期位置：拥挤度与相对强弱见行业档案，资金流、政策与周期定位待建",
                     "W2",
-                    X,
+                    P,
                     produces=("flows_policy_cycle",),
-                    roadmap_stage=5,
+                    roadmap_stage=6,
+                    entry="run-recipe / cli sector-archive",
                 ),
                 RecipeStep(
                     "representative_assets",
-                    "从具体标的出发的行业归属与同行比较",
+                    "代表性标的与差异：Agent 从成分中按市值选取并比较估值位置（不由 run-recipe 产出）",
                     "T3",
                     P,
                     produces=("representatives",),
                     roadmap_stage=6,
-                    entry=ENTRY_EXPLORATION,
+                    entry="cli industry --members / cross-section --snapshot --symbols / valuation-position",
                 ),
             ),
             output_elements=_elements(
@@ -267,43 +274,52 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
             steps=(
                 RecipeStep(
                     "strategy_spec",
-                    "已登记策略的规格、机制和公开来源",
+                    "策略档案：机制、公开来源、适用范围、参数、失效条件与生命周期状态；用户口述的常见策略对照模板登记",
                     "T5",
                     A,
                     produces=("mechanism", "conditions"),
-                    entry="src.strategy.default_strategy_registry；docs/evidence/strategy_sources/",
+                    entry="strategy-archive [--strategy-id <id> | --templates | --from-template <模板>]",
                 ),
                 RecipeStep(
                     "backtest_validation",
-                    "样本内外回测、成本与不可成交（回测引擎未接入正式入口）",
+                    "完整验证：成本、整手、不可成交、容量、简单基准、扩展窗口滚动样本外与参数邻域",
                     "T6",
-                    X,
+                    A,
                     produces=("samples", "costs", "benchmark"),
-                    roadmap_stage=9,
+                    entry="strategy-evaluate --strategy-id <id>（单次回测 strategy-backtest）",
+                ),
+                RecipeStep(
+                    "selection_samples",
+                    "选股策略的时点样本：只有当前行业成分，历史成分与退市股行情待补",
+                    "D7",
+                    P,
+                    produces=("samples",),
+                    roadmap_stage=10,
+                    entry="strategy-evaluate（输出 limitations 写明幸存者偏差）",
                 ),
                 RecipeStep(
                     "regime_analysis",
-                    "不同市场状态下的表现",
-                    "R4",
-                    X,
+                    "沪深300 趋势、波动、估值状态下的表现与样本量",
+                    "T6",
+                    A,
                     produces=("samples",),
-                    roadmap_stage=9,
+                    entry="strategy-evaluate（regimes）",
                 ),
                 RecipeStep(
                     "attempt_discount",
-                    "尝试次数登记与显著性折扣",
+                    "尝试次数登记与折扣夏普、最短回测长度",
                     "T6",
-                    X,
+                    A,
                     produces=("significance",),
-                    roadmap_stage=9,
+                    entry="strategy-evaluate / strategy-backtest（significance）",
                 ),
                 RecipeStep(
                     "forward_tracking",
-                    "策略生命周期与前向跟踪记录",
+                    "前向跟踪信号、结算记录与启用门槛",
                     "R4",
-                    X,
+                    A,
                     produces=("conditions",),
-                    roadmap_stage=9,
+                    entry="strategy-track --strategy-id <id>",
                 ),
             ),
             output_elements=_elements(
@@ -335,12 +351,11 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
             steps=(
                 RecipeStep(
                     "confirm_preference",
-                    "确认“激进”的含义并落到投资任务（任务已有，偏好确认流程待建）",
+                    "确认“激进”的含义并记录为新版本偏好：只把确认的维度升一档，列出变化项",
                     "P2",
-                    P,
+                    A,
                     produces=("meaning",),
-                    roadmap_stage=8,
-                    entry=ENTRY_PORTFOLIO,
+                    entry="cli record-preference / container.portfolio_risk",
                 ),
                 RecipeStep(
                     "portfolio_valuation",
@@ -352,43 +367,43 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
                 ),
                 RecipeStep(
                     "portfolio_diagnosis",
-                    "暴露、重叠、相关性与风险来源诊断",
+                    "大类与行业暴露（指数基金与 ETF 按跟踪指数成分、主动基金按季报前十大穿透）、重叠、相关性、风险贡献与当前组合的历史压力情景",
                     "T7",
-                    X,
+                    A,
                     produces=("diagnosis",),
-                    roadmap_stage=8,
+                    entry=ENTRY_DIAGNOSIS,
                 ),
                 RecipeStep(
                     "risk_budget",
-                    "调整后的风险预算分配",
+                    "目标权益区间（偏好、目标波动、历史最差情景与现金底线取最严）、大类风险预算与权益内部的风险均衡参照",
                     "T7",
-                    X,
+                    A,
                     produces=("risk_budget",),
-                    roadmap_stage=8,
+                    entry="run-recipe / cli allocation-proposal",
                 ),
                 RecipeStep(
                     "adjustment_plan",
-                    "换入换出方案与比例区间",
+                    "换入换出与比例区间：个股与行业超限先减，权益拉回目标区间，增加部分只给点名候选、已持有基金或默认宽基 ETF",
                     "R6",
-                    X,
+                    A,
                     produces=("adjustment",),
-                    roadmap_stage=8,
+                    entry=ENTRY_ADJUSTMENT,
                 ),
                 RecipeStep(
                     "migration_path",
-                    "分步迁移路径与时点条件",
+                    "分步迁移路径、时点条件与交易成本（场外基金避开短期赎回费）",
                     "R6",
-                    X,
+                    A,
                     produces=("migration",),
-                    roadmap_stage=8,
+                    entry=ENTRY_ADJUSTMENT,
                 ),
                 RecipeStep(
                     "stress_test",
-                    "调整后组合的压力情景损失（目前只有单标的压力损失）",
+                    "调整前后组合在五段历史情景中的损失对比",
                     "T7",
-                    X,
+                    A,
                     produces=("stress",),
-                    roadmap_stage=8,
+                    entry=ENTRY_ADJUSTMENT,
                 ),
             ),
             output_elements=_elements(
@@ -400,14 +415,108 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
                 ("stress", "调整后的压力情景损失。"),
             ),
             avoid_checks=_avoid(
-                ("unconfirmed_meaning", "不确认含义就加仓高波动标的", "未提供激进含义时路由状态为 needs_user_context"),
+                ("unconfirmed_meaning", "不确认含义就加仓高波动标的", "请求未引用该用户已记录且带激进含义的偏好版本时路由状态为 needs_user_context"),
                 ("ignored_overlap", "忽略已有持仓的重叠暴露", None),
             ),
             supported_depths=(ResearchDepth.STANDARD, ResearchDepth.DEEP),
             required_user_context=(
                 UserContextNeed.POSITIONS,
                 UserContextNeed.AGGRESSIVENESS_MEANING,
-                UserContextNeed.INVESTMENT_MANDATE,
+            ),
+        ),
+        RecipeDefinition(
+            recipe_id="portfolio_review",
+            question_ids=(),
+            title="组合诊断",
+            handles=(
+                RecipeMatch(
+                    SubjectType.PORTFOLIO,
+                    (ResearchIntent.EVALUATE,),
+                    PERSONAL,
+                ),
+            ),
+            steps=(
+                RecipeStep(
+                    "portfolio_valuation",
+                    "组合估值、权重与集中度",
+                    "P2",
+                    A,
+                    produces=("exposure",),
+                    entry=ENTRY_PORTFOLIO,
+                ),
+                RecipeStep(
+                    "portfolio_diagnosis",
+                    "大类与行业暴露、重叠、相关性、风险贡献、历史压力情景与偏好对照",
+                    "T7",
+                    A,
+                    produces=("exposure", "risk_sources", "stress"),
+                    entry=ENTRY_DIAGNOSIS,
+                ),
+            ),
+            output_elements=_elements(
+                ("exposure", "大类、行业与重叠暴露。"),
+                ("risk_sources", "风险主要来自哪些持仓：波动、相关性与风险贡献。"),
+                ("stress", "历史压力情景下的组合损失。"),
+            ),
+            avoid_checks=_avoid(
+                ("weight_as_risk", "把持仓权重当成风险占比", "风险贡献按协方差分解，与权重分列"),
+                ("ignored_overlap", "忽略基金与直接持股的重叠", None),
+            ),
+            supported_depths=ALL_DEPTHS,
+            required_user_context=(UserContextNeed.POSITIONS,),
+            optional_user_context=(UserContextNeed.INVESTMENT_PREFERENCE,),
+        ),
+        RecipeDefinition(
+            recipe_id="decision_review",
+            question_ids=(),
+            title="决策复盘与偏好校准",
+            handles=(
+                RecipeMatch(
+                    SubjectType.PORTFOLIO,
+                    (ResearchIntent.REVIEW,),
+                    PERSONAL,
+                ),
+            ),
+            steps=(
+                RecipeStep(
+                    "track_record",
+                    "账本中已结算的观点与动作：命中率与 90% 区间、择时贡献，按来源、期限、方向和标的分组",
+                    "R5",
+                    A,
+                    produces=("track_record",),
+                    entry=ENTRY_DECISION_REVIEW,
+                ),
+                RecipeStep(
+                    "plan_review",
+                    "已入账计划的到期复盘节点；有交易流水时核对计划动作是否执行、哪些交易在计划之外",
+                    "R6",
+                    A,
+                    produces=("plan_review",),
+                    entry=ENTRY_DECISION_REVIEW,
+                ),
+                RecipeStep(
+                    "preference_calibration",
+                    "自述可接受回撤与目标波动对照回放、压力情景与按流水重建的实际回撤和波动，以及流水中的行为提示；不自动修改偏好",
+                    "P2",
+                    A,
+                    produces=("calibration",),
+                    entry=ENTRY_DECISION_REVIEW,
+                ),
+            ),
+            output_elements=_elements(
+                ("track_record", "判断的命中率、择时贡献与分组表现。"),
+                ("plan_review", "计划复盘节点与执行情况。"),
+                ("calibration", "偏好与实际表现、行为是否一致，以及可选的处理。"),
+            ),
+            avoid_checks=_avoid(
+                ("small_sample", "用几条结算下结论", "命中率附 90% 区间，少于 5 条的分组标记样本少"),
+                ("outcome_as_process", "只看结果好坏评判决策过程", None),
+                ("auto_preference_change", "替用户修改偏好", "校准只给提示，偏好变更须经 record-preference 记录用户原话"),
+            ),
+            supported_depths=ALL_DEPTHS,
+            optional_user_context=(
+                UserContextNeed.POSITIONS,
+                UserContextNeed.INVESTMENT_PREFERENCE,
             ),
         ),
         RecipeDefinition(
@@ -424,20 +533,22 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
             steps=(
                 RecipeStep(
                     "research_scope",
-                    "研究范围：指数成分研究宇宙可用，行业/主题范围待建",
+                    "研究范围：申万行业、指数当前成分、全市场或 Agent 指定的标的清单；主题由 Agent 映射",
                     "W1",
                     P,
                     produces=("scope",),
                     roadmap_stage=6,
-                    entry="src.research_universe",
+                    entry="run-recipe / cli discover --scope",
                 ),
                 RecipeStep(
-                    "quality_valuation_funnel",
-                    "质量—估值—相对表现分级漏斗（没有默认容器或 CLI 入口）",
+                    "strategy_funnel",
+                    "多策略截面漏斗：四条首批策略的入选与淘汰理由、反证、数据缺口和规则历史表现"
+                    "（范围 ≤300 只才有依赖历史的策略与规则历史）",
                     "R3",
-                    X,
+                    P,
                     produces=("rules", "candidates"),
                     roadmap_stage=6,
+                    entry="run-recipe / cli discover",
                 ),
                 RecipeStep(
                     "event_name_discovery",
@@ -449,11 +560,12 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
                 ),
                 RecipeStep(
                     "multi_strategy_priority",
-                    "多策略分级与候选优先级",
+                    "候选优先级（命中策略数与策略内排名）与前 N 名自动基础包；跨策略的组合与权重待建",
                     "R3",
-                    X,
+                    P,
                     produces=("priority",),
                     roadmap_stage=6,
+                    entry="run-recipe / cli discover --base-packs",
                 ),
                 RecipeStep(
                     "deep_dive_handoff",
@@ -614,7 +726,7 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
             steps=(
                 RecipeStep(
                     "record_user_view",
-                    "用户的行业观点以用户来源、个人可见入账",
+                    "用户的行业观点以用户来源、个人可见入账；改写为行业指数相对沪深300 的命题后用 record-view 入账可结算版本",
                     "R5",
                     A,
                     produces=("view_test",),
@@ -622,7 +734,7 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
                 ),
                 RecipeStep(
                     "counter_evidence",
-                    "行业观点的正反证据：可用标注来源的官方资料，行业档案待建",
+                    "行业观点的正反证据：行业档案维度可作结构化证据，政策与新闻由 Agent 标注来源与发布日期",
                     "O3",
                     P,
                     produces=("view_test",),
@@ -632,23 +744,25 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
                 ),
                 RecipeStep(
                     "sector_brief",
-                    "行业现状（见行业简报配方）",
+                    "行业现状：主题映射到的每个申万行业生成行业档案并入账，附可结算观点模板；景气、资金与政策待建",
                     "R4",
-                    X,
+                    P,
                     produces=("sector",),
                     roadmap_stage=6,
+                    entry="run-recipe / cli sector-archive",
                 ),
                 RecipeStep(
                     "sector_discovery",
-                    "行业内候选发现（见领域发现配方）",
+                    "行业内候选发现：在映射行业的并集上运行多策略漏斗",
                     "R3",
-                    X,
+                    P,
                     produces=("candidates",),
                     roadmap_stage=6,
+                    entry="run-recipe / cli discover",
                 ),
                 RecipeStep(
                     "candidate_decisions",
-                    "对用户点名或已有候选的标的做单标的研究与决策",
+                    "前 N 名候选自动生成基础包；对用户点名或已有候选的标的做单标的研究与决策",
                     "O1",
                     A,
                     produces=("candidates", "fit"),
@@ -656,11 +770,12 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
                 ),
                 RecipeStep(
                     "portfolio_fit",
-                    "组合层适配与仓位区间（单标的仓位轨道可用，组合层待建）",
+                    "组合层适配与仓位区间：把已研究的候选传给 adjustment-proposal --candidate，得到加入后的目标区间、行业与重叠变化；执行器尚未自动串接候选",
                     "R6",
-                    X,
+                    P,
                     produces=("fit",),
                     roadmap_stage=8,
+                    entry="cli adjustment-proposal --candidate",
                 ),
             ),
             output_elements=_elements(
@@ -676,7 +791,7 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
             supported_depths=(ResearchDepth.STANDARD, ResearchDepth.DEEP),
             optional_user_context=(
                 UserContextNeed.POSITIONS,
-                UserContextNeed.INVESTMENT_MANDATE,
+                UserContextNeed.INVESTMENT_PREFERENCE,
             ),
             sub_recipes=(
                 "sector_brief",
@@ -715,19 +830,19 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
                 ),
                 RecipeStep(
                     "plan_object",
-                    "计划对象：目标区间、组合层冲突处理与改进方法",
+                    "计划对象：迁移步骤与账本动作的定期/条件节点、数量规则、目标区间与概率、复盘节点与改进方法、冲突处理；用户确认后入账（需要偏好）",
                     "R6",
-                    X,
+                    A,
                     produces=("nodes", "node_actions", "targets", "review", "conflicts"),
-                    roadmap_stage=8,
+                    entry="run-recipe / cli portfolio-plan",
                 ),
                 RecipeStep(
                     "html_timeline",
-                    "与结构化计划同源的离线 HTML 时间表",
+                    "与结构化计划同源的离线 HTML 时间表与看板；生成后逐项核对，不一致不发布",
                     "T8",
-                    X,
+                    A,
                     produces=("html",),
-                    roadmap_stage=8,
+                    entry="run-recipe / cli portfolio-plan",
                 ),
             ),
             output_elements=_elements(
@@ -745,7 +860,7 @@ def default_recipes() -> tuple[RecipeDefinition, ...]:
             ),
             supported_depths=(ResearchDepth.STANDARD, ResearchDepth.DEEP),
             required_user_context=(UserContextNeed.POSITIONS,),
-            optional_user_context=(UserContextNeed.INVESTMENT_MANDATE,),
+            optional_user_context=(UserContextNeed.INVESTMENT_PREFERENCE,),
         ),
         RecipeDefinition(
             recipe_id="asset_understanding",
@@ -880,32 +995,51 @@ def _single_asset_steps(*, holding: bool) -> tuple[RecipeStep, ...]:
     if holding:
         steps += [
             RecipeStep(
+                "thesis_check",
+                "原论点对照：账本中的论点指标按新披露财报判为符合、偏离、失效或待数据；没有论点时按用户口述重建",
+                "R5",
+                A,
+                produces=("original_thesis",),
+                entry="run-recipe / cli thesis-check / record-thesis",
+            ),
+            RecipeStep(
                 "exit_plan",
-                "退出计划与卖出侧触发条件",
+                "退出计划：论点、估值透支、风险预算、机会成本、时间止损五个维度的卖出条件并列给出，已触发与已设定的条件入账；继续持有的最终报告必须带退出条件",
                 "R2",
-                X,
-                produces=("action",),
-                roadmap_stage=7,
+                A,
+                produces=("action", "opportunity_cost", "risk_share"),
+                entry="run-recipe / cli exit-plan / final_decision.assemble_and_publish(exit_plan=)",
             ),
             RecipeStep(
                 "behavioral_review",
-                "沉没成本、处置效应等行为偏差的结构化提示",
+                "行为偏差的规则型提示（成本锚定、摊低成本加仓、论点失效仍持有、盈利过早卖出）；偏好模型与行为记录待建",
                 "P1",
-                X,
+                P,
                 produces=("behavioral_bias",),
                 roadmap_stage=8,
+                entry="run-recipe / cli exit-plan --intended-action",
             ),
         ]
     else:
         steps.append(
             RecipeStep(
+                "thesis_record",
+                "买入或继续持有的结论发布后，把论点写成 3–5 个可观察的财务指标与预期区间并入账，按后续财报结算",
+                "R5",
+                A,
+                produces=("counter_and_review",),
+                entry="cli record-thesis",
+            )
+        )
+        steps.append(
+            RecipeStep(
                 "implied_expectations",
-                "当前价格隐含的预期：适配评估中的定性判断可用，反向 DCF 等定量方法待建",
+                "当前价格隐含的预期：反向 DCF（银行用 PB-ROE、周期用正常化利润、高成长未盈利用营收口径）、三情景与敏感性，不是目标价；"
+                "基金不估内在价值，场外基金看基础包“底层估值位置”，ETF 看标的指数估值",
                 "T2",
-                P,
+                A,
                 produces=("priced_expectations",),
-                roadmap_stage=7,
-                entry="container.suitability.assemble",
+                entry="cli valuation-model / 基础研究包“隐含预期与内在价值”一节",
             )
         )
     return tuple(steps)

@@ -323,6 +323,27 @@ class SQLiteDataStore:
                     raw_json TEXT,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                 );
+
+                CREATE TABLE IF NOT EXISTS exchange_listings (
+                    segment TEXT NOT NULL,
+                    code TEXT NOT NULL,
+                    exchange TEXT NOT NULL,
+                    asset_type TEXT NOT NULL,
+                    name TEXT,
+                    listed_on TEXT,
+                    delisted_on TEXT,
+                    board TEXT,
+                    source TEXT NOT NULL,
+                    PRIMARY KEY (segment, code, exchange)
+                );
+
+                CREATE INDEX IF NOT EXISTS exchange_listings_code ON exchange_listings (code);
+
+                CREATE TABLE IF NOT EXISTS exchange_listing_segments (
+                    segment TEXT PRIMARY KEY,
+                    fetched_at TEXT NOT NULL,
+                    row_count INTEGER NOT NULL
+                );
                 """
             )
             conn.execute(
@@ -337,6 +358,62 @@ class SQLiteDataStore:
         """Insert or update stock daily bars."""
 
         return self._upsert_daily_bars("stock_daily_bars", bars)
+
+    def replace_exchange_listing_segment(
+        self, segment: str, rows: list[dict[str, Any]], *, fetched_at: str
+    ) -> int:
+        """Replace one segment of the exchange listing directory (e.g. Shanghai stocks)."""
+
+        with self._connect() as conn:
+            conn.execute("DELETE FROM exchange_listings WHERE segment = ?", [segment])
+            conn.executemany(
+                """
+                INSERT OR REPLACE INTO exchange_listings (
+                    segment, code, exchange, asset_type, name, listed_on, delisted_on, board, source
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    [
+                        segment,
+                        row["code"],
+                        row["exchange"],
+                        row["asset_type"],
+                        row.get("name"),
+                        row.get("listed_on"),
+                        row.get("delisted_on"),
+                        row.get("board"),
+                        row["source"],
+                    ]
+                    for row in rows
+                ],
+            )
+            conn.execute(
+                "INSERT OR REPLACE INTO exchange_listing_segments (segment, fetched_at, row_count) VALUES (?, ?, ?)",
+                [segment, fetched_at, len(rows)],
+            )
+        return len(rows)
+
+    def get_exchange_listings(
+        self, *, code: str | None = None, asset_type: str | None = None
+    ) -> list[dict[str, Any]]:
+        clauses, params = [], []
+        if code is not None:
+            clauses.append("code = ?")
+            params.append(code)
+        if asset_type is not None:
+            clauses.append("asset_type = ?")
+            params.append(asset_type)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM exchange_listings {where} ORDER BY code, exchange, segment", params
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_exchange_listing_segments(self) -> dict[str, dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM exchange_listing_segments").fetchall()
+        return {row["segment"]: dict(row) for row in rows}
 
     def get_schema_versions(self) -> list[dict[str, Any]]:
         """Read applied SQLite schema versions."""

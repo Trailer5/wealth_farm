@@ -2,7 +2,11 @@ import unittest
 
 from src.data_access import adjusted_nav_levels, forward_adjusted_bars
 from src.data_src.models import DailyBar
-from src.data_src.total_return_bars import bars_with_factor_preclose
+from src.data_src.total_return_bars import (
+    bars_with_factor_preclose,
+    sina_stock_total_return_bars,
+    sina_tdx_fund_total_return_bars,
+)
 
 
 class ForwardAdjustedBarsTest(unittest.TestCase):
@@ -39,6 +43,46 @@ class FactorPrecloseTest(unittest.TestCase):
         self.assertEqual([bar.trade_date for bar in output], ["2025-06-25", "2025-06-26"])
         self.assertAlmostEqual(output[0].preclose, 1437.2)
         self.assertAlmostEqual(output[1].preclose, 1435.86 / 1.0196)
+
+    def test_long_ranges_use_the_full_sina_history(self):
+        class _ShortSina:
+            def get_a_share_daily_bars(self, symbol, start, end):
+                raise ValueError("Sina baseline provider supports up to 1023 daily bars")
+
+        class _History:
+            def get_a_share_daily_bars_sina_history(self, symbol, start, end):
+                return [
+                    DailyBar("600519", day, None, None, None, close, None, None, "sina")
+                    for day, close in (("2014-01-02", 10.0), ("2014-01-03", 11.0))
+                ]
+
+            def get_a_share_hfq_factors(self, symbol):
+                return [("2001-01-01", 1.0)]
+
+        output = sina_stock_total_return_bars(
+            "600519", "2014-01-03", "2026-10-28", sina=_ShortSina(), akshare=_History()
+        )
+
+        self.assertEqual([(bar.trade_date, bar.preclose) for bar in output], [("2014-01-03", 10.0)])
+
+    def test_fund_share_consolidation_raises_the_reference_close(self):
+        class _History:
+            def get_etf_daily_bars_sina_history(self, symbol, start, end):
+                return [
+                    DailyBar("512100", day, None, None, None, close, None, None, "sina")
+                    for day, close in (("2022-09-01", 0.982), ("2022-09-05", 2.713))
+                ]
+
+        class _Tdx:
+            def get_xdxr_events(self, symbol):
+                return [{"ex_date": "2022-09-05", "category": 11, "cash_per_10": 0.0, "bonus_per_10": 0.0,
+                         "rights_per_10": 0.0, "rights_price": 0.0, "split_ratio": 0.36555}]
+
+        output = sina_tdx_fund_total_return_bars(
+            "512100", "2022-09-05", "2022-09-05", akshare=_History(), mootdx=_Tdx()
+        )
+
+        self.assertAlmostEqual(output[0].preclose, 0.982 / 0.36555)
 
 
 class AdjustedNavLevelsTest(unittest.TestCase):

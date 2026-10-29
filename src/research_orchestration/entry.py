@@ -9,6 +9,7 @@ from src.research_contracts import (
     PROFILE_CYCLICAL_RESOURCE,
     PROFILE_EXCHANGE_FUND,
     PROFILE_FINANCIAL_INSTITUTION,
+    PROFILE_HIGH_GROWTH_UNPROFITABLE,
     PROFILE_OPEN_FUND,
     PROFILE_ORDINARY_COMPANY,
     DecisionLane,
@@ -640,6 +641,19 @@ def default_entry_policies() -> tuple[EntryProfilePolicy, ...]:
             ),
         ),
         EntryProfilePolicy(
+            profile_id=PROFILE_HIGH_GROWTH_UNPROFITABLE,
+            policy_id="high_growth_unprofitable:entry_v1",
+            timing_supported=True,
+            required_input_kinds=(
+                TimingInputKind.VALUATION_REGIME,
+                *market_execution,
+            ),
+            execution_semantics=(
+                "PS regime, financing and catalyst timeline, trend, "
+                "liquidity, and market-risk conditions"
+            ),
+        ),
+        EntryProfilePolicy(
             profile_id=PROFILE_EXCHANGE_FUND,
             policy_id="exchange_fund:entry_v1",
             timing_supported=True,
@@ -656,15 +670,17 @@ def default_entry_policies() -> tuple[EntryProfilePolicy, ...]:
         EntryProfilePolicy(
             profile_id=PROFILE_OPEN_FUND,
             policy_id="open_fund:entry_v1",
-            timing_supported=False,
+            timing_supported=True,
             required_input_kinds=(
                 TimingInputKind.FUND_DEALING_RULE,
+                TimingInputKind.VALUATION_REGIME,
                 TimingInputKind.MARKET_RISK_STATE,
                 TimingInputKind.TRADING_CALENDAR,
             ),
             execution_semantics=(
-                "NAV dealing rules and subscription cutoff; "
-                "current public timing execution is unsupported"
+                "NAV dealing at the 15:00 cutoff with T+n confirmation, "
+                "redemption-fee holding periods, underlying index valuation "
+                "regime, and market-risk conditions; no intraday price"
             ),
         ),
     )

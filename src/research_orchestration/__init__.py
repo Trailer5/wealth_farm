@@ -29,6 +29,17 @@ from .entry import (
     EntryPlanService,
     default_entry_policies,
 )
+from .exit_plan import ExitPlanService
+from .exit_plan_models import (
+    BehavioralHint,
+    ExitAction,
+    ExitCondition,
+    ExitDimension,
+    ExitPlan,
+    ExitState,
+    HoldingFacts,
+    exit_plan_lines,
+)
 from .entry_models import (
     EntryConditionBlock,
     EntryConditionKind,
@@ -205,6 +216,15 @@ from .workflow import (
 )
 
 __all__ = [
+    "BehavioralHint",
+    "ExitAction",
+    "ExitCondition",
+    "ExitDimension",
+    "ExitPlan",
+    "ExitPlanService",
+    "ExitState",
+    "HoldingFacts",
+    "exit_plan_lines",
     "MissingExecutionOptionsError",
     "NewConversationAcceptanceRunner",
     "NewConversationRunArtifacts",

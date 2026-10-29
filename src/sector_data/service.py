@@ -138,7 +138,26 @@ class SectorDataService:
             raise KeyError(f"Unknown Shenwan industry: {code}")
         codes = [code] if catalog[code].level != 2 else _l3_codes(code, catalog)
         self._ensure_lists(codes, allow_remote)
+        missing = [item for item in codes if self.repository.last_success("members", item) is None]
+        if missing:
+            raise SectorDataUnavailable(
+                f"申万成分列表未取到：{', '.join(missing)}；稍后重试，不要使用不完整的成分"
+            )
         return tuple(self.repository.list_members(codes))
+
+    def level1_by_symbol(self, *, allow_remote: bool = True) -> dict[str, SwIndustry]:
+        """Current level-1 industry of every member stock (31 list fetches at most)."""
+
+        catalog = {item.code: item for item in self._catalog(allow_remote) if item.level == 1}
+        codes = sorted(catalog)
+        self._ensure_lists(codes, allow_remote)
+        missing = [item for item in codes if self.repository.last_success("members", item) is None]
+        if missing:
+            raise SectorDataUnavailable(f"申万一级行业成分未取到：{', '.join(missing)}")
+        return {
+            member.symbol: catalog[member.industry_code]
+            for member in self.repository.list_members(codes)
+        }
 
     def peers(
         self,
@@ -219,11 +238,11 @@ class SectorDataService:
         missing = sorted(set(dates) - self.repository.successful_keys(kind))
         if missing and allow_remote:
             result["provider_errors"] = self._fetch_valuations(category, kind, missing)
-        points = [
-            item
-            for item in self.repository.list_valuations(code, start_date, end_date)
-            if item.trade_date in set(dates)
-        ]
+        cached = self.repository.list_valuations(code, start_date, end_date)
+        points = [item for item in cached if item.trade_date in set(dates)]
+        # The newest day is often not published yet; keep the latest cached day instead of a month-old one.
+        if cached and (not points or cached[-1].trade_date > points[-1].trade_date):
+            points.append(cached[-1])
         result["points"] = [item.to_dict() for item in points]
         result["sample_count"] = len(points)
         if industry.level == 2:
@@ -247,6 +266,7 @@ class SectorDataService:
                 end_date=end_date,
                 as_of_date=end_date,
                 allow_remote=allow_remote,
+                allow_stale_on_error=True,
             )
         )
         days = sorted({str(item["trade_date"]) for item in response.records})

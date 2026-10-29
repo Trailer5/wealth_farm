@@ -549,8 +549,8 @@ class BenchmarkAnalysisServiceTest(unittest.TestCase):
 
         self.assertTrue(first.fetched_remote)
         self.assertFalse(second.fetched_remote)
-        # The first request fans out to every index source; the second is cached.
-        self.assertEqual(fetch.calls, 6)
+        # The first request asks the two preferred index sources; the second is cached.
+        self.assertEqual(fetch.calls, 2)
 
     def test_composite_remote_failure_identifies_required_component(self):
         definition = CompositeBenchmarkDefinition(

@@ -9,6 +9,8 @@ from decimal import Decimal
 from enum import Enum
 from pathlib import Path
 
+from src.data_src.models import FundPortfolioDisclosure, OpenFundDealingInfo
+
 from .models import (
     DisclosureExtractionStatus,
     FundAssetRelation,
@@ -125,6 +127,30 @@ class SQLiteFundResearchRepository:
                     fund_asset_id,
                     announcement_date,
                     report_period_end
+                );
+
+                CREATE TABLE IF NOT EXISTS open_fund_dealing_snapshots (
+                    fund_asset_id TEXT NOT NULL,
+                    fetched_on TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    PRIMARY KEY (fund_asset_id, fetched_on)
+                );
+
+                CREATE TABLE IF NOT EXISTS fund_portfolio_disclosures (
+                    fund_asset_id TEXT NOT NULL,
+                    fetched_on TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    PRIMARY KEY (fund_asset_id, fetched_on)
+                );
+
+                CREATE TABLE IF NOT EXISTS index_constituent_weights (
+                    index_code TEXT NOT NULL,
+                    fetched_on TEXT NOT NULL,
+                    weight_date TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    PRIMARY KEY (index_code, fetched_on)
                 );
                 """
             )
@@ -387,6 +413,92 @@ class SQLiteFundResearchRepository:
             as_of_date=as_of_date,
         )
         return snapshots[0] if snapshots else None
+
+    def save_dealing_info(self, fund_asset_id: str, info: OpenFundDealingInfo) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO open_fund_dealing_snapshots (
+                    fund_asset_id, fetched_on, source, payload_json
+                ) VALUES (?, ?, ?, ?)
+                """,
+                [
+                    fund_asset_id,
+                    info.fetched_on,
+                    info.source,
+                    json.dumps(info.to_dict(), ensure_ascii=False, sort_keys=True),
+                ],
+            )
+
+    def latest_dealing_info(self, fund_asset_id: str) -> OpenFundDealingInfo | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT payload_json FROM open_fund_dealing_snapshots
+                WHERE fund_asset_id = ?
+                ORDER BY fetched_on DESC LIMIT 1
+                """,
+                [fund_asset_id],
+            ).fetchone()
+        return None if row is None else OpenFundDealingInfo.from_dict(json.loads(row["payload_json"]))
+
+    def save_portfolio_disclosure(self, fund_asset_id: str, disclosure: FundPortfolioDisclosure) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO fund_portfolio_disclosures (
+                    fund_asset_id, fetched_on, source, payload_json
+                ) VALUES (?, ?, ?, ?)
+                """,
+                [
+                    fund_asset_id,
+                    disclosure.fetched_on,
+                    disclosure.source,
+                    json.dumps(disclosure.to_dict(), ensure_ascii=False, sort_keys=True),
+                ],
+            )
+
+    def latest_portfolio_disclosure(self, fund_asset_id: str) -> FundPortfolioDisclosure | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT payload_json FROM fund_portfolio_disclosures
+                WHERE fund_asset_id = ?
+                ORDER BY fetched_on DESC LIMIT 1
+                """,
+                [fund_asset_id],
+            ).fetchone()
+        return None if row is None else FundPortfolioDisclosure.from_dict(json.loads(row["payload_json"]))
+
+    def save_index_weights(self, index_code: str, fetched_on: str, rows: list[dict[str, str]]) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO index_constituent_weights (
+                    index_code, fetched_on, weight_date, payload_json
+                ) VALUES (?, ?, ?, ?)
+                """,
+                [
+                    index_code,
+                    fetched_on,
+                    max(row["weight_date"] for row in rows),
+                    json.dumps(rows, ensure_ascii=False, sort_keys=True),
+                ],
+            )
+
+    def latest_index_weights(self, index_code: str) -> tuple[str, list[dict[str, str]]] | None:
+        """Fetch day and rows of the most recent fetch."""
+
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT fetched_on, payload_json FROM index_constituent_weights
+                WHERE index_code = ?
+                ORDER BY fetched_on DESC LIMIT 1
+                """,
+                [index_code],
+            ).fetchone()
+        return None if row is None else (str(row["fetched_on"]), json.loads(row["payload_json"]))
 
     def _connect(self) -> sqlite3.Connection:
         if str(self.db_path) == ":memory:":

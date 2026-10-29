@@ -26,13 +26,36 @@ def sina_stock_total_return_bars(
     lookback_start = (
         date.fromisoformat(start_date[:10]) - timedelta(days=20)
     ).isoformat()
-    bars = (sina or SinaExchangeFundDataSource()).get_a_share_daily_bars(
-        symbol,
-        lookback_start,
-        end_date,
-    )
-    factors = (akshare or AkShareDataSource()).get_a_share_hfq_factors(symbol)
+    provider = akshare or AkShareDataSource()
+    try:
+        bars = (sina or SinaExchangeFundDataSource()).get_a_share_daily_bars(
+            symbol,
+            lookback_start,
+            end_date,
+        )
+    except ValueError:
+        # The kline endpoint only reaches about 1023 bars back; the daily history endpoint has everything.
+        bars = provider.get_a_share_daily_bars_sina_history(symbol, lookback_start, end_date)
+    factors = provider.get_a_share_hfq_factors(symbol)
     return bars_with_factor_preclose(bars, factors, start_date)
+
+
+def sina_tdx_fund_total_return_bars(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    *,
+    akshare: AkShareDataSource | None = None,
+    mootdx: MootdxDataSource | None = None,
+) -> list[DailyBar]:
+    """Sina full-history exchange-fund bars with preclose from TDX distributions and share consolidations."""
+
+    lookback_start = (
+        date.fromisoformat(start_date[:10]) - timedelta(days=20)
+    ).isoformat()
+    bars = (akshare or AkShareDataSource()).get_etf_daily_bars_sina_history(symbol, lookback_start, end_date)
+    events = (mootdx or MootdxDataSource()).get_xdxr_events(symbol)
+    return bars_with_event_preclose(bars, events, start_date)
 
 
 def ths_tdx_total_return_bars(

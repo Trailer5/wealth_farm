@@ -7,8 +7,8 @@ from typing import Any
 from src.master_data import MasterDataService
 from src.research_contracts import SettlementMethod, View, ViewOrigin
 from src.research_ledger import (
+    CompositeMetricSource,
     LedgerScope,
-    MacroMetricSeriesSource,
     ResearchLedgerService,
     settlement_schedule,
 )
@@ -19,7 +19,7 @@ class ViewRecorder:
         self,
         *,
         ledger: ResearchLedgerService,
-        metrics: MacroMetricSeriesSource,
+        metrics: CompositeMetricSource,
         master_data: MasterDataService,
     ) -> None:
         self.ledger = ledger
@@ -44,7 +44,7 @@ class ViewRecorder:
             and not self.metrics.known(rule.observed_id)
         ):
             raise ValueError(
-                f"未知指标 {rule.observed_id}；可用指标见 cli macro，ID 写作 macro:<series_id>"
+                f"未知指标 {rule.observed_id}；宏观指标写 macro:<series_id>（见 cli macro），公司财务指标写 fin:<asset_id>:<指标>"
             )
         if rule is not None and rule.method is SettlementMethod.PRICE_RELATIVE:
             for asset_id in (rule.observed_id, rule.benchmark_id, rule.alternative_id):
