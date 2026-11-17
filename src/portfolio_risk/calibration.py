@@ -237,6 +237,9 @@ def calibration_checks(
 
     stated_drawdown = float(preference.max_drawdown)
     stated_volatility = float(preference.target_volatility)
+    # With an exit line the stated drawdown assumes selling; a hold-through replay is not its measure.
+    exit_line = preference.exit_drawdown is not None
+    stress_loss = None if not worst_stress else -worst_stress.get("managed_return", worst_stress["portfolio_return"])
     realized_path_points = (realized or {}).get("path") or []
     realized_drawdown = max_drawdown(realized_path_points)
     drawdown_measures = [
@@ -250,6 +253,7 @@ def calibration_checks(
                 "detail": f"{realized_drawdown['peak']} 高点至 {realized_drawdown['trough']}",
             },
             replay.get("max_drawdown")
+            and not exit_line
             and {
                 "source": "replay",
                 "label": f"当前持仓按固定权重回放（{replay['start']} 至 {replay['end']}）",
@@ -259,8 +263,9 @@ def calibration_checks(
             worst_stress
             and {
                 "source": "stress",
-                "label": f"当前持仓在最差历史情景（{worst_stress['label']}）",
-                "value": round(-worst_stress["portfolio_return"], 4),
+                "label": f"当前持仓在最差历史情景（{worst_stress['label']}）"
+                + ("，风险资产到退出线收手" if "managed_return" in worst_stress else ""),
+                "value": round(stress_loss, 4),
                 "detail": f"{worst_stress['start']} 至 {worst_stress['end']}",
             },
         )

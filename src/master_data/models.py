@@ -14,6 +14,10 @@ ASSET_TYPE_INDEX = "index"
 ASSET_TYPE_UNKNOWN = "unknown"
 # Exchange code of Shenwan industry indexes, which are published by a research firm.
 SW_INDEX_EXCHANGE = "sw"
+# US listings: standard_symbol is the ticker (NVDA, BRK.B); prices are in US dollars.
+MARKET_US = "us"
+# Hong Kong listings: standard_symbol is the 5-digit code (00700); prices are in Hong Kong dollars.
+MARKET_HK = "hk"
 
 RESOLUTION_MATCHED = "matched"
 RESOLUTION_CREATED = "created"

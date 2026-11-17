@@ -16,7 +16,7 @@ from src.research_contracts import (
     ASSET_CLASS_OVERSEAS,
 )
 
-from .diagnostics import STRESS_SCENARIOS, StressScenario, _window_return, covariance_matrix
+from .diagnostics import STRESS_SCENARIOS, StressScenario, _window_return, covariance_matrix, exit_return, window_path
 from .preference import InvestmentPreference
 
 GRID_STEP = 0.005
@@ -52,6 +52,12 @@ def class_risk(
             for scenario in scenarios
         },
         "scenario_labels": {scenario.scenario_id: scenario.label for scenario in scenarios},
+        "scenario_paths": {
+            scenario.scenario_id: {
+                name: window_path(proxies[name], scenario) for name in ids if name in RISK_CLASSES
+            }
+            for scenario in scenarios
+        },
     }
 
 
@@ -69,6 +75,13 @@ def equity_range(
     total = sum(mix.values())
     mix = {key: value / total for key, value in mix.items()} if total > 0 else {ASSET_CLASS_CASH: 1.0}
     cov = risk["cov"]
+    exit_line = None if preference.exit_drawdown is None else float(preference.exit_drawdown)
+    risky_returns = {}
+    for scenario_id, returns in risk["scenario_returns"].items():
+        path = risk.get("scenario_paths", {}).get(scenario_id, {}).get(risky_class)
+        risky_returns[scenario_id] = (
+            exit_return(path, exit_line)[0] if exit_line is not None and path else returns.get(risky_class)
+        )
 
     def volatility(share: float) -> float:
         weights = {name: (1 - share) * value for name, value in mix.items()}
@@ -79,9 +92,10 @@ def equity_range(
     def worst_loss(share: float) -> tuple[float, str]:
         worst = (0.0, "")
         for scenario_id, returns in risk["scenario_returns"].items():
-            if returns.get(risky_class) is None or any(returns.get(name) is None for name in mix):
+            risky = risky_returns[scenario_id]
+            if risky is None or any(returns.get(name) is None for name in mix):
                 continue
-            value = share * returns[risky_class] + (1 - share) * sum(
+            value = share * risky + (1 - share) * sum(
                 weight * returns[name] for name, weight in mix.items()
             )
             if -value > worst[0]:
@@ -111,6 +125,7 @@ def equity_range(
         "limits": {key: round(value, 4) for key, value in limits.items()},
         "binding": binding,
         "conflict": conflict,
+        "drawdown_basis": "buy_and_hold" if exit_line is None else "exit_line",
         "defensive_mix": {key: round(value, 4) for key, value in mix.items()},
         "at_high": {
             "volatility": round(volatility(high), 4),

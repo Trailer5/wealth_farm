@@ -56,6 +56,22 @@ def normalize_a_share_code(symbol: str) -> str:
     return compact
 
 
+def normalize_us_symbol(symbol: str) -> str:
+    """US ticker in upper case; class shares keep their dot (BRK.B)."""
+
+    value = symbol.strip().upper()
+    if value.startswith(("US.", "GB_")):
+        value = value[3:]
+    if (
+        not value
+        or len(value) > 10
+        or not value[0].isalpha()
+        or not all(char.isalnum() or char in ".-" for char in value)
+    ):
+        raise ValueError(f"Unsupported US ticker format: {symbol}")
+    return value
+
+
 def to_akshare_symbol(symbol: str) -> str:
     """Return the symbol format expected by AkShare A-share history APIs."""
 

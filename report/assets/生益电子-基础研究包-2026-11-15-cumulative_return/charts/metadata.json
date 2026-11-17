@@ -1,0 +1,32 @@
+{
+  "as_of_date": "2026-11-15",
+  "asset_id": "asset:9c05189f-d11c-484e-bd63-c5fe190c282a",
+  "asset_name": "生益电子",
+  "benchmark_asset_id": null,
+  "chart_type": "cumulative_return",
+  "currency": null,
+  "files": {
+    "data": "cumulative_return-e84eab3fddbf.data.json",
+    "png": "cumulative_return-e84eab3fddbf.png",
+    "svg": "cumulative_return-e84eab3fddbf.svg"
+  },
+  "input_digest": "e84eab3fddbf532478dfba822c56833d1a0a9fafabab160152527b07f9b67f43",
+  "parameters": {
+    "factor_names": [
+      "cumulative_return"
+    ],
+    "input_end_date": "2026-11-13",
+    "input_start_date": "2024-11-15"
+  },
+  "point_count": 484,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:c6ffdbb4-6dc4-4202-b7f6-34a136a44a9c",
+  "title": "Cumulative Return (2024-11-15 to 2026-11-13)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Cumulative Return"
+}

@@ -2,7 +2,7 @@
 
 ## A. 准备（所有组合问题先做）
 
-1. 每笔持仓 `record-holding --user-id <id> --symbol <代码> --asset-type stock|exchange_fund|open_fund --quantity <数>`；`user-context` 核对代码、名称和类型。
+1. 每笔持仓 `record-holding --user-id <id> --symbol <代码> --asset-type stock|exchange_fund|open_fund --quantity <数>`；`user-context` 核对代码、名称和类型。用户只给比例、不给数量和金额时，改用 `record-weights`（写法见其 `--help`），报告里的金额是名义金额，说给用户时换成比例。
 2. 问未投资的现金（不记为持仓，运行时用 `--cash <元>`）。
 3. 没有偏好：问期限和能接受的最大亏损 → `record-preference ... --dry-run` → 念给用户确认 → 去掉 `--dry-run` 记录（参数见 `record-preference --help`）。
 4. 用户说“更激进”“稳一点”：先问清含义 → `record-preference --meaning <...> --statement "<原话>" --dry-run` → 确认 → 记录。

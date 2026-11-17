@@ -58,6 +58,23 @@ class EquityRangeTest(unittest.TestCase):
         shares = {item["class"]: item["risk_share"] for item in result["risk_budget"]}
         self.assertEqual(shares["equity"], 1.0)
 
+    def test_exit_line_judges_drawdown_at_the_first_close_past_it(self):
+        # Equity falls 10 points a day from 1.0 to 0.5: with a 15% exit line it is sold at 0.8 (-20%).
+        path = [(f"2015-06-{day:02d}", round(1.0 - 0.1 * index, 2)) for index, day in enumerate((8, 9, 10, 11, 12, 15))]
+        risk = {**RISK, "scenario_paths": {"crash": {"equity": path}}}
+        risk["scenario_returns"] = {"crash": {"equity": -0.5, "bond": 0.02, "cash": 0.0}}
+        held = equity_range(_preference(RiskProfile.GROWTH, max_drawdown="0.20"), risk, defensive_mix={"cash": 1.0})
+        managed = equity_range(
+            _preference(RiskProfile.GROWTH, max_drawdown="0.20", exit_drawdown="0.15"), risk, defensive_mix={"cash": 1.0}
+        )
+
+        self.assertEqual(held["drawdown_basis"], "buy_and_hold")
+        self.assertEqual(managed["drawdown_basis"], "exit_line")
+        self.assertAlmostEqual(held["limits"]["drawdown"], 0.40, places=3)
+        self.assertAlmostEqual(managed["limits"]["drawdown"], 1.0, places=3)
+        self.assertNotIn("drawdown", managed["binding"])
+        self.assertAlmostEqual(managed["at_high"]["worst_loss"], managed["high"] * 0.20, places=3)
+
 
 class RiskBalanceTest(unittest.TestCase):
     def test_erc_equalizes_risk_contributions(self):

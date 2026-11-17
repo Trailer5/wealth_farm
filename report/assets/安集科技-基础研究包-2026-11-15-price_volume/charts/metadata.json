@@ -1,0 +1,31 @@
+{
+  "as_of_date": "2026-11-15",
+  "asset_id": "asset:1af28d56-4bea-490d-a3e3-8204dbbf2364",
+  "asset_name": "安集科技",
+  "benchmark_asset_id": null,
+  "chart_type": "price_volume",
+  "currency": "CNY",
+  "files": {
+    "data": "price_volume-a98758f871c1.data.json",
+    "png": "price_volume-a98758f871c1.png",
+    "svg": "price_volume-a98758f871c1.svg"
+  },
+  "input_digest": "a98758f871c1d7b243ba0e70b558db1d4c5e9d306a69fb03396f3012753a9a50",
+  "parameters": {
+    "moving_averages": [
+      5,
+      20
+    ]
+  },
+  "point_count": 484,
+  "price_adjustment": "none",
+  "source_datasets": [
+    "stock_daily_bars"
+  ],
+  "task_id": "research:4f61a207-6bd6-4129-a059-23c36ca9ef53",
+  "title": "Price, Volume, and Moving Averages",
+  "unit": "price",
+  "version": "research_chart_v1",
+  "x_label": "Trade date",
+  "y_label": "Price"
+}

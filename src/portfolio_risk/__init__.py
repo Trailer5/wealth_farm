@@ -20,6 +20,8 @@ from .diagnostics import (
     DiagnosisPosition,
     StressScenario,
     covariance_matrix,
+    exit_line_args,
+    fund_lockup_days,
     exposure_summary,
     preference_check,
     risk_asset_share,
@@ -32,6 +34,7 @@ from .diagnostics import (
 from .allocation import class_risk, equity_range, erc_weights, within_risk_assets
 from .adjustment import AdjustmentLine, migration_steps, round_to_lots, target_weights
 from .trades import TradeRecord, TradeSide
+from .weights import NOTIONAL_TOTAL, HoldingWeights, WeightItem
 from .calibration import (
     annual_volatility,
     calibration_checks,
@@ -95,6 +98,8 @@ __all__ = [
     "DiagnosisPosition",
     "StressScenario",
     "exposure_summary",
+    "exit_line_args",
+    "fund_lockup_days",
     "preference_check",
     "risk_summary",
     "stress_summary",
@@ -114,6 +119,9 @@ __all__ = [
     "fixed_weight_path",
     "TradeRecord",
     "TradeSide",
+    "NOTIONAL_TOTAL",
+    "HoldingWeights",
+    "WeightItem",
     "annual_volatility",
     "calibration_checks",
     "max_drawdown",

@@ -16,6 +16,8 @@ from src.data_access import DataAccessService, SQLiteDataAccessRepository
 from src.data_quality import DataQualityService, SQLiteDataQualityRepository
 from src.data_src.service import DataFetchService
 from src.data_store import SQLiteDataStore
+from src.event_intel import EventIntelService, SQLiteEventIntelRepository
+from src.research_debate import DebateService, SQLiteDebateRepository
 from src.event_knowledge import EventKnowledgeService, SQLiteEventRepository
 from src.event_name_discovery import (
     AssetNameSnapshotLoader,
@@ -70,6 +72,7 @@ from src.research_ledger import (
     FinancialMetricSeriesSource,
     LedgerSettlementService,
     MacroMetricSeriesSource,
+    ObservableMetricSeriesSource,
     ResearchLedgerService,
     SQLiteResearchLedgerRepository,
 )
@@ -125,7 +128,11 @@ from .allocation_proposal import AllocationProposalService
 from .adjustment_proposal import AdjustmentProposalService
 from .portfolio_plan import PortfolioPlanService
 from .decision_review import DecisionReviewService
+from .debate import DebateWorkflow
 from .routine import RoutineService
+from .price_history import PriceHistoryService
+from .event_watch import ObservableWatchService
+from .position_guidance import PositionGuidanceService
 from .strategy_archive import StrategyArchiveService
 from .strategy_backtest import StrategyBacktestService
 from .strategy_evaluate import StrategyEvaluateService
@@ -165,6 +172,10 @@ class ResearchOrchestrationContainer:
     master_data: MasterDataService
     data_fetch: DataFetchService
     data_access: DataAccessService
+    price_history: PriceHistoryService
+    event_intel: EventIntelService
+    debates: DebateWorkflow
+    position_guidance: PositionGuidanceService
     macro_data: MacroDataService
     sector_data: SectorDataService
     cross_section: CrossSectionService
@@ -495,9 +506,11 @@ def create_default_container(
         source_prefix="sector_archive",
     )
     analogs = AnalogHistoryService(macro_data=macro_data, data_access=data_access)
+    event_intel = EventIntelService(SQLiteEventIntelRepository(database_path))
     metrics = CompositeMetricSource(
         MacroMetricSeriesSource(macro_data=macro_data),
         FinancialMetricSeriesSource(data_access=data_access, master_data=master_data),
+        ObservableMetricSeriesSource(intel=event_intel),
     )
     thesis = ThesisService(ledger=ledger, metrics=metrics, master_data=master_data)
     settlement_prices = DataAccessPriceSeriesSource(
@@ -561,6 +574,12 @@ def create_default_container(
     ledger_recorder = FinalDecisionLedgerRecorder(
         ledger=ledger,
         publications=workflow_coordinator,
+    )
+    position_guidance = PositionGuidanceService(ledger=ledger, master_data=master_data)
+    debates = DebateWorkflow(
+        debates=DebateService(SQLiteDebateRepository(database_path)),
+        ledger=ledger,
+        intel=event_intel,
     )
     ledger_settlement = LedgerSettlementService(
         repository=ledger_repository,
@@ -672,6 +691,10 @@ def create_default_container(
         master_data=master_data,
         data_fetch=data_fetch,
         data_access=data_access,
+        price_history=PriceHistoryService(data_access=data_access, master_data=master_data, data_fetch=data_fetch),
+        event_intel=event_intel,
+        debates=debates,
+        position_guidance=position_guidance,
         macro_data=macro_data,
         sector_data=sector_data,
         cross_section=cross_section,
@@ -721,6 +744,14 @@ def create_default_container(
             decision_review=decision_review,
             master_data=master_data,
             strategies=lambda as_of, remote: strategy_track.track_all(as_of_date=as_of, allow_remote=remote),
+            events=lambda user, as_of, remote: ObservableWatchService(ledger=ledger, intel=event_intel).run(
+                user_id=user,
+                as_of_date=as_of,
+                allow_remote=remote,
+                signposted=debates.watched_observables(user_id=user),
+            ),
+            guidance=lambda user, as_of: position_guidance.due(user_id=user, as_of_date=as_of),
+            debates=lambda user, as_of: debates.watch(user_id=user, as_of_date=as_of),
         ),
         strategy_archive=strategy_archive,
         strategy_backtest=strategy_backtest,

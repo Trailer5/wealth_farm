@@ -9,6 +9,7 @@ from .budget import InvestmentMandate
 from .calculator import PortfolioCalculator
 from .preference import InvestmentPreference
 from .trades import TradeRecord
+from .weights import HoldingWeights
 from .models import (
     PortfolioConstraintSnapshot,
     PortfolioSnapshot,
@@ -158,6 +159,20 @@ class PortfolioRiskService:
     def list_trades(self, context: UserContext) -> list[TradeRecord]:
         self.research_state.list_holdings(context)
         return self.repository.list_trades(context.user_id)
+
+    def record_weights(self, context: UserContext, snapshot: HoldingWeights) -> HoldingWeights:
+        """Holdings the user gave only as shares; diagnosis uses them when no quantities are recorded."""
+
+        self.research_state.list_holdings(context)
+        if snapshot.user_id != context.user_id:
+            raise ValueError("weights user_id must match context")
+        self.repository.save_weights(snapshot)
+        return snapshot
+
+    def latest_weights(self, context: UserContext, *, on_or_before: str) -> HoldingWeights | None:
+        self.research_state.list_holdings(context)
+        history = [item for item in self.repository.list_weights(context.user_id) if item.as_of_date <= on_or_before]
+        return history[-1] if history else None
 
     def list_mandates(
         self,

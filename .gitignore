@@ -4,3 +4,4 @@ node_modules/
 temp/
 *.sqlite3
 *.sqlite3-*
+docs/personal_info/

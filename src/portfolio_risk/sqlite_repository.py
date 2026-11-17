@@ -10,6 +10,7 @@ from pathlib import Path
 from .budget import InvestmentMandate
 from .preference import InvestmentPreference
 from .trades import TradeRecord
+from .weights import HoldingWeights
 from .models import (
     PortfolioConstraintSnapshot,
     PortfolioPositionMetric,
@@ -113,6 +114,16 @@ class SQLitePortfolioRepository:
 
                 CREATE INDEX IF NOT EXISTS idx_trade_records_user_date
                 ON trade_records (user_id, trade_date);
+
+                CREATE TABLE IF NOT EXISTS holding_weight_snapshots (
+                    user_id TEXT NOT NULL,
+                    as_of_date TEXT NOT NULL,
+                    snapshot_id TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (user_id, as_of_date),
+                    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+                );
 
                 CREATE TABLE IF NOT EXISTS portfolio_constraint_snapshots (
                     snapshot_id TEXT PRIMARY KEY,
@@ -505,6 +516,33 @@ class SQLitePortfolioRepository:
                 [user_id],
             ).fetchall()
         return [TradeRecord.from_dict(json.loads(str(row["payload_json"]))) for row in rows]
+
+    def save_weights(self, snapshot: HoldingWeights) -> None:
+        """One snapshot per user and date; restating a date replaces it (the user corrected the shares)."""
+
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO holding_weight_snapshots (
+                    user_id, as_of_date, snapshot_id, payload_json, created_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                [
+                    snapshot.user_id,
+                    snapshot.as_of_date,
+                    snapshot.snapshot_id,
+                    _canonical_json(snapshot.to_dict()),
+                    _utc_now(),
+                ],
+            )
+
+    def list_weights(self, user_id: str) -> list[HoldingWeights]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT payload_json FROM holding_weight_snapshots WHERE user_id = ? ORDER BY as_of_date",
+                [user_id],
+            ).fetchall()
+        return [HoldingWeights.from_dict(json.loads(str(row["payload_json"]))) for row in rows]
 
     def list_mandates(self, user_id: str) -> list[InvestmentMandate]:
         """Return every mandate recorded for one user, oldest first."""

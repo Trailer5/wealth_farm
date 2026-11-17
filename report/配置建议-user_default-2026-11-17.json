@@ -1,0 +1,162 @@
+{
+ "user_id": "user:default",
+ "as_of_date": "2026-11-17",
+ "preference_id": "preference:e1be865ed1ed13b1",
+ "current_risk_share": 0.2266,
+ "target": {
+  "low": 0.1,
+  "high": 0.3,
+  "middle": 0.2,
+  "limits": {
+   "preference": 0.3,
+   "volatility": 0.315,
+   "drawdown": 0.525,
+   "cash_floor": 0.8
+  },
+  "binding": [
+   "preference"
+  ],
+  "conflict": false,
+  "drawdown_basis": "exit_line",
+  "defensive_mix": {
+   "cash": 0.8283,
+   "bond": 0.1329,
+   "gold_commodity": 0.0388
+  },
+  "at_high": {
+   "volatility": 0.0565,
+   "worst_loss": 0.0564,
+   "worst_scenario": "2015 年 6–8 月股灾"
+  },
+  "at_preference_low": {
+   "equity": 0.1,
+   "volatility": 0.0212,
+   "worst_loss": 0.0182,
+   "worst_scenario": "2015 年 6–8 月股灾"
+  },
+  "risk_budget": [
+   {
+    "class": "cash",
+    "label": "现金类",
+    "weight": 0.6626,
+    "risk_share": 0.0
+   },
+   {
+    "class": "equity",
+    "label": "权益",
+    "weight": 0.2,
+    "risk_share": 0.937
+   },
+   {
+    "class": "bond",
+    "label": "债券",
+    "weight": 0.1063,
+    "risk_share": -0.0078
+   },
+   {
+    "class": "gold_commodity",
+    "label": "黄金与商品",
+    "weight": 0.031,
+    "risk_share": 0.0708
+   }
+  ]
+ },
+ "direction": "keep",
+ "amount_to_target": {
+  "low": -126600.0,
+  "high": 73400.0
+ },
+ "within_risk_assets": [
+  {
+   "asset_id": "asset:fac0a15a-236c-46f3-a071-16d964f8b37a",
+   "label": "AMD（雇主股票，已归属）",
+   "single_stock": true,
+   "current_share": 0.8165,
+   "balanced_share": 0.1031,
+   "at_target_current": 0.1633,
+   "at_target_balanced": 0.0206,
+   "over_single_cap": true,
+   "balanced_over_single_cap": false
+  },
+  {
+   "asset_id": "asset:cda4244c-58dc-4770-8198-3b4074f4e569",
+   "label": "嘉实中证国新央企现代能源ETF联接A（019592）",
+   "single_stock": false,
+   "current_share": 0.0074,
+   "balanced_share": 0.2808,
+   "at_target_current": 0.0015,
+   "at_target_balanced": 0.0562,
+   "over_single_cap": false,
+   "balanced_over_single_cap": false
+  },
+  {
+   "asset_id": "asset:b072ca55-d7a8-4b91-a23d-04cd74d43a97",
+   "label": "国金量化多因子股票A（006195）",
+   "single_stock": false,
+   "current_share": 0.0327,
+   "balanced_share": 0.1434,
+   "at_target_current": 0.0065,
+   "at_target_balanced": 0.0287,
+   "over_single_cap": false,
+   "balanced_over_single_cap": false
+  },
+  {
+   "asset_id": "asset:dac18186-2655-4d53-8400-2ade47b640c5",
+   "label": "大成360互联网+大数据100A（002236）",
+   "single_stock": false,
+   "current_share": 0.033,
+   "balanced_share": 0.1305,
+   "at_target_current": 0.0066,
+   "at_target_balanced": 0.0261,
+   "over_single_cap": false,
+   "balanced_over_single_cap": false
+  },
+  {
+   "asset_id": "bucket:equity:其他高风险基金（未细分）",
+   "label": "其他高风险基金（未细分）",
+   "single_stock": false,
+   "current_share": 0.0794,
+   "balanced_share": 0.1979,
+   "at_target_current": 0.0159,
+   "at_target_balanced": 0.0396,
+   "over_single_cap": false,
+   "balanced_over_single_cap": false
+  },
+  {
+   "asset_id": "asset:d8dab1e1-9479-4f25-878b-6cd546d7b82b",
+   "label": "徐工机械（000425）",
+   "single_stock": true,
+   "current_share": 0.0309,
+   "balanced_share": 0.1443,
+   "at_target_current": 0.0062,
+   "at_target_balanced": 0.0289,
+   "over_single_cap": false,
+   "balanced_over_single_cap": false
+  }
+ ],
+ "class_volatility": {
+  "权益": 0.1836,
+  "债券": 0.0163,
+  "黄金与商品": 0.2168,
+  "跨境（QDII）": 0.2338,
+  "现金类": 0.0
+ },
+ "summary": [
+  "当前权益（含跨境）占 22.7%；按偏好与风险预算，目标区间 10%–30%，上限由偏好的权益上限决定。",
+  "权益比例已在目标区间内，调整重点在权益内部结构。",
+  "按当前结构放大到目标中点后，AMD（雇主股票，已归属） 会超过单只个股上限，加仓应落在其他持仓或新的分散构件上。"
+ ],
+ "conflict": null,
+ "cash_floor": 0.2,
+ "gaps": [
+  "持仓按比例记录（2026-11-17，weights:331218be5a04d937）：金额按名义总资产 1,000,000 元换算，实际金额按你的总资产等比例缩放；手数取整与最低佣金按名义金额估算",
+  "嘉实中证国新央企现代能源ETF联接A（019592） 跟踪的中证国新央企现代能源指数没有可用的成分权重来源，按前十大持仓穿透",
+  "大成360互联网+大数据100A（002236） 跟踪的中证360互联网+大数据100指数没有可用的成分权重来源，按前十大持仓穿透"
+ ],
+ "limitations": [
+  "权益用沪深300 指数、债券用国债ETF（511010）、黄金用黄金ETF（518880）、跨境用纳斯达克100ETF（513100）代表，波动与相关性取近 3 年日收益；用户持有的具体基金与代表指数不同。",
+  "回撤约束用代表指数在五段历史情景中的跌幅计算，是历史重演，不是未来跌幅的上限。偏好设了退出线时，权益在情景内从高点跌到退出线的第一个收盘按当天收盘卖出（跳空已在日收盘里）；这假设用户确实执行退出线，不计卖出后反弹的机会成本和何时买回。",
+  "风险均衡参照是等风险贡献权重（来源见 docs/evidence/strategy_sources/allocation_risk_budget.md），只作对照，不是目标权重；不预测收益，两个波动相近但前景不同的持仓会得到相近的参照。",
+  "配置区间只说明方向和幅度；具体换入换出、分几步和触发条件由调整方案给出。"
+ ]
+}

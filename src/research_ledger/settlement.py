@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Protocol
 
@@ -39,6 +39,10 @@ _BEARISH_ACTIONS = frozenset({ActionType.REDUCE, ActionType.EXIT})
 METRIC_CLAIM_KEYS = ("level", "change", "min_level", "max_level")
 # "level_at:<period_end>" compares the value of one named period.
 LEVEL_AT_PREFIX = "level_at:"
+# Observables (event_intel) are recorded by the Agent from cited evidence.
+OBSERVABLE_METRIC_PREFIX = "obs:"
+# At expiry an undecided observable claim needs a status recorded this close to the deadline.
+_OBSERVABLE_FRESH_DAYS = 14
 
 
 def _level_at_period(metric_key: str) -> str | None:
@@ -76,6 +80,8 @@ class MetricPoint:
     period_end: str
     available_at: str
     value: Decimal
+    # "event" for 0/1 observables, whose status must be re-checked near expiry; None otherwise.
+    kind: str | None = None
 
 
 class PriceDataUnavailable(RuntimeError):
@@ -404,6 +410,23 @@ def _settle_metric(
     )
     claim = artifact.claim
     key = claim.metric_key if claim is not None else "level"
+    agent_observed = metric_id.startswith(OBSERVABLE_METRIC_PREFIX)
+    if agent_observed and claim is not None and key in ("min_level", "max_level"):
+        final = schedule.checkpoints[-1] if schedule.checkpoints else checkpoint
+        if not _extreme_decided(key, claim, path):
+            if checkpoint < final:
+                return unsettled(
+                    SettlementStatus.NOT_SETTLEABLE,
+                    f"可观测量 {metric_id}：截至检查点尚未越过阈值，事件类判断在发生时或到期日 {final} 判定",
+                )
+            fresh_from = (date.fromisoformat(final) - timedelta(days=_OBSERVABLE_FRESH_DAYS)).isoformat()
+            is_event = any(item.kind == "event" for item in series)
+            if is_event and not any(item.period_end >= fresh_from for item in path):
+                return unsettled(
+                    SettlementStatus.DATA_INSUFFICIENT,
+                    f"可观测量 {metric_id}：到期日前 {_OBSERVABLE_FRESH_DAYS} 天内没有记录状态；"
+                    "核实到期日状态后 record-observation（period_end 写到期日）",
+                )
     target_period = _level_at_period(key)
     deadline = _report_deadline(metric_id, target_period)
     if (
@@ -474,7 +497,24 @@ def _settle_metric(
             f"（{reference.available_at} 发布）；检查点前共发布 {len(path)} 期新数据，"
             f"最新 {latest.period_end} 期（{latest.available_at} 发布）为 {latest.value}；"
             f"判定量 {key} = {measured}"
+            + ("；可观测量的值是 Agent 依据证据记录的观测，不是确定性数据源" if agent_observed else "")
         ),
+    )
+
+
+def _extreme_decided(key: str, claim, path: list[MetricPoint]) -> bool:
+    """An extreme claim is decided once a value crosses the threshold: later values cannot undo it."""
+
+    threshold = claim.threshold or Decimal(0)
+    values = [item.value for item in path]
+    if key == "max_level":
+        return any(
+            value > threshold if claim.comparison is ClaimComparison.ABOVE else value >= threshold
+            for value in values
+        )
+    return any(
+        value < threshold if claim.comparison is ClaimComparison.BELOW else value <= threshold
+        for value in values
     )
 
 

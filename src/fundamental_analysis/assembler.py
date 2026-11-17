@@ -151,6 +151,20 @@ class FundamentalSnapshotAssembler:
             raise FundamentalSnapshotError(
                 "shares_outstanding must be positive"
             )
+        if shares_override is None:
+            implied = _shares_from_book_value(fields)
+            if implied is not None and (shares is None or not _same_magnitude(shares, implied)):
+                shares = implied
+                fields["shares_outstanding"] = implied
+                evidence["shares_outstanding"] = (
+                    FundamentalInputEvidence(
+                        field_name="shares_outstanding",
+                        value=implied,
+                        report_period=report_period,
+                        source="derived:total_equity/book_value_per_share",
+                        unit="shares",
+                    ),
+                )
         if shares_override is not None:
             evidence["shares_outstanding"] = (
                 FundamentalInputEvidence(
@@ -317,6 +331,25 @@ def _prior_period(report_period: str) -> str:
         parsed.month,
         parsed.day,
     ).isoformat()
+
+
+def _shares_from_book_value(fields: dict[str, Decimal]) -> Decimal | None:
+    """Share count implied by equity / book value per share, both at the report period end.
+
+    The reported share-capital line is an amount, not a count, for issuers whose par value is not
+    1 yuan (Cayman or Hong Kong companies listed on the STAR market such as SMIC and Hua Hong).
+    """
+
+    equity = fields.get("total_equity")
+    per_share = fields.get("book_value_per_share")
+    if equity is None or per_share is None or equity <= 0 or per_share <= 0:
+        return None
+    return (equity / per_share).quantize(Decimal("1"))
+
+
+def _same_magnitude(shares: Decimal, implied: Decimal) -> bool:
+    # Minority interests can push equity / BPS above the true count, so only a gross mismatch counts.
+    return Decimal("0.5") <= shares / implied <= Decimal("2")
 
 
 def _apply_alias(

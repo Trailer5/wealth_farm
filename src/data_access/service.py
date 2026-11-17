@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime, timezone
 from functools import partial
 
 from src.data_src.common import (
@@ -25,6 +26,8 @@ from src.master_data import (
     ASSET_TYPE_INDEX,
     ASSET_TYPE_OPEN_FUND,
     ASSET_TYPE_STOCK,
+    MARKET_HK,
+    MARKET_US,
     SW_INDEX_EXCHANGE,
     Asset,
     MasterDataService,
@@ -53,9 +56,11 @@ from .models import (
 )
 from .sqlite_repository import SQLiteDataAccessRepository
 from .total_return import PRICE_BASIS_TOTAL_RETURN, forward_adjusted_bars
-from .trading_calendar import TradingCalendarService
+from .trading_calendar import TradingCalendarService, hk_latest_completed_date, us_latest_completed_date
 
 _MAX_LEADING_GAP_DAYS = 15
+# Sina raw bars with its adjust factors first; Nasdaq (split-adjusted, no dividends) cross-checks.
+US_TOTAL_RETURN_SOURCES = ("sina_us", "nasdaq_us")
 # After the first source answers, wait this long for the others to cross-check.
 _FAN_OUT_GRACE_SECONDS = 10.0
 # Ask the two preferred sources at once (cross-check, speed); the rest only if both fail.
@@ -90,12 +95,14 @@ class DataAccessService:
         financial_repository: (
             SQLiteFinancialDataRepository | None
         ) = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.master_data = master_data
         self.repository = repository
         self.fetch_service = fetch_service
         self.daily_data_reader = daily_data_reader
         self.trading_calendar = trading_calendar
+        self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.financial_repository = (
             financial_repository
             or SQLiteFinancialDataRepository(
@@ -120,7 +127,29 @@ class DataAccessService:
             return self._get_fund_data(request)
         asset = self._resolve_asset(request.asset, request.dataset)
         request_metadata: dict[str, object] = {}
-        if self.trading_calendar is not None:
+        if asset.market in (MARKET_US, MARKET_HK):
+            if request.dataset not in TOTAL_RETURN_BAR_DATASETS:
+                raise DataAccessFetchError(
+                    f"{asset.market.upper()} listings only support total-return bars, not {request.dataset}"
+                )
+            latest = us_latest_completed_date if asset.market == MARKET_US else hk_latest_completed_date
+            effective_end = min(request.end_date, latest(self.clock()))
+            request_metadata["requested_end_date"] = request.end_date
+            request_metadata["effective_end_date"] = effective_end
+            request_metadata["trading_calendar"] = f"{asset.market}_session_close"
+            if effective_end < request.start_date:
+                return self._response(
+                    asset=asset,
+                    request=request,
+                    records=[],
+                    complete=True,
+                    fetched_remote=False,
+                    stale=False,
+                    backends=(),
+                    extra_metadata=request_metadata,
+                )
+            request = replace(request, end_date=effective_end, max_age_seconds=None)
+        elif self.trading_calendar is not None:
             effective_end = self.trading_calendar.effective_end_date(
                 request.start_date,
                 request.end_date,
@@ -239,6 +268,7 @@ class DataAccessService:
                 request,
                 sqlite_records,
                 request_metadata,
+                use_calendar=asset.market not in (MARKET_US, MARKET_HK),
             )
             coverage = self.repository.mark_coverage(
                 asset_id=asset.asset_id,
@@ -324,6 +354,8 @@ class DataAccessService:
         request: DataAccessRequest,
         records: list[dict[str, object]],
         metadata: dict[str, object],
+        *,
+        use_calendar: bool = True,
     ) -> str:
         """Do not mark a leading range the provider did not return as covered."""
 
@@ -334,7 +366,7 @@ class DataAccessService:
         )
         if not dates:
             return request.start_date
-        if self.trading_calendar is not None:
+        if self.trading_calendar is not None and use_calendar:
             expected = self.trading_calendar.first_trading_date(
                 request.start_date,
                 request.end_date,
@@ -1228,6 +1260,22 @@ class DataAccessService:
         request: DataAccessRequest,
         source: str,
     ):
+        if asset.market == MARKET_HK:
+            return self.fetch_service.fetch_and_store_hk_total_return_bars(
+                symbol=asset.standard_symbol,
+                start_date=request.start_date,
+                end_date=request.end_date,
+                timeout_seconds=request.provider_timeout_seconds,
+            )
+        if asset.market == MARKET_US:
+            return self.fetch_service.fetch_and_store_us_total_return_bars(
+                symbol=asset.standard_symbol,
+                start_date=request.start_date,
+                end_date=request.end_date,
+                fund=request.dataset == DATASET_EXCHANGE_FUND_TOTAL_RETURN_BARS,
+                source=source,
+                timeout_seconds=request.provider_timeout_seconds,
+            )
         if request.dataset == DATASET_STOCK_DAILY_BARS:
             return self.fetch_service.fetch_and_store_a_share_daily_bars(
                 symbol=asset.standard_symbol,
@@ -1361,6 +1409,10 @@ class DataAccessService:
     ) -> tuple[str, ...]:
         if request.remote_sources:
             return request.remote_sources
+        if asset is not None and asset.market == MARKET_US:
+            return US_TOTAL_RETURN_SOURCES
+        if asset is not None and asset.market == MARKET_HK:
+            return ("sina_hk",)
         if request.dataset in FINANCIAL_DATASETS:
             return ("akshare",)
         if request.dataset == DATASET_INDEX_DAILY_BARS:

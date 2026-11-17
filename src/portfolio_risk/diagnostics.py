@@ -6,6 +6,7 @@ Design notes: docs/modules/4-个人数据/组合与风险管理模块.md「组�
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
@@ -230,8 +231,15 @@ def stress_summary(
     labels: dict[str, str] | None = None,
     zero_return: frozenset[str] = frozenset(),
     scenarios: tuple[StressScenario, ...] = STRESS_SCENARIOS,
+    exit_drawdown: float | None = None,
+    risk_assets: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
-    """Replay each window with actual history, else beta to the benchmark over the last three years."""
+    """Replay each window with actual history, else beta to the benchmark over the last three years.
+
+    With ``exit_drawdown`` each row also gets ``managed_return``: the risk assets together are sold
+    at the first close where they stand that far below their high within the window, the rest is
+    held to the end.
+    """
 
     labels = labels or {}
     start = (date.fromisoformat(as_of_date) - timedelta(days=RISK_WINDOW_DAYS)).isoformat()
@@ -248,6 +256,7 @@ def stress_summary(
         rows = []
         portfolio = 0.0
         uncovered = 0.0
+        sleeve: dict[str, tuple[float, dict[str, float] | None, float | None]] = {}
         for asset_id, weight in weights.items():
             actual = _window_return(levels.get(asset_id, {}), scenario)
             if actual is not None:
@@ -262,6 +271,12 @@ def stress_summary(
                 uncovered += weight
             else:
                 portfolio += weight * value
+                if asset_id in risk_assets and method in ("history", "beta_proxy"):
+                    sleeve[asset_id] = (
+                        weight,
+                        levels.get(asset_id) if method == "history" else None,
+                        betas.get(asset_id) if method == "beta_proxy" else None,
+                    )
             rows.append(
                 {
                     "label": labels.get(asset_id, asset_id),
@@ -282,7 +297,29 @@ def stress_summary(
                 "positions": rows,
             }
         )
+        if exit_drawdown is not None:
+            managed = _managed_sleeve(sleeve, benchmark_levels, scenario, exit_drawdown)
+            if managed is not None:
+                held, cut, exit_day = managed
+                result[-1]["managed_return"] = round(portfolio - held + cut, 4)
+                result[-1]["exit_day"] = exit_day
     return result
+
+
+def exit_line_args(
+    preference: InvestmentPreference | None,
+    positions: list[DiagnosisPosition],
+) -> dict[str, Any]:
+    """``stress_summary`` keywords for a preference that judges drawdown at its exit line."""
+
+    if preference is None or preference.exit_drawdown is None:
+        return {}
+    return {
+        "exit_drawdown": float(preference.exit_drawdown),
+        "risk_assets": frozenset(
+            item.asset_id for item in positions if item.main_class() in (ASSET_CLASS_EQUITY, ASSET_CLASS_OVERSEAS)
+        ),
+    }
 
 
 def preference_check(
@@ -290,6 +327,7 @@ def preference_check(
     risk: dict[str, Any],
     stress: list[dict[str, Any]],
     preference: InvestmentPreference,
+    positions: list[DiagnosisPosition] | tuple[()] = (),
 ) -> list[dict[str, Any]]:
     """Each preference limit against the diagnosis; nothing here proposes a change."""
 
@@ -343,24 +381,56 @@ def preference_check(
         else {"check_id": "volatility", "label": FIELD_LABELS["target_volatility"], "status": "unknown"}
     )
     covered = [item for item in stress if item["uncovered_weight"] < 0.05]
-    worst = min(covered, key=lambda item: item["portfolio_return"], default=None)
+    managed = preference.exit_drawdown is not None and any("managed_return" in item for item in covered)
+    key = "managed_return" if managed else "portfolio_return"
+    worst = min(covered, key=lambda item: item.get(key, item["portfolio_return"]), default=None)
+    loss = None if worst is None else -worst.get(key, worst["portfolio_return"])
     checks.append(
         {
             "check_id": "stress_loss",
             "label": FIELD_LABELS["max_drawdown"],
             "limit": float(preference.max_drawdown),
-            "value": None if worst is None else -worst["portfolio_return"],
-            "status": (
-                "unknown"
-                if worst is None
-                else "above"
-                if -worst["portfolio_return"] > float(preference.max_drawdown)
-                else "ok"
-            ),
-            "detail": "" if worst is None else f"最差历史情景：{worst['label']}",
+            "value": loss,
+            "status": "unknown" if loss is None else "above" if loss > float(preference.max_drawdown) else "ok",
+            "detail": ""
+            if worst is None
+            else f"最差历史情景：{worst['label']}"
+            + (f"（风险资产回撤 {float(preference.exit_drawdown):.0%} 时收手）" if managed else ""),
         }
     )
+    if preference.max_lockup_days is not None and positions:
+        locked = [
+            (item.label, days)
+            for item in positions
+            if (days := fund_lockup_days(item.label)) is not None and days > preference.max_lockup_days
+        ]
+        checks.append(
+            {
+                "check_id": "lockup",
+                "label": FIELD_LABELS["max_lockup_days"],
+                "limit": preference.max_lockup_days,
+                "value": max((days for _, days in locked), default=0),
+                "status": "above" if locked else "ok",
+                "detail": "、".join(f"{label}（约 {days} 天）" for label, days in locked),
+            }
+        )
     return checks
+
+
+_CN_NUMBERS = {"一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10, "十二": 12, "十八": 18}
+_UNIT_DAYS = {"天": 1, "日": 1, "个月": 30, "月": 30, "年": 365}
+_LOCKUP = re.compile(r"(\d+|十二|十八|[一二两三四五六七八九十])(个月|年|天|日|月)(?:滚动)?(?:持有|定开|定期开放|封闭)")
+
+
+def fund_lockup_days(name: str) -> int | None:
+    """Minimum holding or closed period stated in a fund's name (“一年持有期” → 365), else None."""
+
+    match = _LOCKUP.search(name)
+    if match is None:
+        return None
+    number, unit = match.groups()
+    count = int(number) if number.isdigit() else _CN_NUMBERS[number]
+    return count * _UNIT_DAYS[unit]
 
 
 def rolling_return_band(
@@ -553,10 +623,75 @@ def _pair_covariance(left: dict[str, float], right: dict[str, float]) -> float |
 
 
 def _window_return(levels: dict[str, float], scenario: StressScenario) -> float | None:
+    path = window_path(levels, scenario)
+    return None if path is None else path[-1][1] / path[0][1] - 1
+
+
+def window_path(levels: dict[str, float], scenario: StressScenario) -> list[tuple[str, float]] | None:
+    """Levels from the last day on or before the window start to the last day on or before its end."""
+
     tolerance = (date.fromisoformat(scenario.start) - timedelta(days=STRESS_START_TOLERANCE_DAYS)).isoformat()
     end_tolerance = (date.fromisoformat(scenario.end) - timedelta(days=STRESS_START_TOLERANCE_DAYS)).isoformat()
     start = [day for day in levels if tolerance <= day <= scenario.start]
     end = [day for day in levels if end_tolerance <= day <= scenario.end]
     if not start or not end:
         return None
-    return levels[max(end)] / levels[max(start)] - 1
+    first, last = max(start), max(end)
+    return [(day, levels[day]) for day in sorted(levels) if first <= day <= last]
+
+
+def exit_return(path: list[tuple[str, float]], exit_drawdown: float) -> tuple[float, str | None]:
+    """Return when sold at the first close this far below the running high, else at the end."""
+
+    base = path[0][1]
+    peak = base
+    for day, value in path:
+        peak = max(peak, value)
+        if value <= peak * (1 - exit_drawdown):
+            return value / base - 1, day
+    return path[-1][1] / base - 1, None
+
+
+def _managed_sleeve(
+    sleeve: dict[str, tuple[float, dict[str, float] | None, float | None]],
+    benchmark_levels: dict[str, float],
+    scenario: StressScenario,
+    exit_drawdown: float,
+) -> tuple[float, float, str | None] | None:
+    """Weighted end return of the risk assets held through, and the same assets cut at the exit line."""
+
+    if not sleeve:
+        return 0.0, 0.0, None
+    benchmark = window_path(benchmark_levels, scenario)
+    paths = {asset_id: window_path(series, scenario) for asset_id, (_, series, _) in sleeve.items() if series}
+    calendar = sorted({day for path in paths.values() if path for day, _ in path} | {day for day, _ in benchmark or []})
+    if not calendar:
+        return None
+    bench = dict(benchmark or [])
+    bench_base = benchmark[0][1] if benchmark else None
+    growth: dict[str, list[float]] = {}
+    for asset_id, (_, _, beta) in sleeve.items():
+        path = paths.get(asset_id)
+        if path:
+            values, cursor, current = dict(path), path[0][1], []
+            for day in calendar:
+                cursor = values.get(day, cursor)
+                current.append(cursor / path[0][1])
+        elif beta is not None and bench_base:
+            current, level = [], bench_base
+            for day in calendar:
+                level = bench.get(day, level)
+                current.append(1 + beta * (level / bench_base - 1))
+        else:
+            return None
+        growth[asset_id] = current
+    total = sum(weight for weight, _, _ in sleeve.values())
+    combined = [
+        (day, sum(sleeve[asset_id][0] * growth[asset_id][index] for asset_id in sleeve) / total)
+        for index, day in enumerate(calendar)
+    ]
+    _, exit_day = exit_return(combined, exit_drawdown)
+    index = calendar.index(exit_day) if exit_day else len(calendar) - 1
+    held = sum(weight * (growth[asset_id][-1] - 1) for asset_id, (weight, _, _) in sleeve.items())
+    cut = sum(weight * (growth[asset_id][index] - 1) for asset_id, (weight, _, _) in sleeve.items())
+    return held, cut, exit_day

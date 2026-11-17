@@ -1,4 +1,4 @@
-"""Metric series for settlement: macro series and company financial metrics, read point-in-time.
+"""Metric series for settlement: macro series, company financial metrics and observables, read point-in-time.
 
 Design notes: docs/modules/5-研究产物/观点账本模块.md, “指标结算”.
 """
@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import Any
 
 from src.data_access import DataAccessService
+from src.event_intel import OBS_PREFIX, EventIntelService
 from src.fundamental_analysis import metric_history, metric_label
 from src.macro_data import MacroDataService
 from src.master_data import MasterDataService
@@ -148,8 +149,36 @@ class FinancialMetricSeriesSource:
         )
 
 
+class ObservableMetricSeriesSource:
+    """Settlement ``observed_id`` ``obs:<id>``: values the Agent recorded from cited evidence.
+
+    ``available_at`` is the evidence publication date, so a late recording still counts from when
+    the fact became public, and a fact published after a checkpoint never settles it.
+    """
+
+    def __init__(self, *, intel: EventIntelService) -> None:
+        self.intel = intel
+
+    def known(self, metric_id: str) -> bool:
+        return metric_id.startswith(OBS_PREFIX) and self.intel.observable(metric_id) is not None
+
+    def series(self, metric_id: str, start: str, end: str) -> tuple[MetricPoint, ...]:
+        observable = self.intel.observable(metric_id) if metric_id.startswith(OBS_PREFIX) else None
+        if observable is None:
+            raise PriceDataUnavailable(f"未登记的可观测量 {metric_id}；先 define-observable")
+        return tuple(
+            MetricPoint(
+                period_end=item.period_end,
+                available_at=item.available_at,
+                value=item.value,
+                kind=observable.kind,
+            )
+            for item in self.intel.observations(metric_id)
+        )
+
+
 class CompositeMetricSource:
-    """Route a metric ID to the source that knows it (macro series or company financials)."""
+    """Route a metric ID to the source that knows it (macro series, company financials, observables)."""
 
     def __init__(self, *sources: Any) -> None:
         self.sources = sources
@@ -162,5 +191,5 @@ class CompositeMetricSource:
             if source.known(metric_id):
                 return source.series(metric_id, start, end)
         raise PriceDataUnavailable(
-            f"未知指标 {metric_id}；宏观指标写 macro:<series_id>，公司财务指标写 fin:<asset_id>:<指标>"
+            f"未知指标 {metric_id}；宏观指标写 macro:<series_id>，公司财务指标写 fin:<asset_id>:<指标>，可观测量写 obs:<id>"
         )

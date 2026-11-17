@@ -1,0 +1,31 @@
+{
+  "as_of_date": "2026-11-15",
+  "asset_id": "asset:9f7e4337-e793-4902-b8b8-98858e9edd4a",
+  "asset_name": "兆易创新",
+  "benchmark_asset_id": null,
+  "chart_type": "price_volume",
+  "currency": "CNY",
+  "files": {
+    "data": "price_volume-392c3d221a0a.data.json",
+    "png": "price_volume-392c3d221a0a.png",
+    "svg": "price_volume-392c3d221a0a.svg"
+  },
+  "input_digest": "392c3d221a0a513b991d191bfe0bde36b71017973539267d74f17fc18840ea7d",
+  "parameters": {
+    "moving_averages": [
+      5,
+      20
+    ]
+  },
+  "point_count": 484,
+  "price_adjustment": "none",
+  "source_datasets": [
+    "stock_daily_bars"
+  ],
+  "task_id": "research:ce1f1029-82da-479e-9f5c-b1f195dd3c56",
+  "title": "Price, Volume, and Moving Averages",
+  "unit": "price",
+  "version": "research_chart_v1",
+  "x_label": "Trade date",
+  "y_label": "Price"
+}

@@ -66,7 +66,12 @@ FIELD_LABELS = {
     "max_single_weight": "单只个股上限",
     "max_industry_weight": "单一行业上限",
     "min_cash_weight": "现金底线",
+    "exit_drawdown": "退出线（风险资产从高点回撤）",
+    "max_single_loss": "单只个股损失预算",
+    "max_lockup_days": "最长封闭期（天）",
 }
+# Optional fields left out of the ID while unset, so versions recorded before them keep their IDs.
+_OPTIONAL_LIMITS = ("exit_drawdown", "max_single_loss", "max_lockup_days")
 _HORIZON_ORDER = tuple(PreferenceHorizon)
 _PROFILE_ORDER = tuple(RiskProfile)
 
@@ -127,6 +132,11 @@ class InvestmentPreference:
     derivation: tuple[str, ...] = ()
     liquidity_need_amount: Decimal | None = None
     liquidity_need_by: str | None = None
+    # Set: drawdown is judged with risk assets cut at this fall from their high, not held through.
+    exit_drawdown: Decimal | None = None
+    max_single_loss: Decimal | None = None
+    # Longest holding or closed period the user accepts for a fund (e.g. 365: no lock beyond a year).
+    max_lockup_days: int | None = None
     supersedes_preference_id: str | None = None
     preference_id: str = field(default="")
 
@@ -156,6 +166,12 @@ class InvestmentPreference:
             value = getattr(self, name)
             if not ZERO < value <= ONE:
                 raise ValueError(f"{name} must be within (0, 1]")
+        for name in ("exit_drawdown", "max_single_loss"):
+            value = getattr(self, name)
+            if value is not None and not ZERO < value <= ONE:
+                raise ValueError(f"{name} must be within (0, 1]")
+        if self.max_lockup_days is not None and self.max_lockup_days < 0:
+            raise ValueError("max_lockup_days must not be negative")
         if self.equity_weight_low > self.equity_weight_high:
             raise ValueError("equity_weight_low must not exceed equity_weight_high")
         if self.equity_weight_high + self.min_cash_weight > ONE:
@@ -194,6 +210,16 @@ class InvestmentPreference:
             f"单一行业上限：{_pct(self.max_industry_weight)}",
             f"现金底线：{_pct(self.min_cash_weight)}",
         ]
+        if self.exit_drawdown is not None:
+            lines.append(
+                f"退出线：风险资产从高点回撤 {_pct(self.exit_drawdown)} 时收手；最大回撤按执行退出线后的历史情景估算"
+            )
+        if self.max_single_loss is not None:
+            lines.append(
+                f"单只个股损失预算：{_pct(self.max_single_loss)}（仓位 ×（买入价到退出线的距离 + 跳空余量）不超过它）"
+            )
+        if self.max_lockup_days is not None:
+            lines.append(f"最长封闭期：{self.max_lockup_days} 天（持有期、定开、封闭期超过它的产品不买）")
         if self.liquidity_need_amount is not None:
             lines.append(
                 f"近期用钱：{self.liquidity_need_amount} 元"
@@ -212,6 +238,9 @@ class InvestmentPreference:
 def preference_id_for(preference: InvestmentPreference) -> str:
     payload = to_payload(preference)
     payload.pop("preference_id")
+    for name in _OPTIONAL_LIMITS:
+        if payload[name] is None:
+            del payload[name]
     digest = hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -333,6 +362,9 @@ def derive_preference(
         derivation=tuple(notes),
         liquidity_need_amount=previous.liquidity_need_amount,
         liquidity_need_by=previous.liquidity_need_by,
+        exit_drawdown=previous.exit_drawdown,
+        max_single_loss=previous.max_single_loss,
+        max_lockup_days=previous.max_lockup_days,
         supersedes_preference_id=previous.preference_id,
         **{key: merged[key] for key in ("horizon", *_limits_payload(previous))},
     )
@@ -425,7 +457,11 @@ def _apply_overrides(
     if unknown:
         raise ValueError(f"unknown override fields: {sorted(unknown)}")
     values = {
-        name: PreferenceHorizon(value) if name == "horizon" else Decimal(str(value))
+        name: PreferenceHorizon(value)
+        if name == "horizon"
+        else int(value)
+        if name == "max_lockup_days"
+        else Decimal(str(value))
         for name, value in overrides.items()
     }
     return replace(
@@ -478,4 +514,8 @@ def _format(value: Any) -> str:
         return HORIZON_LABELS[value]
     if isinstance(value, Decimal):
         return _pct(value)
+    if isinstance(value, int):
+        return f"{value} 天"
+    if value is None:
+        return "未设"
     return str(value)

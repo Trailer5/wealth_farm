@@ -25,6 +25,7 @@ from src.portfolio_risk import (
     realized_path,
     risk_asset_share,
     stress_summary,
+    exit_line_args,
     trade_behaviours,
     weights_of,
 )
@@ -158,11 +159,17 @@ class DecisionReviewService:
         if not path:
             gaps.append("沪深300 指数不可用，无法回放当前持仓的历史回撤")
         stress = stress_summary(
-            weights, levels, as_of_date=as_of_date, benchmark_levels=benchmark, labels=labels, zero_return=cash_like
+            weights,
+            levels,
+            as_of_date=as_of_date,
+            benchmark_levels=benchmark,
+            labels=labels,
+            zero_return=cash_like,
+            **exit_line_args(preference, positions),
         )
         worst = min(
             (item for item in stress if item["uncovered_weight"] < 0.05),
-            key=lambda item: item["portfolio_return"],
+            key=lambda item: item.get("managed_return", item["portfolio_return"]),
             default=None,
         )
         classes = {item["class"]: item["weight"] for item in exposure_summary(positions)["asset_classes"]}

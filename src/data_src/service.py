@@ -16,6 +16,7 @@ from src.data_src.cninfo import CninfoDataSource
 from src.data_src.common import (
     DataSourceError,
     normalize_a_share_code,
+    normalize_us_symbol,
     to_akshare_symbol,
 )
 from src.data_src.csrc import CsrcPublicInfoDataSource
@@ -598,6 +599,98 @@ class DataFetchService:
             fetched_count=len(bars),
             stored_count=stored_count,
         )
+
+    def fetch_and_store_us_total_return_bars(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+        *,
+        fund: bool,
+        source: str = "sina_us",
+        timeout_seconds: float | None = None,
+    ) -> FetchResult:
+        """Fetch US bars carrying the reference close (sina_us or nasdaq_us) and persist them."""
+
+        self.initialize()
+        payload = {
+            "source": source,
+            "symbol": normalize_us_symbol(symbol),
+            "start_date": start_date,
+            "end_date": end_date,
+            "asset_type": ASSET_TYPE_EXCHANGE_FUND if fund else ASSET_TYPE_STOCK,
+        }
+        if timeout_seconds is not None:
+            fetched = run_provider_task(
+                "src.data_src.provider_tasks",
+                "fetch_us_total_return_bars",
+                payload,
+                timeout_seconds=timeout_seconds,
+            )
+        else:
+            from src.data_src.provider_tasks import fetch_us_total_return_bars
+
+            fetched = fetch_us_total_return_bars(**payload)
+        bars = [bar for bar in fetched if bar.preclose is not None]
+        stored_count = self.store.upsert_total_return_bars(
+            "fund_exchange_total_return_bars" if fund else "stock_total_return_bars",
+            bars,
+        )
+        return FetchResult(
+            symbol=payload["symbol"],
+            source=source,
+            fetched_count=len(bars),
+            stored_count=stored_count,
+        )
+
+    def fetch_and_store_hk_total_return_bars(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> FetchResult:
+        """Fetch Hong Kong bars carrying the reference close (Sina via AkShare) and persist them."""
+
+        from src.data_src.sina.hk_stock import normalize_hk_symbol
+
+        self.initialize()
+        payload = {"symbol": normalize_hk_symbol(symbol), "start_date": start_date, "end_date": end_date}
+        fetched = run_provider_task(
+            "src.data_src.provider_tasks",
+            "fetch_hk_total_return_bars",
+            payload,
+            timeout_seconds=timeout_seconds or 120.0,
+        )
+        bars = [bar for bar in fetched if bar.preclose is not None]
+        stored_count = self.store.upsert_total_return_bars("stock_total_return_bars", bars)
+        return FetchResult(symbol=payload["symbol"], source="sina_hk", fetched_count=len(bars), stored_count=stored_count)
+
+    def register_hk_listing(self, symbol: str, *, timeout_seconds: float = 30.0):
+        """Look the code up in Tencent's quote line and return its HK asset, registering it on first sight."""
+
+        from src.data_src.sina.hk_stock import normalize_hk_symbol
+        from src.master_data import MARKET_HK
+
+        listing = run_provider_task(
+            "src.data_src.provider_tasks",
+            "fetch_hk_listing",
+            {"symbol": normalize_hk_symbol(symbol)},
+            timeout_seconds=timeout_seconds,
+        )
+        return self.master_data.register_us_listing(listing, market=MARKET_HK)
+
+    def register_us_listing(self, symbol: str, *, timeout_seconds: float = 30.0):
+        """Look the ticker up at Nasdaq and return its US asset, registering it on first sight."""
+
+        listing = run_provider_task(
+            "src.data_src.provider_tasks",
+            "fetch_us_listing",
+            {"symbol": normalize_us_symbol(symbol)},
+            timeout_seconds=timeout_seconds,
+        )
+        return self.master_data.register_us_listing(listing)
 
     def fetch_index_daily_bars(
         self,

@@ -54,6 +54,22 @@ class SecurityInfo:
 
 
 @dataclass(frozen=True)
+class NewsItem:
+    """One dated item from a news, filing or rule search: what was published, when, by whom, where."""
+
+    source: str
+    kind: str
+    title: str
+    url: str
+    published_on: str
+    published_at: str | None = None
+    publisher: str | None = None
+    summary: str | None = None
+    language: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class IndexConstituent:
     """One constituent in a dated index snapshot."""
 

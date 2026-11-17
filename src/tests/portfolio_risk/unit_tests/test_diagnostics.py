@@ -8,7 +8,9 @@ from src.portfolio_risk import (
     PreferenceHorizon,
     RiskProfile,
     StressScenario,
+    exit_line_args,
     exposure_summary,
+    fund_lockup_days,
     initial_preference,
     preference_check,
     risk_summary,
@@ -116,6 +118,75 @@ class RiskAndStressTest(unittest.TestCase):
         self.assertEqual(rows["young"]["method"], "beta_proxy")
         self.assertEqual(rows["cash"]["return"], 0.0)
         self.assertEqual(result["uncovered_weight"], 0.0)
+
+    def test_exit_line_sells_risk_assets_at_the_first_close_past_it(self):
+        scenario = StressScenario("s", "测试", "2015-06-08", "2015-06-12")
+        falling = {"2015-06-08": 100.0, "2015-06-09": 95.0, "2015-06-10": 88.0, "2015-06-11": 70.0, "2015-06-12": 60.0}
+        bond = {"2015-06-08": 100.0, "2015-06-12": 101.0}
+        weights = {"stock": 0.5, "bond": 0.3, "cash": 0.2}
+
+        (result,) = stress_summary(
+            weights,
+            {"stock": falling, "bond": bond, "cash": {}},
+            as_of_date=AS_OF,
+            benchmark_levels=falling,
+            zero_return=frozenset({"cash"}),
+            scenarios=(scenario,),
+            exit_drawdown=0.10,
+            risk_assets=frozenset({"stock"}),
+        )
+
+        self.assertAlmostEqual(result["portfolio_return"], 0.5 * -0.40 + 0.3 * 0.01, places=4)
+        self.assertEqual(result["exit_day"], "2015-06-10")
+        self.assertAlmostEqual(result["managed_return"], 0.5 * -0.12 + 0.3 * 0.01, places=4)
+
+        preference = initial_preference(
+            user_id="user:a",
+            recorded_on=AS_OF,
+            risk_profile=RiskProfile.CONSERVATIVE,
+            horizon=PreferenceHorizon.ONE_TO_3Y,
+            user_statement="最大回撤 10%，会及早收手",
+            overrides={"exit_drawdown": "0.10"},
+        )
+        positions = [
+            DiagnosisPosition("stock", "S", "stock", 50.0, {"equity": 1.0}),
+            DiagnosisPosition("bond", "B", "open_fund", 30.0, {"bond": 1.0}),
+            DiagnosisPosition("cash", "现金", "cash", 20.0, {"cash": 1.0}),
+        ]
+        checks = {
+            item["check_id"]: item
+            for item in preference_check(exposure_summary(positions), {"portfolio_volatility": 0.05}, [result], preference)
+        }
+        self.assertAlmostEqual(checks["stress_loss"]["value"], 0.057, places=3)
+        self.assertEqual(checks["stress_loss"]["status"], "ok")
+        self.assertIn("收手", checks["stress_loss"]["detail"])
+        self.assertEqual(exit_line_args(preference, positions)["risk_assets"], frozenset({"stock"}))
+
+    def test_lockup_from_fund_names_against_the_preference(self):
+        self.assertEqual(fund_lockup_days("鹏华年年红一年持有期债券A"), 365)
+        self.assertEqual(fund_lockup_days("长信30天滚动持有债券C"), 30)
+        self.assertEqual(fund_lockup_days("某某三年定开债券"), 1095)
+        self.assertEqual(fund_lockup_days("某某18个月封闭运作混合"), 540)
+        self.assertIsNone(fund_lockup_days("易方达安悦超短债A"))
+        preference = initial_preference(
+            user_id="user:a",
+            recorded_on=AS_OF,
+            risk_profile=RiskProfile.CONSERVATIVE,
+            horizon=PreferenceHorizon.ONE_TO_3Y,
+            user_statement="不接受 1 年以上的封闭期",
+            overrides={"max_lockup_days": 365},
+        )
+        positions = [
+            DiagnosisPosition("a", "鹏华年年红一年持有期债券A", "open_fund", 50.0, {"bond": 1.0}),
+            DiagnosisPosition("b", "某某三年定开债券", "open_fund", 50.0, {"bond": 1.0}),
+        ]
+        checks = {
+            item["check_id"]: item
+            for item in preference_check(exposure_summary(positions), {"portfolio_volatility": 0.01}, [], preference, positions)
+        }
+        self.assertEqual(checks["lockup"]["status"], "above")
+        self.assertIn("三年定开", checks["lockup"]["detail"])
+        self.assertNotIn("年年红", checks["lockup"]["detail"])
 
     def test_preference_check_flags_equity_above_range(self):
         positions = [

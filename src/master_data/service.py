@@ -5,6 +5,8 @@ from __future__ import annotations
 from src.data_src.models import SecurityInfo
 
 from .models import (
+    ASSET_TYPE_STOCK,
+    MARKET_US,
     RESOLUTION_CREATED,
     RESOLUTION_MATCHED,
     Asset,
@@ -15,7 +17,7 @@ from .models import (
     AssetSourceObservation,
     StoredAssetObservation,
 )
-from .resolver import MasterDataResolver
+from .resolver import MasterDataResolver, build_asset_id
 from .sqlite_repository import SQLiteMasterDataRepository
 
 
@@ -134,6 +136,26 @@ class MasterDataService:
         self.repository.save_resolution(resolution)
         self._reload_resolver()
         return asset
+
+    def register_us_listing(self, listing: SecurityInfo, *, market: str = MARKET_US) -> Asset:
+        """Return the overseas asset of a provider-confirmed listing, registering it on first sight."""
+
+        asset_type = listing.security_type or ASSET_TYPE_STOCK
+        for asset in self.repository.find_assets(standard_symbol=listing.symbol, asset_type=asset_type):
+            if asset.market == market:
+                return asset
+        return self.register_asset(
+            Asset(
+                asset_id=build_asset_id(),
+                asset_type=asset_type,
+                standard_symbol=listing.symbol,
+                display_name=listing.name,
+                market=market,
+                exchange=listing.exchange,
+            ),
+            source=listing.source,
+            raw_symbol=listing.symbol,
+        )
 
     def find_assets(
         self,

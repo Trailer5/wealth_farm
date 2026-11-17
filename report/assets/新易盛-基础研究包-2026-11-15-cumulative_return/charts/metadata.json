@@ -1,0 +1,32 @@
+{
+  "as_of_date": "2026-11-15",
+  "asset_id": "asset:d26effbe-989d-4737-80db-eecc6707bf0f",
+  "asset_name": "新易盛",
+  "benchmark_asset_id": null,
+  "chart_type": "cumulative_return",
+  "currency": null,
+  "files": {
+    "data": "cumulative_return-79c428f7b66b.data.json",
+    "png": "cumulative_return-79c428f7b66b.png",
+    "svg": "cumulative_return-79c428f7b66b.svg"
+  },
+  "input_digest": "79c428f7b66b3c9f97e0645ca529c962cc379e3b19627591f3c2e66b4e10974d",
+  "parameters": {
+    "factor_names": [
+      "cumulative_return"
+    ],
+    "input_end_date": "2026-11-13",
+    "input_start_date": "2024-11-15"
+  },
+  "point_count": 484,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:36c958a5-3b65-4514-9bd1-bab36ad17865",
+  "title": "Cumulative Return (2024-11-15 to 2026-11-13)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Cumulative Return"
+}

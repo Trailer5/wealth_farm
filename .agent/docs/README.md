@@ -15,7 +15,7 @@
 ## research
 
 - `research/question_routing.md`：研究问题的标准流程、任务流程表、按路由状态行动和回答纪律。
-- `research/playbooks/`：市场与宏观（`research/playbooks/market_macro.md`）、行业与主题（`research/playbooks/sector.md`）、持仓复核（`research/playbooks/holding.md`）、组合与计划（`research/playbooks/portfolio.md`）、策略（`research/playbooks/strategy.md`）的步骤清单。
+- `research/playbooks/`：市场与宏观（`research/playbooks/market_macro.md`）、行业与主题（`research/playbooks/sector.md`）、持仓复核（`research/playbooks/holding.md`）、组合与计划（`research/playbooks/portfolio.md`）、策略（`research/playbooks/strategy.md`）、全球事件与美股（`research/playbooks/global_events.md`）、观点辩论（`research/playbooks/debate.md`）的步骤清单。
 - `research/mainline.md`：标的类问题的统一研究编排入口和停止条件。
 - `research/cold_start_intake.md`：新对话代码/名称输入和最小澄清。
 - `research/agent_charter.md`：Agent 的分析、推演和用户决策职责。

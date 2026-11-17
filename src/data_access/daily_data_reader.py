@@ -132,7 +132,7 @@ class DailyDataReader:
             if item.get("range_end", "") < end_date:
                 continue
             checked_at = str(item.get("checked_at", ""))
-            if threshold is not None and _parse_datetime(checked_at) < threshold:
+            if threshold is not None and _parse_datetime(checked_at) <= threshold:
                 continue
             candidates.append(
                 DataCoverage(

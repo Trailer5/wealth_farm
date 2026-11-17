@@ -26,7 +26,7 @@ Use this file to choose the smallest relevant project guidance. Do not read ever
 - `docs/当前阶段-Agent决策研究闭环.md`: 单标的 Agent 决策研究闭环的阶段计划；切片十二人工复核并入路线图阶段 4 验收。
 - `docs/当前阶段-智囊骨架.md`: 阶段 4 计划：共享契约、观点账本与结算、问题路由与配方、代表性问题验收。
 - `.agent/docs/research/question_routing.md`: 研究问题的标准流程：写请求 → `route` → `run-recipe` → 按状态行动 → 进入任务流程，以及回答纪律。
-- `.agent/docs/research/playbooks/`: 市场与宏观、行业与主题、持仓复核、组合与计划的步骤清单。
+- `.agent/docs/research/playbooks/`: 市场与宏观、行业与主题、持仓复核、组合与计划、策略、全球事件与美股、观点辩论（含投资大师视角）的步骤清单。
 - `.agent/docs/research/mainline.md`: 标的类问题的研究主线。
 - `.agent/docs/research/cold_start_intake.md`: 新对话只给代码、名称或模糊研究请求时的最小动作。
 - `.agent/docs/research/agent_charter.md`: Research Agent 的分析职责与禁止事项。

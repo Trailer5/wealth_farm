@@ -1,0 +1,2970 @@
+[
+  {
+    "date": "2025-02-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7153455193016698,
+      "rolling_sharpe_60d": 0.18433533112132597
+    }
+  },
+  {
+    "date": "2025-02-19",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7081490852650009,
+      "rolling_sharpe_60d": 0.3823300748945092
+    }
+  },
+  {
+    "date": "2025-02-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7060582747852024,
+      "rolling_sharpe_60d": 0.07998092177994508
+    }
+  },
+  {
+    "date": "2025-02-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.706350010344101,
+      "rolling_sharpe_60d": 0.10180704375971801
+    }
+  },
+  {
+    "date": "2025-02-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7163267585068708,
+      "rolling_sharpe_60d": -0.1341153914459939
+    }
+  },
+  {
+    "date": "2025-02-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7120023361690174,
+      "rolling_sharpe_60d": -0.010913056510012014
+    }
+  },
+  {
+    "date": "2025-02-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.708580426174703,
+      "rolling_sharpe_60d": 0.34425651606245705
+    }
+  },
+  {
+    "date": "2025-02-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7178733099895008,
+      "rolling_sharpe_60d": -0.11080224741884775
+    }
+  },
+  {
+    "date": "2025-02-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7441219469925807,
+      "rolling_sharpe_60d": -0.6941350496205432
+    }
+  },
+  {
+    "date": "2025-03-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7455386784045631,
+      "rolling_sharpe_60d": -0.7292878705012993
+    }
+  },
+  {
+    "date": "2025-03-04",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7438626558702965,
+      "rolling_sharpe_60d": -0.8028311208657194
+    }
+  },
+  {
+    "date": "2025-03-05",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7365872183278779,
+      "rolling_sharpe_60d": -1.0266969411020577
+    }
+  },
+  {
+    "date": "2025-03-06",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.736469966201607,
+      "rolling_sharpe_60d": -0.8603609895882616
+    }
+  },
+  {
+    "date": "2025-03-07",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7378520981537323,
+      "rolling_sharpe_60d": -0.9485908118607398
+    }
+  },
+  {
+    "date": "2025-03-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7354571361095593,
+      "rolling_sharpe_60d": -1.0401190702590677
+    }
+  },
+  {
+    "date": "2025-03-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7354614284729452,
+      "rolling_sharpe_60d": -1.0376728267101147
+    }
+  },
+  {
+    "date": "2025-03-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7313810245356961,
+      "rolling_sharpe_60d": -0.8375142703483771
+    }
+  },
+  {
+    "date": "2025-03-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7314811809632457,
+      "rolling_sharpe_60d": -0.960834120564242
+    }
+  },
+  {
+    "date": "2025-03-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7206419437133412,
+      "rolling_sharpe_60d": -1.2455359115110476
+    }
+  },
+  {
+    "date": "2025-03-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7140983327500293,
+      "rolling_sharpe_60d": -1.429884966524006
+    }
+  },
+  {
+    "date": "2025-03-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.736180554085086,
+      "rolling_sharpe_60d": -0.8754485550108574
+    }
+  },
+  {
+    "date": "2025-03-19",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.741521210723045,
+      "rolling_sharpe_60d": -1.302220921963474
+    }
+  },
+  {
+    "date": "2025-03-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7409904833306912,
+      "rolling_sharpe_60d": -1.3504277304871921
+    }
+  },
+  {
+    "date": "2025-03-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7401726807988372,
+      "rolling_sharpe_60d": -1.3267562560242012
+    }
+  },
+  {
+    "date": "2025-03-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7469380111275943,
+      "rolling_sharpe_60d": -1.0245159338000287
+    }
+  },
+  {
+    "date": "2025-03-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7466575791491992,
+      "rolling_sharpe_60d": -1.093390402280412
+    }
+  },
+  {
+    "date": "2025-03-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7446290923594958,
+      "rolling_sharpe_60d": -0.9837380126029492
+    }
+  },
+  {
+    "date": "2025-03-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7452590934850403,
+      "rolling_sharpe_60d": -1.0129333512451577
+    }
+  },
+  {
+    "date": "2025-03-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7452556687371039,
+      "rolling_sharpe_60d": -1.0141220905109067
+    }
+  },
+  {
+    "date": "2025-03-31",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.738371829579043,
+      "rolling_sharpe_60d": -1.1703668641433
+    }
+  },
+  {
+    "date": "2025-04-01",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7383222840456249,
+      "rolling_sharpe_60d": -1.246562020160236
+    }
+  },
+  {
+    "date": "2025-04-02",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7277449328754089,
+      "rolling_sharpe_60d": -0.7246730457331281
+    }
+  },
+  {
+    "date": "2025-04-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7359046366729264,
+      "rolling_sharpe_60d": -0.8733975416597597
+    }
+  },
+  {
+    "date": "2025-04-07",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8378665433879653,
+      "rolling_sharpe_60d": -1.6783630043356013
+    }
+  },
+  {
+    "date": "2025-04-08",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8410540474430652,
+      "rolling_sharpe_60d": -2.0423846911796364
+    }
+  },
+  {
+    "date": "2025-04-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8405788845364095,
+      "rolling_sharpe_60d": -2.0846342879709003
+    }
+  },
+  {
+    "date": "2025-04-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8611688195002557,
+      "rolling_sharpe_60d": -1.7184525003132058
+    }
+  },
+  {
+    "date": "2025-04-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8610703547940639,
+      "rolling_sharpe_60d": -1.5358908818144836
+    }
+  },
+  {
+    "date": "2025-04-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8615447553408182,
+      "rolling_sharpe_60d": -1.366065975141675
+    }
+  },
+  {
+    "date": "2025-04-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8548677709700264,
+      "rolling_sharpe_60d": -1.1216804623996437
+    }
+  },
+  {
+    "date": "2025-04-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8574789560355842,
+      "rolling_sharpe_60d": -1.4270813263609
+    }
+  },
+  {
+    "date": "2025-04-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8544829276912622,
+      "rolling_sharpe_60d": -1.5678995062570138
+    }
+  },
+  {
+    "date": "2025-04-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8577497376461005,
+      "rolling_sharpe_60d": -1.3110956759913457
+    }
+  },
+  {
+    "date": "2025-04-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8529165255199054,
+      "rolling_sharpe_60d": -1.4010843335677547
+    }
+  },
+  {
+    "date": "2025-04-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8526221163625259,
+      "rolling_sharpe_60d": -1.4460081232595527
+    }
+  },
+  {
+    "date": "2025-04-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8800650821813211,
+      "rolling_sharpe_60d": -1.1340139570447365
+    }
+  },
+  {
+    "date": "2025-04-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8746711254056507,
+      "rolling_sharpe_60d": -1.401306256233276
+    }
+  },
+  {
+    "date": "2025-04-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8719340099895733,
+      "rolling_sharpe_60d": -1.4494178402356452
+    }
+  },
+  {
+    "date": "2025-04-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8731259138343287,
+      "rolling_sharpe_60d": -1.4839339297454
+    }
+  },
+  {
+    "date": "2025-04-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8728759043212745,
+      "rolling_sharpe_60d": -1.4519378654925872
+    }
+  },
+  {
+    "date": "2025-04-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.864091334183558,
+      "rolling_sharpe_60d": -1.1816760450321904
+    }
+  },
+  {
+    "date": "2025-05-06",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7840938817730349,
+      "rolling_sharpe_60d": -0.08252290706297132
+    }
+  },
+  {
+    "date": "2025-05-07",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7797128468684463,
+      "rolling_sharpe_60d": -0.2677388929230143
+    }
+  },
+  {
+    "date": "2025-05-08",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8250816114045594,
+      "rolling_sharpe_60d": 0.1683092862885154
+    }
+  },
+  {
+    "date": "2025-05-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8251534999746425,
+      "rolling_sharpe_60d": 0.17518490546333007
+    }
+  },
+  {
+    "date": "2025-05-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8276738383930532,
+      "rolling_sharpe_60d": 0.299467780448432
+    }
+  },
+  {
+    "date": "2025-05-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8290699853175478,
+      "rolling_sharpe_60d": 0.48147721611060157
+    }
+  },
+  {
+    "date": "2025-05-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8270157838741856,
+      "rolling_sharpe_60d": 0.7898062411324178
+    }
+  },
+  {
+    "date": "2025-05-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8282657812829929,
+      "rolling_sharpe_60d": 0.7311520248467963
+    }
+  },
+  {
+    "date": "2025-05-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7858173749341488,
+      "rolling_sharpe_60d": 0.19499274200605482
+    }
+  },
+  {
+    "date": "2025-05-19",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7871310153796907,
+      "rolling_sharpe_60d": 0.05515548438377212
+    }
+  },
+  {
+    "date": "2025-05-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7861223632593864,
+      "rolling_sharpe_60d": 0.18499916537520184
+    }
+  },
+  {
+    "date": "2025-05-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7851913811035882,
+      "rolling_sharpe_60d": 0.2918450499537225
+    }
+  },
+  {
+    "date": "2025-05-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7847675623154837,
+      "rolling_sharpe_60d": 0.25339270724990215
+    }
+  },
+  {
+    "date": "2025-05-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7746391951547406,
+      "rolling_sharpe_60d": 0.5120106149347586
+    }
+  },
+  {
+    "date": "2025-05-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7727705915525267,
+      "rolling_sharpe_60d": 0.6393578403238079
+    }
+  },
+  {
+    "date": "2025-05-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7746997174094358,
+      "rolling_sharpe_60d": 0.35511893593880456
+    }
+  },
+  {
+    "date": "2025-05-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7740304231718227,
+      "rolling_sharpe_60d": 1.0035970996125274
+    }
+  },
+  {
+    "date": "2025-05-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7475783619370704,
+      "rolling_sharpe_60d": 1.753344402003944
+    }
+  },
+  {
+    "date": "2025-05-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7407135977781137,
+      "rolling_sharpe_60d": 2.0921350972804023
+    }
+  },
+  {
+    "date": "2025-06-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7426302763284894,
+      "rolling_sharpe_60d": 1.8811890651725531
+    }
+  },
+  {
+    "date": "2025-06-04",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.754607955912159,
+      "rolling_sharpe_60d": 2.182151838386469
+    }
+  },
+  {
+    "date": "2025-06-05",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7590336597927975,
+      "rolling_sharpe_60d": 2.367886220672195
+    }
+  },
+  {
+    "date": "2025-06-06",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.757219313355861,
+      "rolling_sharpe_60d": 2.6792481645053177
+    }
+  },
+  {
+    "date": "2025-06-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7570530043859441,
+      "rolling_sharpe_60d": 2.6518547228672538
+    }
+  },
+  {
+    "date": "2025-06-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7579925299849091,
+      "rolling_sharpe_60d": 2.5846742754049177
+    }
+  },
+  {
+    "date": "2025-06-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.758693819734437,
+      "rolling_sharpe_60d": 2.539195149898296
+    }
+  },
+  {
+    "date": "2025-06-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7581308976807365,
+      "rolling_sharpe_60d": 2.7575733177496162
+    }
+  },
+  {
+    "date": "2025-06-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7587120262805223,
+      "rolling_sharpe_60d": 2.6359541575124927
+    }
+  },
+  {
+    "date": "2025-06-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7676692357045874,
+      "rolling_sharpe_60d": 2.8621394966209905
+    }
+  },
+  {
+    "date": "2025-06-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7517515107480236,
+      "rolling_sharpe_60d": 2.475164383203434
+    }
+  },
+  {
+    "date": "2025-06-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7453390791231189,
+      "rolling_sharpe_60d": 3.0674150115784227
+    }
+  },
+  {
+    "date": "2025-06-19",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7452525604853228,
+      "rolling_sharpe_60d": 3.0891390994654455
+    }
+  },
+  {
+    "date": "2025-06-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7435179226768268,
+      "rolling_sharpe_60d": 3.1402593320652246
+    }
+  },
+  {
+    "date": "2025-06-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7428475687840598,
+      "rolling_sharpe_60d": 2.745275968471855
+    }
+  },
+  {
+    "date": "2025-06-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7428612991209302,
+      "rolling_sharpe_60d": 2.7441938902538046
+    }
+  },
+  {
+    "date": "2025-06-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7437026164515874,
+      "rolling_sharpe_60d": 2.999194454330794
+    }
+  },
+  {
+    "date": "2025-06-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7466269598157788,
+      "rolling_sharpe_60d": 3.4631148118999104
+    }
+  },
+  {
+    "date": "2025-06-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7516958891934095,
+      "rolling_sharpe_60d": 3.74613614074389
+    }
+  },
+  {
+    "date": "2025-06-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7517155486801194,
+      "rolling_sharpe_60d": 3.747025591869997
+    }
+  },
+  {
+    "date": "2025-07-01",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7507717620254788,
+      "rolling_sharpe_60d": 3.813256980747059
+    }
+  },
+  {
+    "date": "2025-07-02",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7525512550151651,
+      "rolling_sharpe_60d": 3.571875868845223
+    }
+  },
+  {
+    "date": "2025-07-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7366802547959598,
+      "rolling_sharpe_60d": 4.248969011011192
+    }
+  },
+  {
+    "date": "2025-07-04",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5938946090843189,
+      "rolling_sharpe_60d": 6.613763669127831
+    }
+  },
+  {
+    "date": "2025-07-07",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5807748432256548,
+      "rolling_sharpe_60d": 7.033499501769411
+    }
+  },
+  {
+    "date": "2025-07-08",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5889376468669528,
+      "rolling_sharpe_60d": 7.410624741859281
+    }
+  },
+  {
+    "date": "2025-07-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5697908021720308,
+      "rolling_sharpe_60d": 7.024953568288385
+    }
+  },
+  {
+    "date": "2025-07-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5740198173429203,
+      "rolling_sharpe_60d": 6.745802176680969
+    }
+  },
+  {
+    "date": "2025-07-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5771575761305779,
+      "rolling_sharpe_60d": 6.495299624035775
+    }
+  },
+  {
+    "date": "2025-07-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5768164404139454,
+      "rolling_sharpe_60d": 6.517921571647787
+    }
+  },
+  {
+    "date": "2025-07-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6765222422807319,
+      "rolling_sharpe_60d": 7.073962836104842
+    }
+  },
+  {
+    "date": "2025-07-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6872766211744201,
+      "rolling_sharpe_60d": 7.438597960094135
+    }
+  },
+  {
+    "date": "2025-07-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6976796131821109,
+      "rolling_sharpe_60d": 7.610381530699373
+    }
+  },
+  {
+    "date": "2025-07-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6979900442191262,
+      "rolling_sharpe_60d": 7.293174051424284
+    }
+  },
+  {
+    "date": "2025-07-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7018087467564852,
+      "rolling_sharpe_60d": 7.136393784926736
+    }
+  },
+  {
+    "date": "2025-07-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6697153088384491,
+      "rolling_sharpe_60d": 6.641476329237992
+    }
+  },
+  {
+    "date": "2025-07-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6703704683140889,
+      "rolling_sharpe_60d": 6.613221872831078
+    }
+  },
+  {
+    "date": "2025-07-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6682486052126644,
+      "rolling_sharpe_60d": 6.249107268884654
+    }
+  },
+  {
+    "date": "2025-07-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6582418445068935,
+      "rolling_sharpe_60d": 6.615238994852717
+    }
+  },
+  {
+    "date": "2025-07-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.656250368518096,
+      "rolling_sharpe_60d": 6.874370984693506
+    }
+  },
+  {
+    "date": "2025-07-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6693724363487105,
+      "rolling_sharpe_60d": 7.32866792772159
+    }
+  },
+  {
+    "date": "2025-07-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6713715982890216,
+      "rolling_sharpe_60d": 6.9409655972335225
+    }
+  },
+  {
+    "date": "2025-07-31",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6727559075734174,
+      "rolling_sharpe_60d": 6.85128844283894
+    }
+  },
+  {
+    "date": "2025-08-01",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6265907487989306,
+      "rolling_sharpe_60d": 6.161923595446942
+    }
+  },
+  {
+    "date": "2025-08-04",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.62674827978272,
+      "rolling_sharpe_60d": 6.132658236413098
+    }
+  },
+  {
+    "date": "2025-08-05",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6278822968516169,
+      "rolling_sharpe_60d": 5.824919338138993
+    }
+  },
+  {
+    "date": "2025-08-06",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6275344324997143,
+      "rolling_sharpe_60d": 5.792736145826175
+    }
+  },
+  {
+    "date": "2025-08-07",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6298987540982814,
+      "rolling_sharpe_60d": 5.5006555289165995
+    }
+  },
+  {
+    "date": "2025-08-08",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6263670280841621,
+      "rolling_sharpe_60d": 5.649735841459357
+    }
+  },
+  {
+    "date": "2025-08-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6325158487807764,
+      "rolling_sharpe_60d": 5.826042901863085
+    }
+  },
+  {
+    "date": "2025-08-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6351764426384416,
+      "rolling_sharpe_60d": 6.359419556754139
+    }
+  },
+  {
+    "date": "2025-08-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6941844728379798,
+      "rolling_sharpe_60d": 6.725008863468379
+    }
+  },
+  {
+    "date": "2025-08-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.69858905283534,
+      "rolling_sharpe_60d": 6.530960309906916
+    }
+  },
+  {
+    "date": "2025-08-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6985304706842316,
+      "rolling_sharpe_60d": 6.537759169911434
+    }
+  },
+  {
+    "date": "2025-08-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6975976772160896,
+      "rolling_sharpe_60d": 6.924365843554739
+    }
+  },
+  {
+    "date": "2025-08-19",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6992575733017092,
+      "rolling_sharpe_60d": 7.224074677043772
+    }
+  },
+  {
+    "date": "2025-08-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6933706655117344,
+      "rolling_sharpe_60d": 7.436434329887162
+    }
+  },
+  {
+    "date": "2025-08-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6885946521126237,
+      "rolling_sharpe_60d": 7.18231176057646
+    }
+  },
+  {
+    "date": "2025-08-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6936340174922369,
+      "rolling_sharpe_60d": 7.322916679679307
+    }
+  },
+  {
+    "date": "2025-08-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7045284835115352,
+      "rolling_sharpe_60d": 7.619495603521249
+    }
+  },
+  {
+    "date": "2025-08-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7130769632157832,
+      "rolling_sharpe_60d": 7.375542030611324
+    }
+  },
+  {
+    "date": "2025-08-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.720823041780196,
+      "rolling_sharpe_60d": 7.421772493301214
+    }
+  },
+  {
+    "date": "2025-08-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7661500630056708,
+      "rolling_sharpe_60d": 7.553904857173351
+    }
+  },
+  {
+    "date": "2025-08-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7670490103166362,
+      "rolling_sharpe_60d": 7.40441990378925
+    }
+  },
+  {
+    "date": "2025-09-01",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7790430812081071,
+      "rolling_sharpe_60d": 7.71766919099343
+    }
+  },
+  {
+    "date": "2025-09-02",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8028686387671622,
+      "rolling_sharpe_60d": 7.146510507649569
+    }
+  },
+  {
+    "date": "2025-09-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7997610725084929,
+      "rolling_sharpe_60d": 7.408408145207039
+    }
+  },
+  {
+    "date": "2025-09-04",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8788639258695413,
+      "rolling_sharpe_60d": 5.877902465251247
+    }
+  },
+  {
+    "date": "2025-09-05",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.899308160450925,
+      "rolling_sharpe_60d": 6.3353988437635085
+    }
+  },
+  {
+    "date": "2025-09-08",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9281011930370369,
+      "rolling_sharpe_60d": 5.387796080100276
+    }
+  },
+  {
+    "date": "2025-09-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9282007802711366,
+      "rolling_sharpe_60d": 5.381204646367421
+    }
+  },
+  {
+    "date": "2025-09-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9305163805244203,
+      "rolling_sharpe_60d": 5.433911228240313
+    }
+  },
+  {
+    "date": "2025-09-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9584971651404469,
+      "rolling_sharpe_60d": 5.8328676577045435
+    }
+  },
+  {
+    "date": "2025-09-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9672188806316577,
+      "rolling_sharpe_60d": 5.644619341095763
+    }
+  },
+  {
+    "date": "2025-09-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9665641771015191,
+      "rolling_sharpe_60d": 5.663052517706773
+    }
+  },
+  {
+    "date": "2025-09-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9675911742149377,
+      "rolling_sharpe_60d": 5.623724190370574
+    }
+  },
+  {
+    "date": "2025-09-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.967754994223293,
+      "rolling_sharpe_60d": 5.496673136846342
+    }
+  },
+  {
+    "date": "2025-09-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9662728427976561,
+      "rolling_sharpe_60d": 5.226247435337438
+    }
+  },
+  {
+    "date": "2025-09-19",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9637152011080891,
+      "rolling_sharpe_60d": 5.058697152950456
+    }
+  },
+  {
+    "date": "2025-09-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9666840583371642,
+      "rolling_sharpe_60d": 4.8208232649263305
+    }
+  },
+  {
+    "date": "2025-09-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9662696192988477,
+      "rolling_sharpe_60d": 4.943454770638357
+    }
+  },
+  {
+    "date": "2025-09-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9638129908996507,
+      "rolling_sharpe_60d": 5.052354388135243
+    }
+  },
+  {
+    "date": "2025-09-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9667201376942152,
+      "rolling_sharpe_60d": 5.136148327788558
+    }
+  },
+  {
+    "date": "2025-09-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9661493201711782,
+      "rolling_sharpe_60d": 5.159980499234653
+    }
+  },
+  {
+    "date": "2025-09-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9642292890864049,
+      "rolling_sharpe_60d": 5.399690892483836
+    }
+  },
+  {
+    "date": "2025-09-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9723926599518862,
+      "rolling_sharpe_60d": 4.814050291578372
+    }
+  },
+  {
+    "date": "2025-10-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9792557408855584,
+      "rolling_sharpe_60d": 4.59076728575423
+    }
+  },
+  {
+    "date": "2025-10-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9786189412649237,
+      "rolling_sharpe_60d": 4.612410155412154
+    }
+  },
+  {
+    "date": "2025-10-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9766461680733934,
+      "rolling_sharpe_60d": 4.712627758714896
+    }
+  },
+  {
+    "date": "2025-10-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 1.0013434683028546,
+      "rolling_sharpe_60d": 4.218481167476345
+    }
+  },
+  {
+    "date": "2025-10-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9270427589056922,
+      "rolling_sharpe_60d": 3.7376525470928224
+    }
+  },
+  {
+    "date": "2025-10-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9166499759537255,
+      "rolling_sharpe_60d": 3.4398182955393386
+    }
+  },
+  {
+    "date": "2025-10-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9089374925364757,
+      "rolling_sharpe_60d": 2.9759575576520674
+    }
+  },
+  {
+    "date": "2025-10-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9102689639806524,
+      "rolling_sharpe_60d": 3.1898852909064286
+    }
+  },
+  {
+    "date": "2025-10-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9290913767029054,
+      "rolling_sharpe_60d": 3.7226877642769347
+    }
+  },
+  {
+    "date": "2025-10-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9289341905245863,
+      "rolling_sharpe_60d": 3.730585374139172
+    }
+  },
+  {
+    "date": "2025-10-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9340351664296708,
+      "rolling_sharpe_60d": 3.5873167926214267
+    }
+  },
+  {
+    "date": "2025-10-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9406242116375718,
+      "rolling_sharpe_60d": 3.9217605673150326
+    }
+  },
+  {
+    "date": "2025-10-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9503595329284044,
+      "rolling_sharpe_60d": 4.244325834164098
+    }
+  },
+  {
+    "date": "2025-10-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9500414165891119,
+      "rolling_sharpe_60d": 4.195296290875336
+    }
+  },
+  {
+    "date": "2025-10-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.939801464901344,
+      "rolling_sharpe_60d": 3.799956822380832
+    }
+  },
+  {
+    "date": "2025-10-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9569160163607718,
+      "rolling_sharpe_60d": 3.454054237235595
+    }
+  },
+  {
+    "date": "2025-10-31",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9745333454828856,
+      "rolling_sharpe_60d": 3.0752938181993663
+    }
+  },
+  {
+    "date": "2025-11-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9703311055667313,
+      "rolling_sharpe_60d": 3.2587282252231073
+    }
+  },
+  {
+    "date": "2025-11-04",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9704459604224777,
+      "rolling_sharpe_60d": 3.2417029200569316
+    }
+  },
+  {
+    "date": "2025-11-05",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9699456483280396,
+      "rolling_sharpe_60d": 3.2673511898490233
+    }
+  },
+  {
+    "date": "2025-11-06",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9704720437325426,
+      "rolling_sharpe_60d": 3.304555512330005
+    }
+  },
+  {
+    "date": "2025-11-07",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.97105122266519,
+      "rolling_sharpe_60d": 3.2831844510012798
+    }
+  },
+  {
+    "date": "2025-11-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9760053120521612,
+      "rolling_sharpe_60d": 3.1282731210911647
+    }
+  },
+  {
+    "date": "2025-11-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9749297102450629,
+      "rolling_sharpe_60d": 2.7527534646343086
+    }
+  },
+  {
+    "date": "2025-11-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9690768297428285,
+      "rolling_sharpe_60d": 2.5407409962223815
+    }
+  },
+  {
+    "date": "2025-11-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9224131174208885,
+      "rolling_sharpe_60d": 1.9207619374100733
+    }
+  },
+  {
+    "date": "2025-11-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9269058673101906,
+      "rolling_sharpe_60d": 1.8044605039428767
+    }
+  },
+  {
+    "date": "2025-11-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.926909868166927,
+      "rolling_sharpe_60d": 1.7788265654771462
+    }
+  },
+  {
+    "date": "2025-11-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9232827133710234,
+      "rolling_sharpe_60d": 1.644789980577196
+    }
+  },
+  {
+    "date": "2025-11-19",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9188928047239886,
+      "rolling_sharpe_60d": 1.4986848309792997
+    }
+  },
+  {
+    "date": "2025-11-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9188310729395105,
+      "rolling_sharpe_60d": 1.603867718633422
+    }
+  },
+  {
+    "date": "2025-11-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9369672264573297,
+      "rolling_sharpe_60d": 1.1456312897800707
+    }
+  },
+  {
+    "date": "2025-11-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9309483565757251,
+      "rolling_sharpe_60d": 0.7687073421484218
+    }
+  },
+  {
+    "date": "2025-11-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9199838093170666,
+      "rolling_sharpe_60d": 0.5885010437519553
+    }
+  },
+  {
+    "date": "2025-11-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9299019556988992,
+      "rolling_sharpe_60d": 1.188285798564974
+    }
+  },
+  {
+    "date": "2025-11-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9131725868346803,
+      "rolling_sharpe_60d": 0.9157906414962776
+    }
+  },
+  {
+    "date": "2025-11-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8614425156831362,
+      "rolling_sharpe_60d": 0.33373747420446753
+    }
+  },
+  {
+    "date": "2025-12-01",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8625209649776576,
+      "rolling_sharpe_60d": 0.4255173753601071
+    }
+  },
+  {
+    "date": "2025-12-02",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8442940319121612,
+      "rolling_sharpe_60d": 0.11496776418679126
+    }
+  },
+  {
+    "date": "2025-12-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8296627433253799,
+      "rolling_sharpe_60d": 0.6245728807675826
+    }
+  },
+  {
+    "date": "2025-12-04",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8273362616216376,
+      "rolling_sharpe_60d": 0.478443421753274
+    }
+  },
+  {
+    "date": "2025-12-05",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7607602686354255,
+      "rolling_sharpe_60d": 1.4286801203558237
+    }
+  },
+  {
+    "date": "2025-12-08",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7364171987720428,
+      "rolling_sharpe_60d": 1.205088371985619
+    }
+  },
+  {
+    "date": "2025-12-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7077496681999936,
+      "rolling_sharpe_60d": 2.058685792283885
+    }
+  },
+  {
+    "date": "2025-12-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7096127170680945,
+      "rolling_sharpe_60d": 2.2232634452199505
+    }
+  },
+  {
+    "date": "2025-12-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7052353613773648,
+      "rolling_sharpe_60d": 1.6493152011614474
+    }
+  },
+  {
+    "date": "2025-12-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6544093293179988,
+      "rolling_sharpe_60d": 1.0931717667058165
+    }
+  },
+  {
+    "date": "2025-12-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6424800265812479,
+      "rolling_sharpe_60d": 1.4724842028872256
+    }
+  },
+  {
+    "date": "2025-12-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6484165268286591,
+      "rolling_sharpe_60d": 1.3003619373479518
+    }
+  },
+  {
+    "date": "2025-12-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6739365762386148,
+      "rolling_sharpe_60d": 1.9274177344757542
+    }
+  },
+  {
+    "date": "2025-12-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6819603788200954,
+      "rolling_sharpe_60d": 1.586320938577924
+    }
+  },
+  {
+    "date": "2025-12-19",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.682412245923759,
+      "rolling_sharpe_60d": 1.7506195154709323
+    }
+  },
+  {
+    "date": "2025-12-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6935384688948946,
+      "rolling_sharpe_60d": 2.0438915017954535
+    }
+  },
+  {
+    "date": "2025-12-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6923595685115455,
+      "rolling_sharpe_60d": 2.1033156939605284
+    }
+  },
+  {
+    "date": "2025-12-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6913612178850821,
+      "rolling_sharpe_60d": 1.8696841257416508
+    }
+  },
+  {
+    "date": "2025-12-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6922548270130655,
+      "rolling_sharpe_60d": 1.7652359282395131
+    }
+  },
+  {
+    "date": "2025-12-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6830247729643156,
+      "rolling_sharpe_60d": 1.3818055041594373
+    }
+  },
+  {
+    "date": "2025-12-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6828659264351852,
+      "rolling_sharpe_60d": 1.4037929031469132
+    }
+  },
+  {
+    "date": "2025-12-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6791598699337744,
+      "rolling_sharpe_60d": 1.1962013206001034
+    }
+  },
+  {
+    "date": "2025-12-31",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6717713820078769,
+      "rolling_sharpe_60d": 1.3598607236463618
+    }
+  },
+  {
+    "date": "2026-01-05",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6663295734048754,
+      "rolling_sharpe_60d": 1.5607361573469452
+    }
+  },
+  {
+    "date": "2026-01-06",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6673143858011961,
+      "rolling_sharpe_60d": 1.5132015962726117
+    }
+  },
+  {
+    "date": "2026-01-07",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6673083797235386,
+      "rolling_sharpe_60d": 1.51103517431932
+    }
+  },
+  {
+    "date": "2026-01-08",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6398597695412664,
+      "rolling_sharpe_60d": 2.0247319421847827
+    }
+  },
+  {
+    "date": "2026-01-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6430159594723003,
+      "rolling_sharpe_60d": 1.6961882637748504
+    }
+  },
+  {
+    "date": "2026-01-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6444850716026299,
+      "rolling_sharpe_60d": 1.5360574685641355
+    }
+  },
+  {
+    "date": "2026-01-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6435571839928041,
+      "rolling_sharpe_60d": 1.5721685191724926
+    }
+  },
+  {
+    "date": "2026-01-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6390381917468179,
+      "rolling_sharpe_60d": 1.3278295552374815
+    }
+  },
+  {
+    "date": "2026-01-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6054538869248279,
+      "rolling_sharpe_60d": 0.9287907399262842
+    }
+  },
+  {
+    "date": "2026-01-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6054498447225773,
+      "rolling_sharpe_60d": 0.9292321306386403
+    }
+  },
+  {
+    "date": "2026-01-19",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5991603409156846,
+      "rolling_sharpe_60d": 1.3358506735439521
+    }
+  },
+  {
+    "date": "2026-01-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5917226473995242,
+      "rolling_sharpe_60d": 0.47508376708402184
+    }
+  },
+  {
+    "date": "2026-01-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5707481030902551,
+      "rolling_sharpe_60d": 0.11674541720545346
+    }
+  },
+  {
+    "date": "2026-01-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5749016312869033,
+      "rolling_sharpe_60d": 0.2709901801178395
+    }
+  },
+  {
+    "date": "2026-01-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5898220386122631,
+      "rolling_sharpe_60d": -0.12119286285709926
+    }
+  },
+  {
+    "date": "2026-01-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5675896800034049,
+      "rolling_sharpe_60d": 0.567348835054388
+    }
+  },
+  {
+    "date": "2026-01-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5448653651201261,
+      "rolling_sharpe_60d": 1.413381798554037
+    }
+  },
+  {
+    "date": "2026-01-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5460953054036167,
+      "rolling_sharpe_60d": 1.236227813699764
+    }
+  },
+  {
+    "date": "2026-01-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5461207108438819,
+      "rolling_sharpe_60d": 1.2068035343299808
+    }
+  },
+  {
+    "date": "2026-01-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5614476505527759,
+      "rolling_sharpe_60d": 1.7197876629814473
+    }
+  },
+  {
+    "date": "2026-02-02",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5655381986674487,
+      "rolling_sharpe_60d": 1.8250813919437303
+    }
+  },
+  {
+    "date": "2026-02-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5661241119197645,
+      "rolling_sharpe_60d": 1.7998101665093806
+    }
+  },
+  {
+    "date": "2026-02-04",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5790725564289969,
+      "rolling_sharpe_60d": 1.5401113660332821
+    }
+  },
+  {
+    "date": "2026-02-05",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5820952810218573,
+      "rolling_sharpe_60d": 1.4540494859619715
+    }
+  },
+  {
+    "date": "2026-02-06",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.591731555831735,
+      "rolling_sharpe_60d": 1.0118770243121848
+    }
+  },
+  {
+    "date": "2026-02-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.607629720735696,
+      "rolling_sharpe_60d": 1.549011077905968
+    }
+  },
+  {
+    "date": "2026-02-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5985953512881287,
+      "rolling_sharpe_60d": 1.9544262356675324
+    }
+  },
+  {
+    "date": "2026-02-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6105720039117035,
+      "rolling_sharpe_60d": 1.5159425928280839
+    }
+  },
+  {
+    "date": "2026-02-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.611254876106383,
+      "rolling_sharpe_60d": 1.2914250719404121
+    }
+  },
+  {
+    "date": "2026-02-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6105474754367859,
+      "rolling_sharpe_60d": 1.1792299014680927
+    }
+  },
+  {
+    "date": "2026-02-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6105184485355842,
+      "rolling_sharpe_60d": 1.1771442091124862
+    }
+  },
+  {
+    "date": "2026-02-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5848984629021087,
+      "rolling_sharpe_60d": 2.0283265338343335
+    }
+  },
+  {
+    "date": "2026-02-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.582110039179023,
+      "rolling_sharpe_60d": 2.28005800230996
+    }
+  },
+  {
+    "date": "2026-02-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.595988780406738,
+      "rolling_sharpe_60d": 1.469548541766908
+    }
+  },
+  {
+    "date": "2026-03-02",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5821783030066433,
+      "rolling_sharpe_60d": 1.3031895727326404
+    }
+  },
+  {
+    "date": "2026-03-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5796514636832569,
+      "rolling_sharpe_60d": 1.1198690939131308
+    }
+  },
+  {
+    "date": "2026-03-04",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.5830287942347225,
+      "rolling_sharpe_60d": 0.7235957245496364
+    }
+  },
+  {
+    "date": "2026-03-05",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6065387787157649,
+      "rolling_sharpe_60d": 1.137518233547137
+    }
+  },
+  {
+    "date": "2026-03-06",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6045639784608675,
+      "rolling_sharpe_60d": 0.9709507784713848
+    }
+  },
+  {
+    "date": "2026-03-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6105994540115925,
+      "rolling_sharpe_60d": 0.500150265598656
+    }
+  },
+  {
+    "date": "2026-03-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6143791700315735,
+      "rolling_sharpe_60d": 0.7138612590594596
+    }
+  },
+  {
+    "date": "2026-03-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.614689470867777,
+      "rolling_sharpe_60d": 0.5834767712101748
+    }
+  },
+  {
+    "date": "2026-03-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6020763482365601,
+      "rolling_sharpe_60d": -0.15992587253242974
+    }
+  },
+  {
+    "date": "2026-03-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6031970792056224,
+      "rolling_sharpe_60d": -0.13058354258579633
+    }
+  },
+  {
+    "date": "2026-03-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6080474591221436,
+      "rolling_sharpe_60d": -0.009350728443818897
+    }
+  },
+  {
+    "date": "2026-03-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6149464581964276,
+      "rolling_sharpe_60d": -0.15540923300127463
+    }
+  },
+  {
+    "date": "2026-03-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6501218180357053,
+      "rolling_sharpe_60d": 0.3645719989964053
+    }
+  },
+  {
+    "date": "2026-03-19",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6514814552181886,
+      "rolling_sharpe_60d": 0.5238685896306324
+    }
+  },
+  {
+    "date": "2026-03-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6648397488627485,
+      "rolling_sharpe_60d": 1.3293202529747767
+    }
+  },
+  {
+    "date": "2026-03-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6414239912791623,
+      "rolling_sharpe_60d": 0.5243346153235853
+    }
+  },
+  {
+    "date": "2026-03-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6345272626306176,
+      "rolling_sharpe_60d": 0.9443699388636899
+    }
+  },
+  {
+    "date": "2026-03-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6341767984982406,
+      "rolling_sharpe_60d": 0.9239626906984498
+    }
+  },
+  {
+    "date": "2026-03-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6260709668675468,
+      "rolling_sharpe_60d": 0.22227785994166355
+    }
+  },
+  {
+    "date": "2026-03-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6271893936609851,
+      "rolling_sharpe_60d": 0.15353047212298188
+    }
+  },
+  {
+    "date": "2026-03-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6287250529157867,
+      "rolling_sharpe_60d": 0.3824354147268927
+    }
+  },
+  {
+    "date": "2026-03-31",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6321719085476474,
+      "rolling_sharpe_60d": 0.23597943407374078
+    }
+  },
+  {
+    "date": "2026-04-01",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6370769424441306,
+      "rolling_sharpe_60d": 0.5381437122492729
+    }
+  },
+  {
+    "date": "2026-04-02",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6399304713548842,
+      "rolling_sharpe_60d": 0.36072724013114904
+    }
+  },
+  {
+    "date": "2026-04-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6407966241825368,
+      "rolling_sharpe_60d": 0.45251380893003706
+    }
+  },
+  {
+    "date": "2026-04-07",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6367949490099949,
+      "rolling_sharpe_60d": 0.7282075776039897
+    }
+  },
+  {
+    "date": "2026-04-08",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6628163527134927,
+      "rolling_sharpe_60d": 1.353370168407873
+    }
+  },
+  {
+    "date": "2026-04-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6630842069532401,
+      "rolling_sharpe_60d": 1.3423841717585236
+    }
+  },
+  {
+    "date": "2026-04-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6752427789323189,
+      "rolling_sharpe_60d": 1.6897978774559708
+    }
+  },
+  {
+    "date": "2026-04-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.674443908526543,
+      "rolling_sharpe_60d": 1.7228094935303304
+    }
+  },
+  {
+    "date": "2026-04-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6709913679688675,
+      "rolling_sharpe_60d": 2.0054303904538093
+    }
+  },
+  {
+    "date": "2026-04-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6770311366262496,
+      "rolling_sharpe_60d": 1.8199357175130086
+    }
+  },
+  {
+    "date": "2026-04-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.6924824181885302,
+      "rolling_sharpe_60d": 2.400141695081701
+    }
+  },
+  {
+    "date": "2026-04-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7157229636313092,
+      "rolling_sharpe_60d": 2.872668863413858
+    }
+  },
+  {
+    "date": "2026-04-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7132640013723743,
+      "rolling_sharpe_60d": 2.576758205982786
+    }
+  },
+  {
+    "date": "2026-04-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7133238790714791,
+      "rolling_sharpe_60d": 2.5724574734349392
+    }
+  },
+  {
+    "date": "2026-04-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7269040844468828,
+      "rolling_sharpe_60d": 2.8788211583758296
+    }
+  },
+  {
+    "date": "2026-04-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7194812925486012,
+      "rolling_sharpe_60d": 3.0718004757592428
+    }
+  },
+  {
+    "date": "2026-04-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7615774273009142,
+      "rolling_sharpe_60d": 2.0817584548938712
+    }
+  },
+  {
+    "date": "2026-04-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7588515483849682,
+      "rolling_sharpe_60d": 1.8878741712308957
+    }
+  },
+  {
+    "date": "2026-04-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7449822651505411,
+      "rolling_sharpe_60d": 2.2635366841153406
+    }
+  },
+  {
+    "date": "2026-04-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.744838393552836,
+      "rolling_sharpe_60d": 2.197601069046082
+    }
+  },
+  {
+    "date": "2026-04-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7456206523637994,
+      "rolling_sharpe_60d": 1.9239238264818452
+    }
+  },
+  {
+    "date": "2026-05-06",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7447554509474463,
+      "rolling_sharpe_60d": 1.978093411106361
+    }
+  },
+  {
+    "date": "2026-05-07",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7591141549364779,
+      "rolling_sharpe_60d": 2.3757598078236284
+    }
+  },
+  {
+    "date": "2026-05-08",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7508597445313324,
+      "rolling_sharpe_60d": 1.9074131481869838
+    }
+  },
+  {
+    "date": "2026-05-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7468863520021382,
+      "rolling_sharpe_60d": 1.7786506775048414
+    }
+  },
+  {
+    "date": "2026-05-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7503593586859948,
+      "rolling_sharpe_60d": 2.1828160054620214
+    }
+  },
+  {
+    "date": "2026-05-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7417464576410799,
+      "rolling_sharpe_60d": 2.9512352126364862
+    }
+  },
+  {
+    "date": "2026-05-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7367939179504401,
+      "rolling_sharpe_60d": 3.101894626190513
+    }
+  },
+  {
+    "date": "2026-05-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7282706709718042,
+      "rolling_sharpe_60d": 3.350122655377936
+    }
+  },
+  {
+    "date": "2026-05-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7187484996927415,
+      "rolling_sharpe_60d": 2.878705698198648
+    }
+  },
+  {
+    "date": "2026-05-19",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7270546014259648,
+      "rolling_sharpe_60d": 2.5379595083641036
+    }
+  },
+  {
+    "date": "2026-05-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7167190578079867,
+      "rolling_sharpe_60d": 3.052659635959743
+    }
+  },
+  {
+    "date": "2026-05-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7211288821101081,
+      "rolling_sharpe_60d": 2.9088234480943393
+    }
+  },
+  {
+    "date": "2026-05-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7324560048676101,
+      "rolling_sharpe_60d": 3.2713925826114867
+    }
+  },
+  {
+    "date": "2026-05-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7487286105600774,
+      "rolling_sharpe_60d": 3.592079796296444
+    }
+  },
+  {
+    "date": "2026-05-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7553650592949552,
+      "rolling_sharpe_60d": 3.7578154854402297
+    }
+  },
+  {
+    "date": "2026-05-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7562893848294695,
+      "rolling_sharpe_60d": 3.6568580642591377
+    }
+  },
+  {
+    "date": "2026-05-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.739969371975787,
+      "rolling_sharpe_60d": 4.311125228362746
+    }
+  },
+  {
+    "date": "2026-05-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7360850418434128,
+      "rolling_sharpe_60d": 3.904240092390504
+    }
+  },
+  {
+    "date": "2026-06-01",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7426597497707131,
+      "rolling_sharpe_60d": 3.6386827248546942
+    }
+  },
+  {
+    "date": "2026-06-02",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7580722159658281,
+      "rolling_sharpe_60d": 4.298188620177807
+    }
+  },
+  {
+    "date": "2026-06-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7462557608017814,
+      "rolling_sharpe_60d": 4.146226675544166
+    }
+  },
+  {
+    "date": "2026-06-04",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7471119403032036,
+      "rolling_sharpe_60d": 4.085480159632365
+    }
+  },
+  {
+    "date": "2026-06-05",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7445158022679523,
+      "rolling_sharpe_60d": 4.149189793462158
+    }
+  },
+  {
+    "date": "2026-06-08",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7481005446227185,
+      "rolling_sharpe_60d": 3.7617886098906586
+    }
+  },
+  {
+    "date": "2026-06-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7610728147806046,
+      "rolling_sharpe_60d": 4.216877160318543
+    }
+  },
+  {
+    "date": "2026-06-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.756692099390111,
+      "rolling_sharpe_60d": 4.351935995468642
+    }
+  },
+  {
+    "date": "2026-06-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.763780387819176,
+      "rolling_sharpe_60d": 3.8398241924617356
+    }
+  },
+  {
+    "date": "2026-06-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7662004510723083,
+      "rolling_sharpe_60d": 3.356961126365892
+    }
+  },
+  {
+    "date": "2026-06-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7616834766469309,
+      "rolling_sharpe_60d": 4.066290909006969
+    }
+  },
+  {
+    "date": "2026-06-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7363006000986313,
+      "rolling_sharpe_60d": 3.6872279429354005
+    }
+  },
+  {
+    "date": "2026-06-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7360196445272891,
+      "rolling_sharpe_60d": 3.6551275541175965
+    }
+  },
+  {
+    "date": "2026-06-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7236751826125459,
+      "rolling_sharpe_60d": 3.480007606445992
+    }
+  },
+  {
+    "date": "2026-06-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7182373378558912,
+      "rolling_sharpe_60d": 3.69477412521983
+    }
+  },
+  {
+    "date": "2026-06-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7279607601516358,
+      "rolling_sharpe_60d": 3.272446649393955
+    }
+  },
+  {
+    "date": "2026-06-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7278013871973726,
+      "rolling_sharpe_60d": 3.2065502258764473
+    }
+  },
+  {
+    "date": "2026-06-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7430479327599544,
+      "rolling_sharpe_60d": 3.930433830725695
+    }
+  },
+  {
+    "date": "2026-06-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7598944735187135,
+      "rolling_sharpe_60d": 3.556490763782092
+    }
+  },
+  {
+    "date": "2026-06-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.761261399665355,
+      "rolling_sharpe_60d": 3.326711475708826
+    }
+  },
+  {
+    "date": "2026-06-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7727071075471313,
+      "rolling_sharpe_60d": 3.9500528452713906
+    }
+  },
+  {
+    "date": "2026-07-01",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.781247481858683,
+      "rolling_sharpe_60d": 3.4128133429014547
+    }
+  },
+  {
+    "date": "2026-07-02",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8187368227168914,
+      "rolling_sharpe_60d": 2.809317331075796
+    }
+  },
+  {
+    "date": "2026-07-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8200581088670302,
+      "rolling_sharpe_60d": 2.886459352664102
+    }
+  },
+  {
+    "date": "2026-07-06",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8253037552814968,
+      "rolling_sharpe_60d": 2.645221343799686
+    }
+  },
+  {
+    "date": "2026-07-07",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8065532885308183,
+      "rolling_sharpe_60d": 2.253810748536978
+    }
+  },
+  {
+    "date": "2026-07-08",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8042446817486761,
+      "rolling_sharpe_60d": 2.387609771368747
+    }
+  },
+  {
+    "date": "2026-07-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.80471726798108,
+      "rolling_sharpe_60d": 2.3941538814383527
+    }
+  },
+  {
+    "date": "2026-07-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8090845077047425,
+      "rolling_sharpe_60d": 2.2647581450779146
+    }
+  },
+  {
+    "date": "2026-07-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8108614262474748,
+      "rolling_sharpe_60d": 2.0817751731312564
+    }
+  },
+  {
+    "date": "2026-07-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8304505872596869,
+      "rolling_sharpe_60d": 2.812342190330607
+    }
+  },
+  {
+    "date": "2026-07-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8192714391048229,
+      "rolling_sharpe_60d": 2.317200012961751
+    }
+  },
+  {
+    "date": "2026-07-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.801042831380525,
+      "rolling_sharpe_60d": 1.7411979839769927
+    }
+  },
+  {
+    "date": "2026-07-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8343002535388969,
+      "rolling_sharpe_60d": 1.1689980459110774
+    }
+  },
+  {
+    "date": "2026-07-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8406498887422054,
+      "rolling_sharpe_60d": 1.4793299796554322
+    }
+  },
+  {
+    "date": "2026-07-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8426785038352149,
+      "rolling_sharpe_60d": 1.5030825331126616
+    }
+  },
+  {
+    "date": "2026-07-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8575686100953012,
+      "rolling_sharpe_60d": 1.2090689827412295
+    }
+  },
+  {
+    "date": "2026-07-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8224707152278581,
+      "rolling_sharpe_60d": 1.7413801399798436
+    }
+  },
+  {
+    "date": "2026-07-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8283188753450443,
+      "rolling_sharpe_60d": 1.5052235037296116
+    }
+  },
+  {
+    "date": "2026-07-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8298084723012176,
+      "rolling_sharpe_60d": 1.685696157504836
+    }
+  },
+  {
+    "date": "2026-07-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9043029501639888,
+      "rolling_sharpe_60d": 0.7379569174339214
+    }
+  },
+  {
+    "date": "2026-07-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9053480754290616,
+      "rolling_sharpe_60d": 0.9969827666791008
+    }
+  },
+  {
+    "date": "2026-07-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9388353546922533,
+      "rolling_sharpe_60d": 0.45746465671881104
+    }
+  },
+  {
+    "date": "2026-07-31",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9352014021224723,
+      "rolling_sharpe_60d": 0.40811020686148364
+    }
+  },
+  {
+    "date": "2026-08-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9341450867152653,
+      "rolling_sharpe_60d": 0.48104943979284814
+    }
+  },
+  {
+    "date": "2026-08-04",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9729385810182576,
+      "rolling_sharpe_60d": 0.9583828511505621
+    }
+  },
+  {
+    "date": "2026-08-05",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9746081143182,
+      "rolling_sharpe_60d": 0.5084391397623715
+    }
+  },
+  {
+    "date": "2026-08-06",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9668927180085092,
+      "rolling_sharpe_60d": 0.22025440765178958
+    }
+  },
+  {
+    "date": "2026-08-07",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9661622362931628,
+      "rolling_sharpe_60d": 0.2875864988999561
+    }
+  },
+  {
+    "date": "2026-08-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9715176273553073,
+      "rolling_sharpe_60d": 0.121660366178506
+    }
+  },
+  {
+    "date": "2026-08-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9740291768632693,
+      "rolling_sharpe_60d": 0.36236289233674696
+    }
+  },
+  {
+    "date": "2026-08-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9709250523127456,
+      "rolling_sharpe_60d": 0.6956021291781532
+    }
+  },
+  {
+    "date": "2026-08-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9696270725383774,
+      "rolling_sharpe_60d": 0.5966833003959052
+    }
+  },
+  {
+    "date": "2026-08-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9694551851286637,
+      "rolling_sharpe_60d": 0.9418798028666476
+    }
+  },
+  {
+    "date": "2026-08-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9623680061858988,
+      "rolling_sharpe_60d": 0.815613727673526
+    }
+  },
+  {
+    "date": "2026-08-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.949295492537309,
+      "rolling_sharpe_60d": 0.30874931221334756
+    }
+  },
+  {
+    "date": "2026-08-19",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9585493459833494,
+      "rolling_sharpe_60d": -0.361218830568706
+    }
+  },
+  {
+    "date": "2026-08-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9585931736297655,
+      "rolling_sharpe_60d": -0.3030749093163346
+    }
+  },
+  {
+    "date": "2026-08-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9662271001034152,
+      "rolling_sharpe_60d": -0.15289538126897703
+    }
+  },
+  {
+    "date": "2026-08-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9753745612899662,
+      "rolling_sharpe_60d": -0.3724527337776587
+    }
+  },
+  {
+    "date": "2026-08-25",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9739476336532915,
+      "rolling_sharpe_60d": -0.3269384230465012
+    }
+  },
+  {
+    "date": "2026-08-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9517412715080231,
+      "rolling_sharpe_60d": -0.7936646842114511
+    }
+  },
+  {
+    "date": "2026-08-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9479997124475715,
+      "rolling_sharpe_60d": -0.8912077573343339
+    }
+  },
+  {
+    "date": "2026-08-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9489481971698188,
+      "rolling_sharpe_60d": -0.9638845775452568
+    }
+  },
+  {
+    "date": "2026-08-31",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9468161931833905,
+      "rolling_sharpe_60d": -0.7744192255268252
+    }
+  },
+  {
+    "date": "2026-09-01",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9451163578549396,
+      "rolling_sharpe_60d": -0.6287735902721168
+    }
+  },
+  {
+    "date": "2026-09-02",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9311118455975645,
+      "rolling_sharpe_60d": -1.1964774790800967
+    }
+  },
+  {
+    "date": "2026-09-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9307595907497884,
+      "rolling_sharpe_60d": -1.1435885404196142
+    }
+  },
+  {
+    "date": "2026-09-04",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9269444418682343,
+      "rolling_sharpe_60d": -0.9275507196177052
+    }
+  },
+  {
+    "date": "2026-09-07",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.939828111887732,
+      "rolling_sharpe_60d": -0.3876063085574541
+    }
+  },
+  {
+    "date": "2026-09-08",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9290623605374412,
+      "rolling_sharpe_60d": -0.7045198729165649
+    }
+  },
+  {
+    "date": "2026-09-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9282906150680066,
+      "rolling_sharpe_60d": -0.7937278431973026
+    }
+  },
+  {
+    "date": "2026-09-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9275354135423617,
+      "rolling_sharpe_60d": -0.9101899851799063
+    }
+  },
+  {
+    "date": "2026-09-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9252429887690887,
+      "rolling_sharpe_60d": -0.9708004767921492
+    }
+  },
+  {
+    "date": "2026-09-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9300131259580413,
+      "rolling_sharpe_60d": -1.1793631704107044
+    }
+  },
+  {
+    "date": "2026-09-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9257457173056581,
+      "rolling_sharpe_60d": -1.021202279627348
+    }
+  },
+  {
+    "date": "2026-09-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9367442596886874,
+      "rolling_sharpe_60d": -0.7347069469779688
+    }
+  },
+  {
+    "date": "2026-09-17",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9127416367500669,
+      "rolling_sharpe_60d": -1.2043030554694836
+    }
+  },
+  {
+    "date": "2026-09-18",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9078365412087125,
+      "rolling_sharpe_60d": -0.648411716896747
+    }
+  },
+  {
+    "date": "2026-09-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9092410173275284,
+      "rolling_sharpe_60d": -0.4518718998291616
+    }
+  },
+  {
+    "date": "2026-09-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8893709208329381,
+      "rolling_sharpe_60d": -0.9041420769837644
+    }
+  },
+  {
+    "date": "2026-09-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8837636533534046,
+      "rolling_sharpe_60d": -0.7034149711908436
+    }
+  },
+  {
+    "date": "2026-09-24",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8552724671964551,
+      "rolling_sharpe_60d": -0.3352687133120947
+    }
+  },
+  {
+    "date": "2026-09-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8674390861125617,
+      "rolling_sharpe_60d": -0.8851903807703082
+    }
+  },
+  {
+    "date": "2026-09-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8652096965775246,
+      "rolling_sharpe_60d": -0.7935739687365782
+    }
+  },
+  {
+    "date": "2026-09-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8651266121755035,
+      "rolling_sharpe_60d": -0.8727060291722671
+    }
+  },
+  {
+    "date": "2026-10-08",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8664426240615231,
+      "rolling_sharpe_60d": -1.0092552217186712
+    }
+  },
+  {
+    "date": "2026-10-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8545330235597223,
+      "rolling_sharpe_60d": -1.4645754381682485
+    }
+  },
+  {
+    "date": "2026-10-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8590158836134364,
+      "rolling_sharpe_60d": -1.5541964380264948
+    }
+  },
+  {
+    "date": "2026-10-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8590578085084603,
+      "rolling_sharpe_60d": -1.4034657515298605
+    }
+  },
+  {
+    "date": "2026-10-14",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8323571535707103,
+      "rolling_sharpe_60d": -2.2974478441933344
+    }
+  },
+  {
+    "date": "2026-10-15",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8430536602548053,
+      "rolling_sharpe_60d": -2.529357501016921
+    }
+  },
+  {
+    "date": "2026-10-16",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8427379099709307,
+      "rolling_sharpe_60d": -2.3955354521946104
+    }
+  },
+  {
+    "date": "2026-10-19",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8161643110285727,
+      "rolling_sharpe_60d": -1.8888708034731583
+    }
+  },
+  {
+    "date": "2026-10-20",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8075178788769943,
+      "rolling_sharpe_60d": -2.36720341968329
+    }
+  },
+  {
+    "date": "2026-10-21",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7861070611669176,
+      "rolling_sharpe_60d": -2.94183251445429
+    }
+  },
+  {
+    "date": "2026-10-22",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8075876187606426,
+      "rolling_sharpe_60d": -3.097075775794938
+    }
+  },
+  {
+    "date": "2026-10-23",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8083222970061041,
+      "rolling_sharpe_60d": -2.9166067573195757
+    }
+  },
+  {
+    "date": "2026-10-26",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8072140082175905,
+      "rolling_sharpe_60d": -2.8835622775249563
+    }
+  },
+  {
+    "date": "2026-10-27",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8082649804711662,
+      "rolling_sharpe_60d": -3.3344414142081327
+    }
+  },
+  {
+    "date": "2026-10-28",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.758748974887496,
+      "rolling_sharpe_60d": -2.15659599209513
+    }
+  },
+  {
+    "date": "2026-10-29",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7825699714533964,
+      "rolling_sharpe_60d": -2.8729179828369316
+    }
+  },
+  {
+    "date": "2026-10-30",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7973440576540168,
+      "rolling_sharpe_60d": -2.9403662313327747
+    }
+  },
+  {
+    "date": "2026-11-02",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7819525410749156,
+      "rolling_sharpe_60d": -3.4826470295680663
+    }
+  },
+  {
+    "date": "2026-11-03",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8001559925013951,
+      "rolling_sharpe_60d": -3.874553180103799
+    }
+  },
+  {
+    "date": "2026-11-04",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7975618898484251,
+      "rolling_sharpe_60d": -3.9047731290391683
+    }
+  },
+  {
+    "date": "2026-11-05",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.7981157301794126,
+      "rolling_sharpe_60d": -3.915314504955311
+    }
+  },
+  {
+    "date": "2026-11-06",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8073428231310358,
+      "rolling_sharpe_60d": -4.219429185962539
+    }
+  },
+  {
+    "date": "2026-11-09",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8103807296788827,
+      "rolling_sharpe_60d": -4.07486173825374
+    }
+  },
+  {
+    "date": "2026-11-10",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8148563737456803,
+      "rolling_sharpe_60d": -3.5626338401527904
+    }
+  },
+  {
+    "date": "2026-11-11",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8887988751513187,
+      "rolling_sharpe_60d": -2.6497570095718834
+    }
+  },
+  {
+    "date": "2026-11-12",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.8875264727963977,
+      "rolling_sharpe_60d": -3.0078872512631705
+    }
+  },
+  {
+    "date": "2026-11-13",
+    "values": {
+      "rolling_annualized_volatility_60d": 0.9006132705022393,
+      "rolling_sharpe_60d": -3.391016062538228
+    }
+  }
+]

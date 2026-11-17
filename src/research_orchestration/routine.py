@@ -1,7 +1,9 @@
 """Manual routine: the periodic upkeep a user (or the Agent) runs by hand, one command.
 
-Settles due ledger checkpoints, refreshes the market and macro archives, checks the user's
-active theses and lists due plan review nodes. Each step fails on its own: an error lands in
+Settles due ledger checkpoints, tracks forward strategies, lists event views awaiting evidence
+(with fresh news per tracked observable), lists debate signposts that are due or whose observable
+moved, refreshes the market and macro archives, checks the user's active theses and lists due plan
+review nodes. Each step fails on its own: an error lands in
 ``gaps`` and the remaining steps still run. Nothing here schedules itself; timed runs are
 roadmap stage 11.
 
@@ -17,6 +19,8 @@ from src.master_data import MasterDataService
 from src.research_ledger import LedgerEntryType, LedgerSettlementService, ResearchLedgerService
 
 from .decision_review import DecisionReviewService
+from .debate import debate_next_actions
+from .event_watch import watch_next_actions
 from .state_archive import StateArchiveRecorder
 from .thesis import DEVIATING, INVALIDATED, ThesisService
 
@@ -36,6 +40,9 @@ class RoutineService:
         master_data: MasterDataService,
         cooldowns: Callable[[], dict[str, dict[str, Any]]] | None = None,
         strategies: Callable[[str, bool], list[dict[str, Any]]] | None = None,
+        events: Callable[[str, str, bool], list[dict[str, Any]]] | None = None,
+        guidance: Callable[[str, str], list[dict[str, Any]]] | None = None,
+        debates: Callable[[str, str], dict[str, Any]] | None = None,
     ) -> None:
         self.settlement = settlement
         self.market = market
@@ -46,6 +53,9 @@ class RoutineService:
         self.master_data = master_data
         self.cooldowns = cooldowns or (lambda: default_throttle().cooldowns())
         self.strategies = strategies
+        self.events = events
+        self.guidance = guidance
+        self.debates = debates
 
     def run(
         self,
@@ -61,6 +71,12 @@ class RoutineService:
         }
         if self.strategies is not None:
             steps["strategies"] = _step("策略前向跟踪", gaps, lambda: self.strategies(as_of_date, allow_remote))
+        if self.events is not None:
+            steps["events"] = _step("事件核实", gaps, lambda: self.events(user_id, as_of_date, allow_remote))
+        if self.guidance is not None:
+            steps["guidance"] = _step("推荐仓位复评", gaps, lambda: self.guidance(user_id, as_of_date))
+        if self.debates is not None:
+            steps["debates"] = _step("辩论观察点", gaps, lambda: self.debates(user_id, as_of_date))
         if archives:
             for name, label, recorder in (("market", "市场档案", self.market), ("macro", "宏观档案", self.macro)):
                 steps[name] = _step(
@@ -141,6 +157,19 @@ def _summary(steps: dict[str, Any]) -> list[str]:
         new = sum(1 for row in tracked if row.get("status") == "recorded")
         failed = sum(1 for row in tracked if row.get("status") == "failed")
         lines.append(f"策略前向跟踪：{len(tracked)} 个策略，新记录 {new} 个信号" + (f"，{failed} 个失败" if failed else ""))
+    events = steps.get("events")
+    if events:
+        due = sum(1 for row in events for item in row["views"] if item["status"] == "due")
+        news = sum(len(hit["items"]) for row in events for hit in row["news"])
+        lines.append(f"事件核实：{len(events)} 个可观测量，{due} 条观点到期待核实，新闻 {news} 条")
+    guidance = steps.get("guidance")
+    if guidance:
+        lines.append("推荐仓位复评：" + "、".join(str(row["name"] or row["asset_id"]) for row in guidance) + " 已到复评日")
+    debates = steps.get("debates")
+    if debates and (debates["signposts"] or debates["open_debates"]):
+        lines.append(
+            f"辩论：{len(debates['signposts'])} 个观察点到期或有新变化，{len(debates['open_debates'])} 场辩论尚未结论"
+        )
     theses = steps["theses"]
     if theses is not None:
         flagged = [row for row in theses if row["status"] in (INVALIDATED, DEVIATING)]
@@ -159,7 +188,16 @@ def _summary(steps: dict[str, Any]) -> list[str]:
 
 
 def _next_actions(steps: dict[str, Any], user_id: str, as_of_date: str) -> list[dict[str, str]]:
-    actions = []
+    actions = watch_next_actions(steps.get("events") or [], as_of_date)
+    actions.extend(debate_next_actions(steps.get("debates")))
+    for row in steps.get("guidance") or ():
+        target = f"--asset-id {row['asset_id']}"
+        actions.append(
+            {
+                "command": f"{_CLI} position-guidance --user-id {user_id} {target} --history",
+                "reason": f"{row['name']} 的推荐仓位已到复评日 {row['review_on']}：更新研究后记录新一期推荐比例，对比上一期给出加持或减持结论",
+            }
+        )
     for row in steps.get("strategies") or ():
         if row.get("next_state") == "enabled" and not row.get("next_blockers"):
             actions.append(

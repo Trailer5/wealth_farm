@@ -24,26 +24,32 @@ from src.fund_research import (
 from src.research_contracts import (
     ASSET_CLASS_BOND,
     ASSET_CLASS_CASH,
+    ASSET_CLASS_COMMODITY,
     ASSET_CLASS_EQUITY,
     ASSET_CLASS_LABELS,
+    ASSET_CLASS_OVERSEAS,
 )
 from src.master_data import (
     ASSET_TYPE_EXCHANGE_FUND,
     ASSET_TYPE_INDEX,
     ASSET_TYPE_OPEN_FUND,
     ASSET_TYPE_STOCK,
+    MARKET_US,
     Asset,
     MasterDataService,
 )
 from src.portfolio_risk import (
+    NOTIONAL_TOTAL,
     STRESS_SCENARIOS,
     UNCOVERED_INDUSTRY,
     DiagnosisPosition,
+    HoldingWeights,
     PortfolioRiskService,
     exposure_summary,
     preference_check,
     risk_summary,
     stress_summary,
+    exit_line_args,
     weights_of,
 )
 from src.research_ledger import DataAccessPriceSeriesSource
@@ -58,6 +64,8 @@ BENCHMARK_SYMBOL = "000300"
 # An index fund whose report shows less stock than this holds its target ETF instead (feeder fund).
 FEEDER_STOCK_RATIO = 0.5
 _MARKET_INDUSTRY = {"hk": "港股（未分行业）", "us": "美股（未分行业）", "other": "海外（未分行业）"}
+# Exchange funds whose prices stand in for a bucket the user did not itemize.
+BUCKET_PROXIES = {ASSET_CLASS_BOND: "511010", ASSET_CLASS_COMMODITY: "518880", ASSET_CLASS_OVERSEAS: "513100"}
 _STATUS_LABELS = {"ok": "符合", "above": "超出上限", "below": "低于下限", "unknown": "无法判断"}
 
 
@@ -112,6 +120,7 @@ class PortfolioDiagnosisService:
             zero_variance=cash_like,
             labels=labels,
         )
+        preference = self.portfolio_risk.latest_preference(context)
         stress = stress_summary(
             weights,
             levels,
@@ -119,10 +128,10 @@ class PortfolioDiagnosisService:
             benchmark_levels=benchmark or {},
             labels=labels,
             zero_return=cash_like,
+            **exit_line_args(preference, positions),
         )
-        preference = self.portfolio_risk.latest_preference(context)
-        checks = preference_check(exposures, risk, stress, preference) if preference else []
-        snapshot_id = self._save_valuation(context, as_of_date, latest, gaps)
+        checks = preference_check(exposures, risk, stress, preference, positions) if preference else []
+        snapshot_id = None if state["weights_snapshot_id"] else self._save_valuation(context, as_of_date, latest, gaps)
         payload = {
             "user_id": user_id,
             "as_of_date": as_of_date,
@@ -157,17 +166,27 @@ class PortfolioDiagnosisService:
         holdings = [
             item for item in self.portfolio_risk.research_state.list_holdings(context) if item.quantity > 0
         ]
+        shares = None
         if not holdings:
-            raise ValueError("用户空间没有持仓记录；先用 record-holding 记录用户给出的持仓")
+            shares = self.portfolio_risk.latest_weights(context, on_or_before=as_of_date)
+            if shares is None:
+                raise ValueError(
+                    "用户空间没有持仓记录；有数量用 record-holding 记录，只有比例用 record-weights 记录"
+                )
+            if cash:
+                raise ValueError("持仓按比例记录时现金已在比例里，不要再给 --cash")
         prices = self.price_source(allow_remote)
         gaps: list[str] = []
         levels: dict[str, dict[str, float]] = {}
         latest: dict[str, tuple[str, float]] = {}
         assets: dict[str, Asset] = {}
-        for holding in holdings:
-            asset = self.master_data.get_asset(holding.asset_id)
+        asset_ids = [item.asset_id for item in holdings] if shares is None else [
+            item.asset_id for item in shares.items if item.asset_id
+        ]
+        for asset_id in asset_ids:
+            asset = self.master_data.get_asset(asset_id)
             if asset is None:
-                raise ValueError(f"未知标的 {holding.asset_id}")
+                raise ValueError(f"未知标的 {asset_id}")
             assets[asset.asset_id] = asset
             if self._is_money_fund(asset, allow_remote):
                 # Money funds report yield per 10,000 units, not a unit NAV; a unit is worth 1 yuan.
@@ -180,17 +199,24 @@ class PortfolioDiagnosisService:
             if (date.fromisoformat(as_of_date) - date.fromisoformat(day)).days > STALE_PRICE_DAYS:
                 gaps.append(f"{_label(asset)} 最新价格停在 {day}")
         industry_map = self._industries(allow_remote, gaps)
-        positions = [
-            self.position(
-                assets[holding.asset_id],
-                market_value=holding.quantity * latest[holding.asset_id][1],
-                as_of_date=as_of_date,
-                industry_map=industry_map,
-                allow_remote=allow_remote,
-                gaps=gaps,
+        benchmark = self._benchmark_levels(prices, as_of_date, gaps)
+        if shares is None:
+            positions = [
+                self.position(
+                    assets[holding.asset_id],
+                    market_value=holding.quantity * latest[holding.asset_id][1],
+                    as_of_date=as_of_date,
+                    industry_map=industry_map,
+                    allow_remote=allow_remote,
+                    gaps=gaps,
+                )
+                for holding in holdings
+            ]
+        else:
+            positions = self._weighted_positions(
+                shares, assets, levels, benchmark, prices,
+                as_of_date=as_of_date, industry_map=industry_map, allow_remote=allow_remote, gaps=gaps,
             )
-            for holding in holdings
-        ]
         if cash:
             positions.append(
                 DiagnosisPosition(
@@ -205,10 +231,93 @@ class PortfolioDiagnosisService:
             "positions": positions,
             "levels": levels,
             "latest": latest,
-            "benchmark": self._benchmark_levels(prices, as_of_date, gaps),
+            "benchmark": benchmark,
             "gaps": gaps,
             "industry_map": industry_map,
+            "weights_snapshot_id": None if shares is None else shares.snapshot_id,
         }
+
+    def _weighted_positions(
+        self,
+        shares: HoldingWeights,
+        assets: dict[str, Asset],
+        levels: dict[str, dict[str, float]],
+        benchmark: dict[str, float] | None,
+        prices: DataAccessPriceSeriesSource,
+        *,
+        as_of_date: str,
+        industry_map: dict[str, str],
+        allow_remote: bool,
+        gaps: list[str],
+    ) -> list[DiagnosisPosition]:
+        """Shares turned into values on a notional total; buckets take a class proxy's prices."""
+
+        gaps.append(
+            f"持仓按比例记录（{shares.as_of_date}，{shares.snapshot_id}）：金额按名义总资产 {NOTIONAL_TOTAL:,.0f} 元换算，"
+            "实际金额按你的总资产等比例缩放；手数取整与最低佣金按名义金额估算"
+        )
+        scale = NOTIONAL_TOTAL / float(shares.total())
+        positions = []
+        cash_value = 0.0
+        for item in shares.items:
+            value = float(item.weight) * scale
+            if item.asset_class == ASSET_CLASS_CASH and not item.proxy_asset_id:
+                cash_value += value
+                continue
+            if item.asset_id:
+                asset = assets[item.asset_id]
+                if asset.market == MARKET_US:
+                    positions.append(
+                        DiagnosisPosition(
+                            asset.asset_id, item.label, asset.asset_type, value, {ASSET_CLASS_OVERSEAS: 1.0},
+                            industries={_MARKET_INDUSTRY["us"]: 1.0},
+                            stocks={f"us:{asset.standard_symbol}": (item.label, 1.0)} if asset.asset_type == ASSET_TYPE_STOCK else {},
+                            notes=("美股按跨境处理，收益按美元计、未换汇",),
+                        )
+                    )
+                    continue
+                positions.append(
+                    self.position(
+                        asset, market_value=value, as_of_date=as_of_date,
+                        industry_map=industry_map, allow_remote=allow_remote, gaps=gaps,
+                    )
+                )
+                continue
+            bucket_id = f"bucket:{item.asset_class}:{item.label}"
+            proxy = self.master_data.get_asset(item.proxy_asset_id) if item.proxy_asset_id else self._bucket_proxy(item.asset_class)
+            note = "未细分的合计项"
+            if proxy is not None:
+                try:
+                    levels[bucket_id] = self.levels(prices, proxy, as_of_date, gaps)
+                    note += f"，价格用 {_label(proxy)} 代表"
+                except ValueError as exc:
+                    levels[bucket_id] = {}
+                    gaps.append(f"{item.label} 的代表品种取不到价格：{exc}")
+            elif item.asset_class == ASSET_CLASS_EQUITY and benchmark:
+                levels[bucket_id] = dict(benchmark)
+                note += "，价格用沪深300 代表"
+            else:
+                levels[bucket_id] = {}
+                gaps.append(f"{item.label} 没有代表品种，不参与波动与情景估计")
+            positions.append(
+                DiagnosisPosition(
+                    bucket_id, item.label, "bucket", value, {item.asset_class: 1.0},
+                    industries={UNCOVERED_INDUSTRY: 1.0} if item.asset_class == ASSET_CLASS_EQUITY else {},
+                    notes=(note,),
+                )
+            )
+        if cash_value:
+            positions.append(
+                DiagnosisPosition(CASH_ASSET_ID, "现金", "cash", cash_value, {ASSET_CLASS_CASH: 1.0})
+            )
+        return positions
+
+    def _bucket_proxy(self, asset_class: str) -> Asset | None:
+        symbol = BUCKET_PROXIES.get(asset_class)
+        if symbol is None:
+            return None
+        matches = self.master_data.find_assets(standard_symbol=symbol, asset_type=ASSET_TYPE_EXCHANGE_FUND)
+        return matches[0] if matches else None
 
     def price_source(self, allow_remote: bool) -> DataAccessPriceSeriesSource:
         return DataAccessPriceSeriesSource(

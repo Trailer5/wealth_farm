@@ -1,0 +1,32 @@
+{
+  "as_of_date": "2026-11-15",
+  "asset_id": "asset:9f7e4337-e793-4902-b8b8-98858e9edd4a",
+  "asset_name": "兆易创新",
+  "benchmark_asset_id": null,
+  "chart_type": "cumulative_return",
+  "currency": null,
+  "files": {
+    "data": "cumulative_return-d8c294ed4893.data.json",
+    "png": "cumulative_return-d8c294ed4893.png",
+    "svg": "cumulative_return-d8c294ed4893.svg"
+  },
+  "input_digest": "d8c294ed4893eeb5ba1c9530daa0586826aff8f7e5b5257abceffe50818e5c68",
+  "parameters": {
+    "factor_names": [
+      "cumulative_return"
+    ],
+    "input_end_date": "2026-11-13",
+    "input_start_date": "2024-11-15"
+  },
+  "point_count": 484,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:ce1f1029-82da-479e-9f5c-b1f195dd3c56",
+  "title": "Cumulative Return (2024-11-15 to 2026-11-13)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Cumulative Return"
+}

@@ -542,6 +542,36 @@ class FundamentalAnalysisTest(unittest.TestCase):
             {"2024-03-31", "2024-12-31", "2025-03-31"},
         )
 
+    def test_share_capital_amount_is_replaced_by_equity_over_book_value(self):
+        # Non-1-yuan par issuers (e.g. SMIC) report share capital as an amount, not a count.
+        bundle = _with_balance_and_indicators(
+            self.bundle, shares="4", book_value_per_share="12"
+        )
+        snapshot = FundamentalSnapshotAssembler().assemble(
+            bundle, market_price=Decimal("15")
+        )
+
+        self.assertEqual(snapshot.shares_outstanding, Decimal("100"))
+        self.assertEqual(snapshot.fields["shares_outstanding"], Decimal("100"))
+        self.assertEqual(
+            snapshot.evidence["shares_outstanding"][0].source,
+            "derived:total_equity/book_value_per_share",
+        )
+
+    def test_reported_share_count_is_kept_when_book_value_roughly_agrees(self):
+        # Minority interests make equity / BPS overshoot; a count of the same magnitude stays.
+        bundle = _with_balance_and_indicators(
+            self.bundle, shares="100", book_value_per_share="8"
+        )
+        snapshot = FundamentalSnapshotAssembler().assemble(
+            bundle, market_price=Decimal("15")
+        )
+
+        self.assertEqual(snapshot.shares_outstanding, Decimal("100"))
+        self.assertEqual(
+            snapshot.evidence["shares_outstanding"][0].source, "unit-test"
+        )
+
     def test_currency_mismatch_is_rejected(self):
         records = {
             dataset: tuple(
@@ -718,6 +748,24 @@ def _annual_bundle(asset, include_shares=True):
         sources=("unit-test",),
         complete=True,
     )
+
+
+def _with_balance_and_indicators(bundle, *, shares, book_value_per_share):
+    records = dict(bundle.records_by_dataset)
+    records[DATASET_STOCK_BALANCE_SHEETS] = tuple(
+        {**point, "normalized_value": shares, "raw_value": shares}
+        if point["field_name"] == "shares_outstanding"
+        else point
+        for point in records[DATASET_STOCK_BALANCE_SHEETS]
+    )
+    records[DATASET_STOCK_FINANCIAL_INDICATORS] = tuple(
+        _points(
+            DATASET_STOCK_FINANCIAL_INDICATORS,
+            "2025-12-31",
+            {"book_value_per_share": book_value_per_share},
+        )
+    )
+    return replace(bundle, records_by_dataset=records)
 
 
 def _ttm_bundle(asset):

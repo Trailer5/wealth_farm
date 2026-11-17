@@ -238,7 +238,8 @@ class SQLiteDataAccessRepository:
         if max_age_seconds is not None:
             reference_time = now or datetime.now(timezone.utc)
             threshold = reference_time - timedelta(seconds=max_age_seconds)
-            conditions.append("checked_at >= ?")
+            # Strictly newer: with max_age 0 a check in the same clock tick (~15 ms on Windows) is not fresh.
+            conditions.append("checked_at > ?")
             params.append(threshold.isoformat())
         with self._connect() as conn:
             row = conn.execute(

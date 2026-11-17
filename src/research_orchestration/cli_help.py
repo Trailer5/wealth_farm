@@ -97,7 +97,8 @@ macro:<series_id>:<期>、账本条目 ID 或资料来源与日期）、base_rat
 probability（{"low": "0.1", "high": "0.25"}）、falsifiers、implications。
 
 指标类：settlement_rule = {"method": "metric_observation", "observed_id": "macro:<series_id>"}
-  （series_id 取自 macro 目录；公司财务指标 fin:<asset_id>:<指标>）。
+  （series_id 取自 macro 目录；公司财务指标 fin:<asset_id>:<指标>；政策、事件和没有数据源的数值写 obs:<id>，
+  先 define-observable 登记，写法与判定规则见 define-observable --help）。
   claim.metric_key：level（检查点前最新一期）、change（最新一期减观点日已发布值）、
   min_level / max_level（观点日之后发布各期的极值）、level_at:<期末日>（指定一期；累计口径序列如全年
   GDP 写 level_at:2026-12-31，不对它用极值）。comparison：above（严格大于）/ below（严格小于）；
@@ -105,7 +106,7 @@ probability（{"low": "0.1", "high": "0.25"}）、falsifiers、implications。
   data_insufficient。检查点按时间窗口固定（中短期 +90、+180 天）；低频序列把 expires_on 设在目标期预计
   发布日（macro 目录的 release_rule）之后，会追加为最后一个检查点；以命令返回的检查点为准。
 价格类：{"method": "price_relative", "observed_id": "<asset_id>"}（asset --symbol <代码> [--asset-type index]
-  查询），claim.metric_key 为 total_return，阈值是小数收益（"-0.2" 表示 -20%）；只比较检查点时的区间收益，
+  查询；美股 asset --symbol NVDA --market us，基准用同市场标的如 SMH、QQQ），claim.metric_key 为 total_return，阈值是小数收益（"-0.2" 表示 -20%）；只比较检查点时的区间收益，
   不是期间最大跌幅。行业观点用申万行业指数的 asset_id，相对判断的基准写沪深300 的 asset_id。
   sector_brief 的 view_templates 是每个行业一份的骨架（行业指数相对沪深300，claim 为 outperform）：
   填 proposition 与 expires_on；confidence 按用户语气（“肯定、一定”high，“可能、试试”low，未表达保留
@@ -214,6 +215,10 @@ _VALUATION_MODEL = """\
 可与 10 年国债和同风险替代比较。银行写“市净率隐含可持续 ROE”与近年 ROE 的差距（中期年化 ROE 说明季节性）。
 周期公司以正常化利润为主并说明当期利润处于周期哪一侧。自由现金流与扣非口径差异大时说明原因，不择一引用。
 探索发现里引用 valuation_model:<方法>:<报告期> 或入账条目 ID。
+美股：--market us（如 --symbol AMD --market us）用 SEC XBRL 财务事实重建 TTM（上一财年 + 本年迄今 − 上年同期），
+折现率 = 美国财政部 10 年期收益率（--risk-free 可指定）+ 5% 风险溢价，永续 2.5%。输出 GAAP 净利润与自由现金流两个
+口径的反向 DCF（implied_growth）和“给定 10 年增速下的每股价值”表（value_per_share_by_growth，用来回答“什么价位合理”）；
+GAAP 含一次性项目、没有非 GAAP 与一致预期，引用时写明。不入账。
 口径与局限：docs/modules/3-分析工具/估值与财务分析模块.md 设计说明。
 """
 
@@ -274,7 +279,11 @@ personal_ref 未入账，不要写进请求。记录后把 personal_ref（prefer
 第一次记录：问清期限和能接受的最大亏损，选最接近的档位（conservative 稳健 / balanced 平衡 / growth 成长 /
 aggressive 进取）；用户说出的具体数值用 --set 字段=小数 覆盖（如 --set max_drawdown=0.25）；近期用钱用
 --liquidity-need-amount <元> --liquidity-need-by <日期>。说明哪些是档位默认值（overrides 里的才是用户说的）。
-用户说“最多亏 X”时讲清口径：系统按历史最差情景的跌幅控制权益比例。
+用户说“最多亏 X”时讲清口径：系统按历史最差情景的跌幅控制权益比例。用户说会“及早收手”、不愿按一路持有
+的跌幅算时，用 --set exit_drawdown=小数（风险资产从高点回撤到此收手）：配置、诊断、调整与校准改按“情景内跌到
+退出线的第一个收盘卖出”计损失。单只个股损失预算用 --set max_single_loss=小数（仓位 × 到退出线的距离不超过它）。
+两项都不属于档位默认值，只在用户说过或确认过时设。用户不接受长封闭期时用 --set max_lockup_days=天数（一年写 365）：
+诊断按基金名称里的“X 年/个月/天持有、定开、封闭”对照，调整方案不纳入超限的候选。
 
 “更激进”“稳一点”：先问清含义——higher_equity（更高权益比例）、more_concentrated（更集中）、
 higher_volatility（更高波动）、longer_horizon（更长期限），可多选；用 --meaning（可重复）预览。含义只把对应
@@ -286,9 +295,31 @@ PowerShell 里原话含中文引号时先放进单引号变量（$s='...'）再�
 container.portfolio_risk 保存。换算规则：docs/modules/4-个人数据/组合与风险管理模块.md「投资偏好」。
 """
 
+_RECORD_WEIGHTS = """\
+用户只给“占总资产的比例”、不给数量和金额时记录持仓。没有 record-holding 的数量持仓时，portfolio-diagnose、
+ allocation-proposal、adjustment-proposal、portfolio-plan 取截止日当天或之前最新的一份比例，按名义总资产
+100 万元换算金额（报告里的“元”都是名义金额，说给用户时换成比例；不按手数取整）。同一日期重记会替换。
+--json 文件：{"as_of_date": 日期, "statement": 用户原话, "items": [...]}，每行一种：
+  标的   {"label": 名称, "weight": 0.03, "symbol": 代码, "asset_type": stock|exchange_fund|open_fund, "market": "us"（美股）}
+  合计项 {"label": 名称, "weight": 0.05, "asset_class": cash|bond|equity|gold_commodity|overseas|other,
+          "proxy_symbol": 代表品种（可选，默认债券 511010、黄金 518880、跨境 513100、权益沪深300）}
+比例写小数，合计应为 100%（允许 ±2 个百分点，按合计归一）；现金写成 asset_class=cash 的合计项，诊断时不要再给 --cash。
+美股按跨境处理、收益按美元计不换汇。先 --dry-run 核对每行识别到的标的。
+"""
+
+_FINANCIAL_FIELDS = """\
+A 股个股的原始报表字段（按来源标签），近 --quarters 个报告期：默认领先指标组 TOTAL_OPERATE_INCOME（营收）、
+CONTRACT_LIAB（合同负债）、INVENTORY（存货）、ACCOUNTS_PAYABLE（应付账款）、OTHER_INCOME（其他收益）、
+FAIRVALUE_CHANGE_INCOME（公允价值变动收益）；--fields 指定其他标签，--list 列出本地已存的全部标签。
+只读本地已存的财报（先用 run-single 或基础研究包取数），只用截止日前已披露的一期。
+读法：利润表与现金流量表字段是累计口径，已换算为单季（basis=single_quarter，当年缺上一期时该季不出）；
+资产负债表字段是期末余额（period_end），另给环比增减 qoq_change。yoy 是与上年同期相比的变化率（分母取绝对值）。
+滚动口径会被低基数抬高时优先引用单季。
+"""
+
 _PORTFOLIO_DIAGNOSE = """\
-组合诊断报告（report/组合诊断-<用户>-<日期>.md 与同名 JSON）。先确认持仓都已记录；用户提到未投资现金时用
---cash 计入。
+组合诊断报告（report/组合诊断-<用户>-<日期>.md 与同名 JSON）。先确认持仓都已记录（数量用 record-holding，
+只有比例用 record-weights）；用户提到未投资现金时用 --cash 计入（按比例记录时现金已在比例里）。
 读法：引用大类比例、穿透后的行业与个股暴露、重叠（直接持有加基金持有的合计）、组合波动（近 3 年与近 1 年）、
 风险贡献占比（与权重不同，说明谁“贡献风险多于权重”）、高相关的持仓对、各历史情景的组合损失与同期沪深300。
 口径必须写明：指数基金与 ETF 按跟踪指数月末成分权重全部穿透（写权重日期）；主动基金只穿透季报前十大，其余
@@ -351,9 +382,14 @@ _DECISION_REVIEW = """\
 """
 
 _ROUTINE = """\
-手动例行：结算到期判断 → 刷新市场与宏观档案 → 检查用户有效论点 → 列出到期的计划复盘节点。每一步单独失败，
-失败写进 gaps，其余步骤照常运行。按输出的 next_actions 继续（论点偏离或失效 → exit-plan；有到期复盘节点或
-新结算 → decision-review）。不建定时任务；结算对所有用户的到期条目生效。
+手动例行：结算到期判断 → 策略前向跟踪 → 事件核实 → 推荐仓位复评 → 辩论观察点 → 刷新市场与宏观档案 → 检查用户有效论点 → 列出到期的
+计划复盘节点。每一步单独失败，失败写进 gaps，其余步骤照常运行。按输出的 next_actions 继续（论点偏离或失效 →
+exit-plan；有到期复盘节点或新结算 → decision-review；事件观点到期或有新闻 → 用 intel 核实后 record-observation；
+辩论观察点到期或有新观测 → debate --action show，按触发条件核对后执行对应动作）。
+事件核实（steps.events）：按可观测量列出依赖它的观点（open 未到期、upcoming 14 天内到期、due 已到期待核实、
+decided 已判定）、最新观测，以及按 watch_queries 检索到的自上次观测（至多 30 天）以来的新闻。新闻只是线索：
+按 criteria 核实、优先找官方来源，满足才记录。
+不建定时任务；结算对所有用户的到期条目生效。
 source_cooldowns 列出当前因封禁或限流而暂停请求的数据来源及解除时间；取数失败是因为来源冷却时，如实告诉用户，不要反复重试。
 """
 
@@ -470,7 +506,150 @@ _STRATEGY_TRACK = """\
 读法：引用前向结果时写明跟踪起始日、已结算信号数与错过的信号日；样本少时只说“跟踪中”。
 """
 
+_PRICES = """\
+股票与场内基金（A 股或美股）按复权总回报的区间表现：total_return、max_drawdown（峰值日与谷底日）、
+high/low（实际收盘价）、from_high（相对区间最高的回撤）；--rows 给逐日 close（实际收盘价）与 total_return_level。
+美股加 --market us（代码即交易代码，如 NVDA、AMD、SMH），首次使用时按 Nasdaq 资料登记；美元计价，不换汇；
+美东收盘后才算当天可得（effective_end_date）。日线以新浪原始价加复权因子为主、Nasdaq（只做拆股调整）交叉核对，
+source_conflict_count 非零时引用单日前先核对。指数没有总回报日线（用 market-archive、sector-archive）。
+美股观点入账：用输出的 asset_id 写 price_relative，基准用同市场标的（SMH、QQQ）。
+港股加 --market hk（代码如 00700，不足 5 位自动补零）：港元计价，香港 16:30 后才算当天可得，只有新浪一个来源。
+口径见 docs/modules/1-数据/存储与统一访问模块.md「美股」。
+"""
+
+_ASSET = """\
+按代码查 asset_id；本地没有的 A 股与基金代码会按交易所目录补登，同一代码可能对应股票、指数和基金。
+美股加 --market us：按 Nasdaq 资料登记名称、交易所和类型（stock / exchange_fund），用输出核对是不是用户说的那只。
+美股只有价格（prices、观点结算）与估值（valuation-model --market us），没有持仓与组合支持。
+港股加 --market hk：按腾讯行情登记中文名，只有价格。
+"""
+
+_INTEL = """\
+检索带发布日期、来源和链接的全球情报，结果本地留存（intel:<id> 可在观测里作为证据引用）：
+  --source news --query <词> [--lang en|zh]                Google 新闻（英文美国版 / 中文版）
+  --source sec-filings --ticker NVDA [--forms 8-K,10-Q]      公司向 SEC 的申报；8-K 的 items：5.02 高管变动、
+                                                             1.01 重大协议、8.01 其他事项、2.02 业绩
+  --source sec-search --query '"Megaspeed"' [--forms 8-K]    SEC 全文检索（2001 年起；短语加引号）
+  --source federal-register [--query <词>] [--agency industry-and-security-bureau]
+                                                             美国法规正式发布（出口管制看 BIS）
+  --since/--until 按发布日期过滤（默认截至今天的 30 天）；--no-remote 只查本地已存条目。
+  --fetch-url <链接>：读正文（官方页面、SEC 申报、联邦公报、新闻）；Google 新闻链接先解析到媒体原址，
+             final_url 是原址；媒体 403 或解析失败时换同题其他媒体；连续读多篇会触发 Google 限流，多篇用 --read-items。
+  --read-items intel:<id>,... 或 --read-urls <链接>,...：批量读正文（默认每篇 6000 字符，--max-chars 调整）。
+             读到的正文按链接缓存，重跑只取没读到的（--refresh 强制重取）；某来源触发限流后，同一来源剩下的链接
+             不再发送，列在 deferred，约 2 分钟冷却后用同样参数重跑；failed 是 403 等单篇失败。
+  --item-ids intel:<id>,...：查看已存条目。
+  --add-evidence-url <链接> --title <标题> --published-on <日期> [--publisher]：把在别处找到的页面登记为可引用证据。
+读法：条目是检索结果不是判断；同一事件以官方来源为准，媒体报道写明媒体与日期，不引用未标日期的传闻；
+结果为空不等于事件没发生（换检索词、换语言、换来源再查）；search_id 可作为“检索未发现”的证据（search:<id>）。
+不要把新闻标题当作已核实的事实；进入结论的外部信息仍按回答纪律标注来源与日期。
+"""
+
+_DEFINE_OBSERVABLE = """\
+登记一个靠证据跟踪的可观测量（事件或没有数据源的数值），供观点以 obs:<id> 指标入账结算。JSON：
+  {"observable_id": "obs:us-bis-se-asia-ai-chip-rule", "title": "美国对东南亚 AI 芯片出口新规", "kind": "event",
+   "unit": "0/1", "criteria": "判定标准：联邦公报发布 BIS 规则，对马来西亚或新加坡的先进计算芯片新增许可要求",
+   "created_on": "<今天>", "watch_queries": ["en:BIS rule Malaysia Singapore AI chips", "zh:东南亚 AI 芯片 出口管制"],
+   "baseline": {"period_end": "<今天>", "value": "0", "available_at": "<今天>",
+                "evidence_refs": ["search:<id>"], "note": "截至今天未发生：联邦公报检索未见"}}
+  kind=event：值只能是 0（截至 period_end 未发生）/ 1（已发生）；kind=value：每期一个数，period_end 是所指期末，
+  unit 写单位（"%"、"USD bn"）。定义不可修改（换 id 重新登记）。criteria 要具体到第三方可复核：发布机构、
+  文件类型、口径与门槛。watch_queries 供 routine 检索新闻，前缀 en: / zh: 指语言。
+  基线和以后的观测规则一样（见 record-observation --help），证据先用 intel 检索。
+观点入账（record-view）：settlement_rule = {"method": "metric_observation", "observed_id": "obs:<id>"}；
+  事件“到期前会发生” claim = {"metric_key": "max_level", "comparison": "above", "threshold": "0.5"}，“不会发生”改 below；
+  事件一旦发生（越过阈值）即在下一个检查点判定，否则到期日判定，到期前未越线的检查点记为不可结算；
+  到期日前 14 天内没有记录状态时记为数据不足，等 Agent 核实后记录。数值类用 level 或 level_at:<期末日>。
+  观点日不能早于基线的 available_at；subject_type 按对象写（宏观政策 macro，公司事件 asset 并写该公司 asset_id）。
+口径见 docs/modules/2-世界状态/事件情报与观测模块.md。
+"""
+
+_RECORD_OBSERVATION = """\
+追加一条观测（只追加；同一 period_end 再记一次视为更正，取最后一次）。JSON：
+  {"observable_id": "obs:...", "period_end": "事件发生日 / 状态核实日 / 数值所指期末", "value": "1",
+   "available_at": "证据最早的公开日", "evidence_refs": ["intel:<id>", "search:<id>"], "note": "依据与判定理由"}
+规则：period_end ≤ available_at ≤ 今天；available_at 不得早于所有证据的发布日期；证据先经 intel 检索或
+--add-evidence-url 登记，检索无结果时引用 search:<id>。结算只用 available_at 不晚于检查点的观测，所以补记也按
+当时是否已公开判定。到期核实：period_end 写到期日，value 写到期日状态。记录后运行 settle-ledger。
+只按 criteria 记录；拿不准时不记录，在回答里说明缺什么证据。
+"""
+
+_OBSERVABLES = """\
+不带参数列出全部可观测量、最新观测与观测数；--observable-id 给出定义与全部观测（同一 period_end 取最后一次记录）。
+依赖它的观点与到期情况看 routine 的 steps.events 或 ledger。
+"""
+
+_POSITION_GUIDANCE = """\
+单一持仓的推荐仓位：用户只按“占可投资资产的比例”管理、不报数量的持仓（如雇主股票、海外股票）。
+每期记录推荐比例 --target 与区间 --range low,high（小数，5% 写 0.05）、--basis 依据、--review-on 下次复评日；
+命令与上一期推荐比较给出结论：首期为基准；给了 --current（用户当前实际占比，小数）时首期与它比较，可以记
+“建仓”或“减持”；同一截止日再次记录会修订当天那一期（旧条目被取代，结算只算新的一条）。目标上调至少 1 个百分点为“加持”，下调至少 1 个百分点为“减持”，
+调到 0 为“清仓”，其余“维持”。输出 execution 是按实际占比的执行规则（高于上限卖到目标；区间内不动；低于下限且
+结论为加持才买到目标）。--history 列出历次推荐与结算；--dry-run 只比较不入账。
+每期推荐作为个人可结算动作入账，按 --benchmark-symbol（同市场，如美股用 QQQ）判断加持、减持是否正确；首期与维持
+不计方向。routine 在复评日到期时提示。
+推荐比例由研究给出，依据至少写三项：集中度上限（雇主股票与工资同源，默认不超过可投资资产 10%）、单一持仓
+损失预算（偏好 max_single_loss，未记录时 3%）：比例 ×（现价到价格退出线的距离 + 跳空余量）≤ 预算，跳空余量 A 股
+个股 10%、美股个股 15%、宽基与行业 ETF 5%；没有价格退出线时才用历史最大回撤代替并写明。预算给的是上限，不是
+目标；观点账本里与该标的相关的判断（用 --refs 写条目 ID）。
+雇员只能在公司开放交易窗口买卖，执行规则按窗口办理；不得基于未公开信息作出推荐。
+口径见 docs/modules/6-编排/研究编排模块.md「单一持仓推荐仓位」。
+"""
+
+_DEBATE = """\
+观点辩论：用户、Agent 与角色视角各自提出前瞻观点，互相驳斥，立住的推论落到入账命题、计划与观察点。观点分两层：
+world 第一层（行业、整体市场与世界观，视角：达利欧、索罗斯、马克斯、产业链研究员、政策与地缘研究员）；
+asset 第二层（具体标的，视角：段永平、巴菲特、芒格、李录、查诺斯）。
+--action 与 --json 字段：
+  agenda     [--as-of-date --days 7 --no-remote]：第一层议程，没人带观点时用。列出近期入账档案的变化信号、常设世界议题的
+             新闻标题、触发的观察点和近期辩论；只是线索，由 Agent 选 1–3 个议题开辩论
+  start      {"topic": 辩题, "trigger": 起因（事件、议程项或问题）, "as_of_date": 截止日, "evidence_refs": [...],
+              "layers": ["world"] | ["asset"] | ["world", "asset"]（默认 world）, "subjects": [标的代码与名称]
+              （asset 层必填）, "parent_debate_id": 上一轮或产生候选标的的第一层辩论（可选）,
+              "significance": major（默认：影响行业的重大事件，必须形成决策）| routine（常规新闻与日常观察）}；
+              --user-id 默认 user:default
+  position   {"party": "user"|"agent"|"persona:<角色>", "statement": 命题, "mechanism": 因果链,
+              "layer": world|asset（默认 world）, "subject": 标的（asset 层必填）,
+              "horizon": short|medium_short|medium_long|long, "falsifiers": [证伪条件]（用户观点可空）,
+              "evidence_refs": [...], "supersedes": 被修正的观点编号（可选，旧观点自动标为被修正）}
+  rebut      {"position_id", "party"（不能是观点自己的一方）, "argument", "kind": fact|inference|domain,
+              "evidence_refs": [...]}
+  answer     {"rebuttal_id", "accepted": true（驳斥成立）|false（已反驳）, "response": 理由或依据}
+  resolve    {"position_id", "status": stands|refuted|withdrawn, "note": 理由, "ledger_refs": [账本条目]}
+  link       {"position_id", "ledger_refs": [...]}（结论后也可补关联）
+  signpost   {"observation": 看什么, "trigger": 什么算触发, "action": 对应动作, "refs": ["obs:<id>", "ledger-..."],
+              "position_ids": [验证的观点], "due_on": 日期（refs 与 due_on 至少一个）,
+              "replaces": 被取代的观察点（计划改变时，旧观察点不再出现在 routine）}
+  conclude   {"conclusion": 阶段结论：立住的推论、机会与剪枝理由, "decisions": [{"subject": 标的,
+              "action": buy|add|hold|reduce|sell|avoid, "size": 目标占比或分批规则（buy/add/hold/reduce 必填）,
+              "timing": “现在”或可检查的触发条件, "exit": 失效或离场条件（buy/add/hold 必填）,
+              "basis": [观点编号]}], "blockers": [做不出决策时缺的研究方法或基础设施]}；
+              major 辩论没有 decisions 也没有 blockers 时拒绝；只有 blockers 的结论会一直出现在 gaps
+  amend      {"reason": 修订依据, "as_of_date": 日期, "decisions": [同 conclude 的决策]}：已结论辩论的决策因
+             用户新的约束、持仓或已定规则而调整（如仓位口径变了）；同 subject 的决策被替换、新 subject 追加，
+             旧决策与依据留在 amendments。判断本身变了要开新一轮辩论（parent_debate_id），不用 amend
+  show / list [--status open|concluded] / scorecard [--debate-id]
+  personas [--layer world|asset]：可用角色；brief --persona <角色>：给子代理的提示词（只读取证，按 JSON 返回）；
+  import --persona <角色> --json <子代理返回的 JSON>：按角色写入观点与驳斥；没有观点时 JSON 写 no_view（原因），
+             也记为参与
+覆盖：show 的 coverage 按层列出每个视角是否发言（spoke）、声明无观点（no_view）或未参与（absent，即盲点）；
+未参与的视角进 next_actions 与 gaps，不阻止结论，结论里写明。
+纪律（命令会拒绝违反的写法）：驳斥来自其他参与方；立住需要至少一条已回应的驳斥且没有未回应的驳斥
+（同一方修正时继承前一版的驳斥；他方改写的版本要重新接受驳斥）；被驳倒需要一条已接受的驳斥；修正写新观点
+supersedes 旧观点；还有待结论的观点或未回应的驳斥时不能结论。读法：按输出的 next_actions 继续；gaps 提示立住但未入账
+或未被观察点覆盖的推论。scorecard 的命中率只来自关联账本条目的结算，辩论里的“立住”不是命中。口径：
+docs/modules/5-研究产物/观点辩论模块.md。
+"""
+
 EPILOGS: dict[str, str] = {
+    "debate": _DEBATE,
+    "position-guidance": _POSITION_GUIDANCE,
+    "prices": _PRICES,
+    "asset": _ASSET,
+    "intel": _INTEL,
+    "define-observable": _DEFINE_OBSERVABLE,
+    "record-observation": _RECORD_OBSERVATION,
+    "observables": _OBSERVABLES,
     "strategy-track": _STRATEGY_TRACK,
     "strategy-evaluate": _STRATEGY_EVALUATE,
     "route": _ROUTE,
@@ -491,6 +670,8 @@ EPILOGS: dict[str, str] = {
     "exit-plan": _EXIT_PLAN,
     "record-holding": _RECORD_HOLDING,
     "record-preference": _RECORD_PREFERENCE,
+    "record-weights": _RECORD_WEIGHTS,
+    "financial-fields": _FINANCIAL_FIELDS,
     "portfolio-diagnose": _PORTFOLIO_DIAGNOSE,
     "allocation-proposal": _ALLOCATION,
     "adjustment-proposal": _ADJUSTMENT,

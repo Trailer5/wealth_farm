@@ -1,0 +1,31 @@
+{
+  "as_of_date": "2026-11-15",
+  "asset_id": "asset:9c05189f-d11c-484e-bd63-c5fe190c282a",
+  "asset_name": "生益电子",
+  "benchmark_asset_id": null,
+  "chart_type": "price_volume",
+  "currency": "CNY",
+  "files": {
+    "data": "price_volume-8886bd208841.data.json",
+    "png": "price_volume-8886bd208841.png",
+    "svg": "price_volume-8886bd208841.svg"
+  },
+  "input_digest": "8886bd208841d45fdc28bd575c30cd24ec6c3debeb40e4c9c5601fae3964157d",
+  "parameters": {
+    "moving_averages": [
+      5,
+      20
+    ]
+  },
+  "point_count": 484,
+  "price_adjustment": "none",
+  "source_datasets": [
+    "stock_daily_bars"
+  ],
+  "task_id": "research:c6ffdbb4-6dc4-4202-b7f6-34a136a44a9c",
+  "title": "Price, Volume, and Moving Averages",
+  "unit": "price",
+  "version": "research_chart_v1",
+  "x_label": "Trade date",
+  "y_label": "Price"
+}

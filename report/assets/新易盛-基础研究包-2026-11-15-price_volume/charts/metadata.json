@@ -1,0 +1,31 @@
+{
+  "as_of_date": "2026-11-15",
+  "asset_id": "asset:d26effbe-989d-4737-80db-eecc6707bf0f",
+  "asset_name": "新易盛",
+  "benchmark_asset_id": null,
+  "chart_type": "price_volume",
+  "currency": "CNY",
+  "files": {
+    "data": "price_volume-ca92a982aeb4.data.json",
+    "png": "price_volume-ca92a982aeb4.png",
+    "svg": "price_volume-ca92a982aeb4.svg"
+  },
+  "input_digest": "ca92a982aeb4b5b918974ee5d5e54e0d0a62b0847533cff5a4668e33c4000cb9",
+  "parameters": {
+    "moving_averages": [
+      5,
+      20
+    ]
+  },
+  "point_count": 484,
+  "price_adjustment": "none",
+  "source_datasets": [
+    "stock_daily_bars"
+  ],
+  "task_id": "research:36c958a5-3b65-4514-9bd1-bab36ad17865",
+  "title": "Price, Volume, and Moving Averages",
+  "unit": "price",
+  "version": "research_chart_v1",
+  "x_label": "Trade date",
+  "y_label": "Price"
+}

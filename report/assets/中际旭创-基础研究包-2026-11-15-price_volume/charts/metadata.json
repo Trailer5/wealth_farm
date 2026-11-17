@@ -1,0 +1,31 @@
+{
+  "as_of_date": "2026-11-15",
+  "asset_id": "asset:0733b979-a5d9-42e4-89e6-260af312c5e2",
+  "asset_name": "中际旭创",
+  "benchmark_asset_id": null,
+  "chart_type": "price_volume",
+  "currency": "CNY",
+  "files": {
+    "data": "price_volume-c44527b2a374.data.json",
+    "png": "price_volume-c44527b2a374.png",
+    "svg": "price_volume-c44527b2a374.svg"
+  },
+  "input_digest": "c44527b2a374e13ae55ec9d754bc16d78ba9aed30afbc07c0d72776df1f59738",
+  "parameters": {
+    "moving_averages": [
+      5,
+      20
+    ]
+  },
+  "point_count": 484,
+  "price_adjustment": "none",
+  "source_datasets": [
+    "stock_daily_bars"
+  ],
+  "task_id": "research:edf9912d-efd9-4e00-b059-b7d0a60f9c69",
+  "title": "Price, Volume, and Moving Averages",
+  "unit": "price",
+  "version": "research_chart_v1",
+  "x_label": "Trade date",
+  "y_label": "Price"
+}

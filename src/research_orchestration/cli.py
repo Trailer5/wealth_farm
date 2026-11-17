@@ -11,6 +11,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Callable, TextIO
 
+from src.event_intel import SOURCES as INTEL_SOURCES, Observable
+from src.research_debate import PERSONAS
 from src.event_name_discovery import (
     AlternativeCatalystAssessment,
     AttentionAttributionAssessment,
@@ -33,12 +35,18 @@ from src.research_contracts import (
     View,
 )
 from src.master_data import ASSET_TYPE_STOCK
+from src.financial_data import SQLiteFinancialDataRepository
+from src.research_orchestration.financial_fields import DEFAULT_FIELDS, available_fields, field_series
+from src.research_orchestration.us_valuation import USValuationService
+from src.data_src.process_executor import run_provider_task
 from src.portfolio_risk import (
     AggressivenessMeaning,
+    HoldingWeights,
     PreferenceHorizon,
     RiskProfile,
     TradeRecord,
     TradeSide,
+    WeightItem,
     derive_preference,
     initial_preference,
     preference_changes,
@@ -313,11 +321,143 @@ def build_parser() -> argparse.ArgumentParser:
     )
     asset.add_argument("--symbol", required=True)
     asset.add_argument("--asset-type", help="stock, index, exchange_fund or open_fund.")
+    asset.add_argument("--market", choices=("us", "hk"), help="us: a US ticker (NVDA, SMH), registered from Nasdaq on first use; hk: a Hong Kong code (00700).")
     asset.add_argument(
         "--db-path",
         default="data/database/wealth_farm.sqlite3",
     )
     asset.add_argument("--report-root", default="report")
+    prices = commands.add_parser(
+        "prices",
+        help="Total-return price history of stocks or exchange funds (A-share or US): return, drawdown, range.",
+    )
+    price_target = prices.add_mutually_exclusive_group(required=True)
+    price_target.add_argument("--symbols", help="Comma-separated codes or US tickers.")
+    price_target.add_argument("--asset-id")
+    prices.add_argument("--market", choices=("us", "hk"))
+    prices.add_argument("--asset-type", choices=("stock", "exchange_fund"))
+    prices.add_argument("--start-date", required=True)
+    prices.add_argument("--end-date", default=date.today().isoformat())
+    prices.add_argument("--rows", action="store_true", help="Include the daily rows.")
+    prices.add_argument("--no-remote", action="store_true")
+    prices.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    prices.add_argument("--report-root", default="report")
+    intel = commands.add_parser(
+        "intel",
+        help="Dated global news, SEC filings and Federal Register rules; page text; evidence links.",
+    )
+    intel_mode = intel.add_mutually_exclusive_group(required=True)
+    intel_mode.add_argument("--source", choices=INTEL_SOURCES)
+    intel_mode.add_argument("--fetch-url", help="Readable text of one page (official sources, SEC filings).")
+    intel_mode.add_argument("--item-ids", help="Show stored items, comma-separated intel:<id>.")
+    intel_mode.add_argument("--add-evidence-url", help="Register a link found elsewhere as citable evidence.")
+    intel_mode.add_argument(
+        "--read-items", help="Read the articles of stored items (comma-separated intel:<id>), cached, rate-limit aware."
+    )
+    intel_mode.add_argument("--read-urls", help="Read several pages (comma-separated URLs), cached, rate-limit aware.")
+    intel.add_argument("--refresh", action="store_true", help="--read-*: fetch again even when a page is cached.")
+    intel.add_argument("--query")
+    intel.add_argument("--ticker", help="sec-filings: US ticker.")
+    intel.add_argument("--forms", default="", help="SEC forms, comma-separated (8-K,10-Q,10-K,4).")
+    intel.add_argument("--agency", help="federal-register agency slug, e.g. industry-and-security-bureau.")
+    intel.add_argument("--since")
+    intel.add_argument("--until")
+    intel.add_argument("--lang", choices=("en", "zh"), default="en")
+    intel.add_argument("--limit", type=int, default=20)
+    intel.add_argument("--max-chars", type=int, default=20000)
+    intel.add_argument("--title", help="--add-evidence-url: title of the page.")
+    intel.add_argument("--published-on", help="--add-evidence-url: publication date YYYY-MM-DD.")
+    intel.add_argument("--publisher")
+    intel.add_argument("--no-remote", action="store_true")
+    intel.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    intel.add_argument("--report-root", default="report")
+    define_observable = commands.add_parser(
+        "define-observable",
+        help="Register an event or unstructured value to track by evidence, with its baseline observation.",
+    )
+    define_observable.add_argument("--json", required=True, dest="json_path")
+    define_observable.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    define_observable.add_argument("--report-root", default="report")
+    record_observation = commands.add_parser(
+        "record-observation",
+        help="Append one evidence-backed observation of a registered observable.",
+    )
+    record_observation.add_argument("--json", required=True, dest="json_path")
+    record_observation.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    record_observation.add_argument("--report-root", default="report")
+    observables = commands.add_parser(
+        "observables",
+        help="List tracked observables, or one observable with its observations.",
+    )
+    observables.add_argument("--observable-id")
+    observables.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    observables.add_argument("--report-root", default="report")
+    guidance = commands.add_parser(
+        "position-guidance",
+        help="Recommended weight of one holding (e.g. employer stock) vs the previous recommendation: add, reduce or hold.",
+    )
+    guidance_target = guidance.add_mutually_exclusive_group(required=True)
+    guidance_target.add_argument("--symbol")
+    guidance_target.add_argument("--asset-id")
+    guidance.add_argument("--market", choices=("us", "hk"))
+    guidance.add_argument("--asset-type", choices=("stock", "exchange_fund"))
+    guidance.add_argument("--user-id", required=True)
+    guidance.add_argument("--history", action="store_true", help="List earlier recommendations and their settlements.")
+    guidance.add_argument("--target", help="Recommended weight as a decimal, e.g. 0.05.")
+    guidance.add_argument("--range", dest="weight_range", help="low,high as decimals, e.g. 0.03,0.08.")
+    guidance.add_argument("--review-on", help="Next review date.")
+    guidance.add_argument("--basis", default="", help="Why this weight.")
+    guidance.add_argument("--benchmark-symbol", help="Same-market benchmark the call is judged against.")
+    guidance.add_argument("--refs", default="", help="Comma-separated ledger entry IDs the recommendation rests on.")
+    guidance.add_argument("--current", help="User's actual weight now as a decimal; the baseline of a first recommendation.")
+    guidance.add_argument("--as-of-date", default=date.today().isoformat())
+    guidance.add_argument("--dry-run", action="store_true")
+    guidance.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    guidance.add_argument("--report-root", default="report")
+    debate = commands.add_parser(
+        "debate",
+        help="Debate between user, Agent and investor personas: positions, rebuttals, resolutions, signposts.",
+    )
+    debate.add_argument(
+        "--action",
+        required=True,
+        choices=(
+            "start", "position", "rebut", "answer", "resolve", "link", "signpost", "conclude", "amend",
+            "show", "list", "personas", "brief", "import", "scorecard", "agenda",
+        ),
+    )
+    debate.add_argument("--debate-id")
+    debate.add_argument("--json", dest="json_path", help="Input JSON for start/position/rebut/answer/resolve/link/signpost/conclude/import.")
+    debate.add_argument("--persona", help="Persona ID for brief and import.")
+    debate.add_argument("--layer", choices=("world", "asset"), help="Filter for personas.")
+    debate.add_argument("--user-id", default="user:default")
+    debate.add_argument("--status", choices=("open", "concluded"), help="Filter for list.")
+    debate.add_argument("--as-of-date", default=date.today().isoformat(), help="For agenda.")
+    debate.add_argument("--days", type=int, default=7, help="Agenda look-back window.")
+    debate.add_argument("--no-remote", action="store_true")
+    debate.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    debate.add_argument("--report-root", default="report")
     industry = commands.add_parser(
         "industry",
         help="Shenwan 2021 industries: list, classify a stock, members, index and valuation.",
@@ -465,6 +605,8 @@ def build_parser() -> argparse.ArgumentParser:
         default="data/database/wealth_farm.sqlite3",
     )
     valuation_model.add_argument("--report-root", default="report")
+    valuation_model.add_argument("--market", choices=("us",), help="us: value a US stock from SEC XBRL facts.")
+    valuation_model.add_argument("--risk-free", type=float, help="US only: 10-year yield as a decimal; default FRED DGS10.")
     discover = commands.add_parser(
         "discover",
         help="Multi-strategy discovery funnel in a scope, with base packs for the top candidates.",
@@ -641,6 +783,32 @@ def build_parser() -> argparse.ArgumentParser:
         default="data/database/wealth_farm.sqlite3",
     )
     record_preference.add_argument("--report-root", default="report")
+    record_weights = commands.add_parser(
+        "record-weights",
+        help="Record the user's holdings as shares of the portfolio when they give no quantities or amounts.",
+    )
+    record_weights.add_argument("--user-id", required=True)
+    record_weights.add_argument("--json", required=True, help="File with as_of_date, statement and items.")
+    record_weights.add_argument("--dry-run", action="store_true")
+    record_weights.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    record_weights.add_argument("--report-root", default="report")
+    fields = commands.add_parser(
+        "financial-fields",
+        help="Raw statement fields (contract liabilities, inventory, payables, other income...) over recent quarters.",
+    )
+    fields.add_argument("--symbol", required=True, help="A-share stock code.")
+    fields.add_argument("--fields", help="Comma-separated source labels; default is the leading-indicator set.")
+    fields.add_argument("--quarters", type=int, default=8)
+    fields.add_argument("--list", action="store_true", help="List the labels stored for this stock.")
+    fields.add_argument("--as-of-date", default=date.today().isoformat())
+    fields.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    fields.add_argument("--report-root", default="report")
     diagnose = commands.add_parser(
         "portfolio-diagnose",
         help="Diagnose a user's recorded holdings: exposures, overlap, correlation, risk contribution, stress.",
@@ -1046,10 +1214,13 @@ def main(
             print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=output)
             return 0
         if args.command == "asset":
-            assets = container.master_data.find_assets(
-                standard_symbol=args.symbol,
-                asset_type=args.asset_type,
-            )
+            if args.market in ("us", "hk"):
+                assets = [container.price_history.resolve(args.symbol, market=args.market, asset_type=args.asset_type)]
+            else:
+                assets = container.master_data.find_assets(
+                    standard_symbol=args.symbol,
+                    asset_type=args.asset_type,
+                )
             if not assets:
                 container.data_fetch.fetch_and_store_identities(
                     args.symbol,
@@ -1077,6 +1248,59 @@ def main(
                 file=output,
             )
             return 0 if assets else 2
+        if args.command == "prices":
+            if args.asset_id:
+                asset = container.master_data.get_asset(args.asset_id)
+                if asset is None:
+                    print(f"未知 asset_id {args.asset_id}", file=sys.stderr)
+                    return 2
+                targets = [asset]
+            else:
+                targets = [
+                    container.price_history.resolve(item.strip(), market=args.market, asset_type=args.asset_type)
+                    for item in args.symbols.split(",")
+                    if item.strip()
+                ]
+            payload = [
+                container.price_history.history(
+                    item,
+                    start_date=args.start_date,
+                    end_date=args.end_date,
+                    rows=args.rows,
+                    allow_remote=not args.no_remote,
+                )
+                for item in targets
+            ]
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0
+        if args.command == "intel":
+            payload = _intel_payload(container, args)
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0
+        if args.command == "define-observable":
+            spec = json.loads(Path(args.json_path).read_text(encoding="utf-8"))
+            baseline = spec.pop("baseline", None)
+            if not isinstance(baseline, dict):
+                print("JSON 需要 baseline：观测开始时的值、period_end、available_at、evidence_refs、note", file=sys.stderr)
+                return 2
+            payload = container.event_intel.define_observable(Observable.from_dict(spec), baseline)
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=output)
+            return 0
+        if args.command == "record-observation":
+            payload = container.event_intel.record_observation(
+                json.loads(Path(args.json_path).read_text(encoding="utf-8"))
+            )
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=output)
+            return 0
+        if args.command == "observables":
+            print(json.dumps(_observables_payload(container, args), ensure_ascii=False, sort_keys=True), file=output)
+            return 0
+        if args.command == "position-guidance":
+            print(json.dumps(_guidance_payload(container, args), ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0
+        if args.command == "debate":
+            print(json.dumps(_debate_payload(container, args), ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0
         if args.command == "industry":
             print(
                 json.dumps(
@@ -1158,6 +1382,20 @@ def main(
                 json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str),
                 file=output,
             )
+            return 0
+        if args.command == "valuation-model" and args.market == "us":
+            payload = USValuationService(
+                fetch=lambda task, spec: run_provider_task("src.data_src.provider_tasks", task, spec, timeout_seconds=120.0),
+                price_history=container.price_history,
+            ).run(
+                args.symbol,
+                args.as_of_date,
+                risk_free=args.risk_free,
+                equity_risk_premium=args.erp,
+                terminal_growth=args.terminal_growth,
+                allow_remote=not args.no_remote,
+            )
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
             return 0
         if args.command == "valuation-model":
             payload = container.valuation_models.run(
@@ -1313,6 +1551,28 @@ def main(
                     ensure_ascii=False,
                     sort_keys=True,
                 ),
+                file=output,
+            )
+            return 0
+        if args.command == "financial-fields":
+            asset = container.price_history.resolve(args.symbol, asset_type=ASSET_TYPE_STOCK)
+            repository = SQLiteFinancialDataRepository(args.db_path)
+            payload = (
+                available_fields(repository, asset_id=asset.asset_id, as_of_date=args.as_of_date)
+                if args.list
+                else field_series(
+                    repository,
+                    asset_id=asset.asset_id,
+                    fields=tuple(item.strip() for item in args.fields.split(",")) if args.fields else DEFAULT_FIELDS,
+                    as_of_date=args.as_of_date,
+                    quarters=args.quarters,
+                )
+            )
+            print(json.dumps({"asset": asset.display_name, **payload}, ensure_ascii=False, sort_keys=True), file=output)
+            return 0
+        if args.command == "record-weights":
+            print(
+                json.dumps(_record_weights(container, args), ensure_ascii=False, sort_keys=True),
                 file=output,
             )
             return 0
@@ -1558,6 +1818,47 @@ def _read_research_request(path: str) -> ResearchRequest:
     )
 
 
+def _record_weights(container: ResearchOrchestrationContainer, args: argparse.Namespace) -> dict:
+    spec = json.loads(Path(args.json).read_text(encoding="utf-8"))
+    items = []
+    for raw in spec["items"]:
+        weight = Decimal(str(raw["weight"]))
+        if raw.get("symbol"):
+            asset_type = raw.get("asset_type", ASSET_TYPE_STOCK)
+            if raw.get("market") == "us" or asset_type != "open_fund":
+                asset = container.price_history.resolve(raw["symbol"], market=raw.get("market"), asset_type=asset_type)
+            else:
+                matches = _symbol_matches(container, raw["symbol"], asset_type)
+                if len(matches) != 1:
+                    raise ValueError(f"无法唯一识别 {asset_type} {raw['symbol']}（找到 {len(matches)} 个）")
+                asset = matches[0]
+            items.append(WeightItem(label=raw.get("label") or asset.display_name or asset.standard_symbol, weight=weight, asset_id=asset.asset_id))
+            continue
+        proxy = None
+        if raw.get("proxy_symbol"):
+            proxy = container.price_history.resolve(
+                raw["proxy_symbol"], market=raw.get("proxy_market"), asset_type=raw.get("proxy_asset_type")
+            ).asset_id
+        items.append(WeightItem(label=raw["label"], weight=weight, asset_class=raw["asset_class"], proxy_asset_id=proxy))
+    snapshot = HoldingWeights(
+        user_id=args.user_id,
+        as_of_date=spec.get("as_of_date") or date.today().isoformat(),
+        items=tuple(items),
+        user_statement=spec["statement"],
+    )
+    if not args.dry_run:
+        container.portfolio_risk.record_weights(container.user_space.context_for_user(args.user_id), snapshot)
+    return {
+        "recorded": not args.dry_run,
+        "snapshot_id": snapshot.snapshot_id,
+        "total": str(snapshot.total()),
+        "items": [
+            {"label": item.label, "weight": str(item.weight), "asset_id": item.asset_id, "asset_class": item.asset_class}
+            for item in snapshot.items
+        ],
+    }
+
+
 def _record_preference(
     container: ResearchOrchestrationContainer,
     args: argparse.Namespace,
@@ -1693,6 +1994,202 @@ def _cross_section_payload(
     payload["total_rows"] = len(payload["rows"])
     payload["rows"] = rows if not args.limit else rows[: args.limit]
     return payload
+
+
+def _guidance_payload(container: ResearchOrchestrationContainer, args: argparse.Namespace) -> object:
+    resolve = container.price_history.resolve
+    asset_id = args.asset_id or resolve(args.symbol, market=args.market, asset_type=args.asset_type).asset_id
+    service = container.position_guidance
+    if args.history:
+        return service.history(user_id=args.user_id, asset_id=asset_id)
+    if not (args.target and args.weight_range and args.review_on):
+        raise ValueError("记录推荐仓位需要 --target、--range 和 --review-on")
+    low, high = (Decimal(item.strip()) for item in args.weight_range.split(","))
+    benchmark = resolve(args.benchmark_symbol, market=args.market).asset_id if args.benchmark_symbol else None
+    return service.record(
+        user_id=args.user_id,
+        asset_id=asset_id,
+        as_of_date=args.as_of_date,
+        target=Decimal(args.target),
+        low=low,
+        high=high,
+        review_on=args.review_on,
+        basis=args.basis,
+        benchmark_id=benchmark,
+        refs=tuple(item.strip() for item in args.refs.split(",") if item.strip()),
+        current=Decimal(args.current) if args.current else None,
+        dry_run=args.dry_run,
+    )
+
+
+def _debate_payload(container: ResearchOrchestrationContainer, args: argparse.Namespace) -> object:
+    workflow = container.debates
+    service = workflow.debates
+    action = args.action
+    if action == "personas":
+        return [item.to_dict() for item in PERSONAS.values() if args.layer in (None, item.layer)]
+    if action == "list":
+        return service.list_debates(user_id=args.user_id, status=args.status)
+    if action == "scorecard":
+        return workflow.scorecard(user_id=args.user_id, debate_id=args.debate_id)
+    if action == "agenda":
+        return workflow.agenda(
+            user_id=args.user_id, as_of_date=args.as_of_date, days=args.days, allow_remote=not args.no_remote
+        )
+    if action != "start" and not args.debate_id:
+        raise ValueError(f"--action {action} 需要 --debate-id")
+    if action == "show":
+        return workflow.show(args.debate_id)
+    if action == "brief":
+        if not args.persona:
+            raise ValueError("--action brief 需要 --persona（见 --action personas）")
+        return service.brief(args.debate_id, args.persona)
+    if not args.json_path:
+        raise ValueError(f"--action {action} 需要 --json <path>（字段见 debate --help）")
+    spec = json.loads(Path(args.json_path).read_text(encoding="utf-8"))
+    refs = lambda key: tuple(spec.get(key) or ())  # noqa: E731
+    if action == "start":
+        debate = service.start(
+            user_id=spec.get("user_id") or args.user_id,
+            topic=spec.get("topic", ""),
+            trigger=spec.get("trigger", ""),
+            as_of_date=spec.get("as_of_date") or date.today().isoformat(),
+            evidence_refs=refs("evidence_refs"),
+            parent_debate_id=spec.get("parent_debate_id"),
+            layers=tuple(spec.get("layers") or ("world",)),
+            subjects=refs("subjects"),
+            significance=spec.get("significance") or "major",
+        )
+        return workflow.show(debate.debate_id)
+    if action == "import":
+        if not args.persona:
+            raise ValueError("--action import 需要 --persona")
+        return service.import_persona(args.debate_id, args.persona, spec)
+    if action == "position":
+        item = service.add_position(
+            args.debate_id,
+            party=spec.get("party", ""),
+            statement=spec.get("statement", ""),
+            mechanism=spec.get("mechanism", ""),
+            horizon=spec.get("horizon", ""),
+            falsifiers=refs("falsifiers"),
+            evidence_refs=refs("evidence_refs"),
+            supersedes=spec.get("supersedes"),
+            layer=spec.get("layer") or "world",
+            subject=spec.get("subject"),
+        )
+    elif action == "rebut":
+        item = service.rebut(
+            args.debate_id,
+            position_id=spec.get("position_id", ""),
+            party=spec.get("party", ""),
+            argument=spec.get("argument", ""),
+            kind=spec.get("kind", ""),
+            evidence_refs=refs("evidence_refs"),
+        )
+    elif action == "answer":
+        item = service.answer(
+            args.debate_id,
+            rebuttal_id=spec.get("rebuttal_id", ""),
+            accepted=bool(spec.get("accepted")),
+            response=spec.get("response", ""),
+        )
+    elif action == "resolve":
+        item = service.resolve(
+            args.debate_id,
+            position_id=spec.get("position_id", ""),
+            status=spec.get("status", ""),
+            note=spec.get("note", ""),
+            ledger_refs=refs("ledger_refs"),
+        )
+    elif action == "link":
+        item = service.link(args.debate_id, position_id=spec.get("position_id", ""), ledger_refs=refs("ledger_refs"))
+    elif action == "signpost":
+        item = service.add_signpost(
+            args.debate_id,
+            observation=spec.get("observation", ""),
+            trigger=spec.get("trigger", ""),
+            action=spec.get("action", ""),
+            refs=refs("refs"),
+            position_ids=refs("position_ids"),
+            due_on=spec.get("due_on"),
+            replaces=spec.get("replaces"),
+        )
+    elif action == "amend":
+        return service.amend(
+            args.debate_id,
+            reason=spec.get("reason", ""),
+            as_of_date=spec.get("as_of_date", ""),
+            decisions=tuple(spec.get("decisions") or ()),
+        )
+    else:
+        return service.conclude(
+            args.debate_id,
+            conclusion=spec.get("conclusion", ""),
+            decisions=tuple(spec.get("decisions") or ()),
+            blockers=refs("blockers"),
+        )
+    return {"recorded": item.to_dict(), "next_actions": service.show(args.debate_id)["next_actions"]}
+
+
+def _intel_payload(container: ResearchOrchestrationContainer, args: argparse.Namespace) -> object:
+    intel = container.event_intel
+    if args.read_items or args.read_urls:
+        split = lambda text: [item.strip() for item in (text or "").split(",") if item.strip()]  # noqa: E731
+        return intel.read_pages(
+            urls=split(args.read_urls),
+            item_ids=split(args.read_items),
+            max_chars=args.max_chars if args.max_chars != 20000 else 6000,
+            refresh=args.refresh,
+        )
+    if args.fetch_url:
+        return intel.page_text(args.fetch_url, max_chars=args.max_chars)
+    if args.item_ids:
+        return intel.items([item.strip() for item in args.item_ids.split(",") if item.strip()])
+    if args.add_evidence_url:
+        if not args.published_on:
+            raise ValueError("--add-evidence-url 需要 --published-on（页面的发布日期）")
+        return intel.add_evidence(
+            url=args.add_evidence_url,
+            title=args.title or "",
+            published_on=args.published_on,
+            publisher=args.publisher,
+        )
+    return intel.search(
+        args.source,
+        query=args.query,
+        ticker=args.ticker,
+        forms=tuple(item.strip().upper() for item in args.forms.split(",") if item.strip()),
+        agency=args.agency,
+        since=args.since,
+        until=args.until,
+        language=args.lang,
+        limit=args.limit,
+        allow_remote=not args.no_remote,
+    )
+
+
+def _observables_payload(container: ResearchOrchestrationContainer, args: argparse.Namespace) -> object:
+    intel = container.event_intel
+    if args.observable_id:
+        observable = intel.observable(args.observable_id)
+        if observable is None:
+            raise ValueError(f"未登记的可观测量 {args.observable_id}")
+        return {
+            "observable": observable.to_dict(),
+            "observations": [item.to_dict() for item in intel.observations(args.observable_id)],
+            "notes": [
+                "同一 period_end 有多次记录时取最后一次（更正）；结算只用 available_at 不晚于检查点的观测。",
+            ],
+        }
+    rows = []
+    for observable in intel.observables():
+        history = intel.observations(observable.observable_id)
+        rows.append(
+            observable.to_dict()
+            | {"latest_observation": history[-1].to_dict() if history else None, "observation_count": len(history)}
+        )
+    return rows
 
 
 def _industry_payload(

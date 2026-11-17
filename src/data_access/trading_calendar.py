@@ -9,6 +9,35 @@ from src.data_src.service import DataFetchService
 
 from .sqlite_repository import SQLiteDataAccessRepository
 
+# A US session's daily bar is final shortly after the 16:00 New York close.
+_US_SESSION_FINAL = time(16, 30)
+
+
+def us_latest_completed_date(now: datetime | None = None) -> str:
+    """Latest US weekday whose session has closed; exchange holidays simply have no bar."""
+
+    new_york = ZoneInfo("America/New_York")
+    current = now.astimezone(new_york) if now is not None else datetime.now(new_york)
+    day = current.date()
+    if current.timetz().replace(tzinfo=None) < _US_SESSION_FINAL:
+        day -= timedelta(days=1)
+    while day.weekday() >= 5:
+        day -= timedelta(days=1)
+    return day.isoformat()
+
+
+def hk_latest_completed_date(now: datetime | None = None) -> str:
+    """Latest Hong Kong weekday whose session has closed (16:00 HKT, final from 16:30)."""
+
+    hong_kong = ZoneInfo("Asia/Hong_Kong")
+    current = now.astimezone(hong_kong) if now is not None else datetime.now(hong_kong)
+    day = current.date()
+    if current.timetz().replace(tzinfo=None) < time(16, 30):
+        day -= timedelta(days=1)
+    while day.weekday() >= 5:
+        day -= timedelta(days=1)
+    return day.isoformat()
+
 
 class TradingCalendarService:
     """Cache an official calendar and resolve the latest completed trade date."""

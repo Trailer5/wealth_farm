@@ -29,6 +29,8 @@ from src.portfolio_risk import (
     rolling_return_band,
     round_to_lots,
     stress_summary,
+    exit_line_args,
+    fund_lockup_days,
     target_weights,
     weights_of,
 )
@@ -98,6 +100,14 @@ class AdjustmentProposalService:
         held = {item.asset_id for item in positions}
         prices = self.diagnosis.price_source(allow_remote)
         candidate_assets = self._candidates(candidates, held, gaps)
+        if preference.max_lockup_days is not None:
+            locked = [
+                asset for asset in candidate_assets
+                if (days := fund_lockup_days(asset.display_name or "")) is not None and days > preference.max_lockup_days
+            ]
+            for asset in locked:
+                gaps.append(f"候选 {asset.display_name} 的持有期或封闭期超过偏好上限 {preference.max_lockup_days} 天，未纳入")
+            candidate_assets = [asset for asset in candidate_assets if asset not in locked]
         candidate_ids = []
         for asset in candidate_assets:
             try:
@@ -145,7 +155,8 @@ class AdjustmentProposalService:
         assets = {item.asset_id: self.diagnosis.master_data.get_asset(item.asset_id) for item in positions}
         last_prices = {key: value[1] for key, value in state["latest"].items()}
         last_prices.update({key: levels[key][max(levels[key])] for key in candidate_ids})
-        lots = {
+        # Shares-only holdings have no unit counts to round.
+        lots = {} if state.get("weights_snapshot_id") else {
             item.asset_id: BOARD_LOT
             for item in positions
             if item.asset_type in (ASSET_TYPE_STOCK, ASSET_TYPE_EXCHANGE_FUND)
@@ -448,7 +459,13 @@ def _profile(
         labels=labels,
     )
     stress = stress_summary(
-        weights, levels, as_of_date=as_of_date, benchmark_levels=benchmark or {}, labels=labels, zero_return=cash_like
+        weights,
+        levels,
+        as_of_date=as_of_date,
+        benchmark_levels=benchmark or {},
+        labels=labels,
+        zero_return=cash_like,
+        **exit_line_args(preference, positions),
     )
     classes = {item["class"]: item["weight"] for item in exposures["asset_classes"]}
     industries = [item for item in exposures["industries"] if item["industry"] != UNCOVERED_INDUSTRY]
@@ -464,12 +481,13 @@ def _profile(
             {
                 "label": item["label"],
                 "portfolio_return": item["portfolio_return"],
+                "managed_return": item.get("managed_return"),
                 "benchmark_return": item["benchmark_return"],
                 "uncovered_weight": item["uncovered_weight"],
             }
             for item in stress
         ],
-        "preference_checks": preference_check(exposures, risk, stress, preference),
+        "preference_checks": preference_check(exposures, risk, stress, preference, positions),
     }
 
 
@@ -487,6 +505,13 @@ def _summary(payload: dict[str, Any]) -> list[str]:
         lines.append(
             f"最差历史情景：调整前 {worst_before['label']} {worst_before['portfolio_return']:.1%}，"
             f"调整后 {worst_after['label']} {worst_after['portfolio_return']:.1%}。"
+        )
+    managed_before = [item["managed_return"] for item in before["stress"] if item.get("managed_return") is not None]
+    managed_after = [item["managed_return"] for item in after["stress"] if item.get("managed_return") is not None]
+    if managed_before and managed_after:
+        lines.append(
+            f"风险资产到退出线收手时的最差情景：调整前 {min(managed_before):.1%}，调整后 {min(managed_after):.1%}"
+            "（上面的数字是一路持有不动）。"
         )
     worse = [
         f"{left['label']} {left['portfolio_return']:.1%}→{right['portfolio_return']:.1%}"

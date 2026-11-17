@@ -49,6 +49,40 @@ class PreferenceDerivationTest(unittest.TestCase):
         self.assertTrue(preference.preference_id.startswith("preference:"))
         self.assertEqual(InvestmentPreference.from_dict(preference.to_dict()), preference)
 
+    def test_exit_line_and_loss_budget_are_optional_and_keep_old_ids(self):
+        plain = _balanced()
+        payload = plain.to_dict()
+        del payload["exit_drawdown"], payload["max_single_loss"]
+        self.assertEqual(InvestmentPreference.from_dict(payload).preference_id, plain.preference_id)
+
+        stated = initial_preference(
+            user_id="user:a",
+            recorded_on="2026-10-28",
+            risk_profile=RiskProfile.CONSERVATIVE,
+            horizon=PreferenceHorizon.ONE_TO_3Y,
+            user_statement="会及早收手，单只最多亏 5%",
+            overrides={"exit_drawdown": "0.15", "max_single_loss": "0.05"},
+        )
+        derived = derive_preference(
+            stated,
+            meanings=(AggressivenessMeaning.HIGHER_EQUITY,),
+            recorded_on="2026-10-29",
+            user_statement="多放股票",
+        )
+
+        self.assertEqual((derived.exit_drawdown, derived.max_single_loss), (Decimal("0.15"), Decimal("0.05")))
+        self.assertTrue(any(line.startswith("退出线") for line in stated.describe()["lines"]))
+        self.assertEqual(InvestmentPreference.from_dict(stated.to_dict()), stated)
+        with self.assertRaises(ValueError):
+            initial_preference(
+                user_id="user:a",
+                recorded_on="2026-10-28",
+                risk_profile=RiskProfile.CONSERVATIVE,
+                horizon=PreferenceHorizon.ONE_TO_3Y,
+                user_statement="x",
+                overrides={"max_single_loss": "0"},
+            )
+
     def test_higher_equity_moves_equity_and_risk_budget_only(self):
         base = _balanced()
         derived = derive_preference(

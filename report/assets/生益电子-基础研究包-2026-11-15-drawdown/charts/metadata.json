@@ -1,0 +1,32 @@
+{
+  "as_of_date": "2026-11-15",
+  "asset_id": "asset:9c05189f-d11c-484e-bd63-c5fe190c282a",
+  "asset_name": "生益电子",
+  "benchmark_asset_id": null,
+  "chart_type": "drawdown",
+  "currency": null,
+  "files": {
+    "data": "drawdown-afe8ccb3906f.data.json",
+    "png": "drawdown-afe8ccb3906f.png",
+    "svg": "drawdown-afe8ccb3906f.svg"
+  },
+  "input_digest": "afe8ccb3906f1a23f6cdd4f5b31435e5ed71ecc975b3daae452b739fdd1f8808",
+  "parameters": {
+    "factor_names": [
+      "drawdown_series"
+    ],
+    "input_end_date": "2026-11-13",
+    "input_start_date": "2024-11-15"
+  },
+  "point_count": 484,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:c6ffdbb4-6dc4-4202-b7f6-34a136a44a9c",
+  "title": "Drawdown (2024-11-15 to 2026-11-13)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Drawdown"
+}

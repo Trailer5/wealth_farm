@@ -48,6 +48,13 @@ _LIMIT_LABELS = {
     "drawdown": "可接受最大回撤（按历史最差情景）",
     "cash_floor": "现金底线",
 }
+_EXIT_LINE_LABEL = "可接受最大回撤（按历史最差情景，权益到退出线收手）"
+
+
+def _limit_label(name: str, target: dict[str, Any]) -> str:
+    if name == "drawdown" and target.get("drawdown_basis") == "exit_line":
+        return _EXIT_LINE_LABEL
+    return _LIMIT_LABELS[name]
 
 
 class AllocationProposalService:
@@ -205,7 +212,7 @@ def render_allocation(payload: dict[str, Any]) -> str:
         "| 约束 | 允许的最高权益比例 | 是否起作用 |",
         "| --- | ---: | --- |",
         *[
-            f"| {_LIMIT_LABELS[name]} | {value:.1%} | {'是' if name in target['binding'] else ''} |"
+            f"| {_limit_label(name, target)} | {value:.1%} | {'是' if name in target['binding'] else ''} |"
             for name, value in target["limits"].items()
         ],
         "",
@@ -248,7 +255,7 @@ def _summary(
     within: list[dict[str, Any]],
     total: float,
 ) -> list[str]:
-    binding = "、".join(_LIMIT_LABELS[name] for name in target["binding"])
+    binding = "、".join(_limit_label(name, target) for name in target["binding"])
     lines = [
         f"当前权益（含跨境）占 {current:.1%}；按偏好与风险预算，目标区间 {target['low']:.0%}–{target['high']:.0%}，上限由{binding}决定。"
     ]
@@ -281,7 +288,7 @@ def _conflict(target: dict[str, Any], preference: InvestmentPreference) -> dict[
 
     low = target["at_preference_low"]
     return {
-        "binding": [_LIMIT_LABELS[name] for name in target["binding"]],
+        "binding": [_limit_label(name, target) for name in target["binding"]],
         "keep_limits": {
             "equity_high": target["high"],
             "volatility": target["at_high"]["volatility"],
@@ -303,7 +310,7 @@ def _conflict(target: dict[str, Any], preference: InvestmentPreference) -> dict[
 def _limitations() -> list[str]:
     return [
         "权益用沪深300 指数、债券用国债ETF（511010）、黄金用黄金ETF（518880）、跨境用纳斯达克100ETF（513100）代表，波动与相关性取近 3 年日收益；用户持有的具体基金与代表指数不同。",
-        "回撤约束用代表指数在五段历史情景中的跌幅计算，是历史重演，不是未来跌幅的上限。",
+        "回撤约束用代表指数在五段历史情景中的跌幅计算，是历史重演，不是未来跌幅的上限。偏好设了退出线时，权益在情景内从高点跌到退出线的第一个收盘按当天收盘卖出（跳空已在日收盘里）；这假设用户确实执行退出线，不计卖出后反弹的机会成本和何时买回。",
         "风险均衡参照是等风险贡献权重（来源见 docs/evidence/strategy_sources/allocation_risk_budget.md），只作对照，不是目标权重；不预测收益，两个波动相近但前景不同的持仓会得到相近的参照。",
         "配置区间只说明方向和幅度；具体换入换出、分几步和触发条件由调整方案给出。",
     ]

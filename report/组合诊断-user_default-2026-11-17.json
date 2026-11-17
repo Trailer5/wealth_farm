@@ -1,0 +1,1418 @@
+{
+ "user_id": "user:default",
+ "as_of_date": "2026-11-17",
+ "prices": {
+  "AMD（雇主股票，已归属）": {
+   "date": "2026-11-16",
+   "price": 504.28
+  },
+  "招商产业债券A（217022）": {
+   "date": "2026-11-17",
+   "price": 1.8681
+  },
+  "鹏华年年红一年持有期债券A（009920）": {
+   "date": "2026-11-17",
+   "price": 1.1927
+  },
+  "长信30天滚动持有债券C（013237）": {
+   "date": "2026-11-17",
+   "price": 1.1362
+  },
+  "嘉实中证国新央企现代能源ETF联接A（019592）": {
+   "date": "2026-11-17",
+   "price": 1.2266
+  },
+  "国金量化多因子股票A（006195）": {
+   "date": "2026-11-17",
+   "price": 2.4974
+  },
+  "大成360互联网+大数据100A（002236）": {
+   "date": "2026-11-16",
+   "price": 3.1417
+  },
+  "徐工机械（000425）": {
+   "date": "2026-11-17",
+   "price": 6.53
+  }
+ },
+ "exposures": {
+  "positions": [
+   {
+    "asset_id": "cash",
+    "label": "现金",
+    "asset_type": "cash",
+    "market_value": 623000.0,
+    "weight": 0.623,
+    "main_class": "现金类",
+    "notes": []
+   },
+   {
+    "asset_id": "asset:fac0a15a-236c-46f3-a071-16d964f8b37a",
+    "label": "AMD（雇主股票，已归属）",
+    "asset_type": "stock",
+    "market_value": 185000.0,
+    "weight": 0.185,
+    "main_class": "跨境（QDII）",
+    "notes": [
+     "美股按跨境处理，收益按美元计、未换汇"
+    ]
+   },
+   {
+    "asset_id": "bucket:bond:其他债券、分红类低风险标的",
+    "label": "其他债券、分红类低风险标的",
+    "asset_type": "bucket",
+    "market_value": 50000.0,
+    "weight": 0.05,
+    "main_class": "债券",
+    "notes": [
+     "未细分的合计项，价格用 国债ETF国泰（511010） 代表"
+    ]
+   },
+   {
+    "asset_id": "bucket:gold_commodity:黄金ETF（未给代码）",
+    "label": "黄金ETF（未给代码）",
+    "asset_type": "bucket",
+    "market_value": 30000.0,
+    "weight": 0.03,
+    "main_class": "黄金与商品",
+    "notes": [
+     "未细分的合计项，价格用 华安黄金ETF（518880） 代表"
+    ]
+   },
+   {
+    "asset_id": "asset:d3ca89e5-336c-42e6-929b-e9e71980f2ad",
+    "label": "招商产业债券A（217022）",
+    "asset_type": "open_fund",
+    "market_value": 30000.0,
+    "weight": 0.03,
+    "main_class": "债券",
+    "notes": [
+     "基金类型：债券型-混合一级",
+     "按 2026-09-30 季报资产配置拆分（股票 0.0%、债券 101.0%、现金 0.1%，合计 101.1% 后归一）"
+    ]
+   },
+   {
+    "asset_id": "asset:cda4244c-58dc-4770-8198-3b4074f4e569",
+    "label": "嘉实中证国新央企现代能源ETF联接A（019592）",
+    "asset_type": "open_fund",
+    "market_value": 18000.0,
+    "weight": 0.018,
+    "main_class": "现金类",
+    "notes": [
+     "基金类型：指数型-股票",
+     "按 2026-09-30 季报资产配置拆分（股票 0.6%、债券 0.0%、现金 5.7%，合计 6.3% 后归一）",
+     "行业按 2026-09-30 前十大持仓穿透，覆盖权益部分的 49%"
+    ]
+   },
+   {
+    "asset_id": "bucket:equity:其他高风险基金（未细分）",
+    "label": "其他高风险基金（未细分）",
+    "asset_type": "bucket",
+    "market_value": 18000.0,
+    "weight": 0.018,
+    "main_class": "权益",
+    "notes": [
+     "未细分的合计项，价格用沪深300 代表"
+    ]
+   },
+   {
+    "asset_id": "asset:d4262102-ccfa-4cd6-b980-ff398835b2f2",
+    "label": "鹏华年年红一年持有期债券A（009920）",
+    "asset_type": "open_fund",
+    "market_value": 13000.0,
+    "weight": 0.013,
+    "main_class": "债券",
+    "notes": [
+     "基金类型：债券型-长债",
+     "按 2026-09-30 季报资产配置拆分（股票 0.0%、债券 110.0%、现金 1.1%，合计 111.1% 后归一）"
+    ]
+   },
+   {
+    "asset_id": "asset:4f2ab8eb-fc9a-471c-8be0-ecd2627808a0",
+    "label": "长信30天滚动持有债券C（013237）",
+    "asset_type": "open_fund",
+    "market_value": 10000.0,
+    "weight": 0.01,
+    "main_class": "债券",
+    "notes": [
+     "基金类型：债券型-中短债",
+     "按 2026-09-30 季报资产配置拆分（股票 0.0%、债券 94.4%、现金 0.1%，合计 94.5% 后归一）"
+    ]
+   },
+   {
+    "asset_id": "asset:b072ca55-d7a8-4b91-a23d-04cd74d43a97",
+    "label": "国金量化多因子股票A（006195）",
+    "asset_type": "open_fund",
+    "market_value": 8000.0,
+    "weight": 0.008,
+    "main_class": "权益",
+    "notes": [
+     "基金类型：股票型",
+     "按 2026-09-30 季报资产配置拆分（股票 91.6%、债券 0.0%、现金 7.4%，合计 99.0% 后归一）",
+     "行业按 2026-09-30 前十大持仓穿透，覆盖权益部分的 11%"
+    ]
+   },
+   {
+    "asset_id": "asset:dac18186-2655-4d53-8400-2ade47b640c5",
+    "label": "大成360互联网+大数据100A（002236）",
+    "asset_type": "open_fund",
+    "market_value": 8000.0,
+    "weight": 0.008,
+    "main_class": "权益",
+    "notes": [
+     "基金类型：指数型-股票",
+     "按 2026-09-30 季报资产配置拆分（股票 93.9%、债券 0.0%、现金 6.6%，合计 100.5% 后归一）",
+     "行业按 2026-09-30 前十大持仓穿透，覆盖权益部分的 12%"
+    ]
+   },
+   {
+    "asset_id": "asset:d8dab1e1-9479-4f25-878b-6cd546d7b82b",
+    "label": "徐工机械（000425）",
+    "asset_type": "stock",
+    "market_value": 7000.0,
+    "weight": 0.007,
+    "main_class": "权益",
+    "notes": []
+   }
+  ],
+  "total_market_value": 1000000.0,
+  "max_weight": 0.623,
+  "concentration_hhi": 0.4277,
+  "asset_classes": [
+   {
+    "class": "cash",
+    "label": "现金类",
+    "weight": 0.6406
+   },
+   {
+    "class": "overseas",
+    "label": "跨境（QDII）",
+    "weight": 0.185
+   },
+   {
+    "class": "bond",
+    "label": "债券",
+    "weight": 0.1028
+   },
+   {
+    "class": "equity",
+    "label": "权益",
+    "weight": 0.0416
+   },
+   {
+    "class": "gold_commodity",
+    "label": "黄金与商品",
+    "weight": 0.03
+   }
+  ],
+  "industries": [
+   {
+    "industry": "美股（未分行业）",
+    "weight": 0.185,
+    "share_of_equity": 4.451
+   },
+   {
+    "industry": "未穿透",
+    "weight": 0.0321,
+    "share_of_equity": 0.7713
+   },
+   {
+    "industry": "机械设备",
+    "weight": 0.0071,
+    "share_of_equity": 0.172
+   },
+   {
+    "industry": "电子",
+    "weight": 0.0008,
+    "share_of_equity": 0.0202
+   },
+   {
+    "industry": "计算机",
+    "weight": 0.0004,
+    "share_of_equity": 0.01
+   },
+   {
+    "industry": "公用事业",
+    "weight": 0.0004,
+    "share_of_equity": 0.0096
+   },
+   {
+    "industry": "国防军工",
+    "weight": 0.0002,
+    "share_of_equity": 0.0044
+   },
+   {
+    "industry": "有色金属",
+    "weight": 0.0001,
+    "share_of_equity": 0.0034
+   },
+   {
+    "industry": "电力设备",
+    "weight": 0.0001,
+    "share_of_equity": 0.0027
+   },
+   {
+    "industry": "石油石化",
+    "weight": 0.0001,
+    "share_of_equity": 0.0027
+   },
+   {
+    "industry": "家用电器",
+    "weight": 0.0001,
+    "share_of_equity": 0.0022
+   },
+   {
+    "industry": "煤炭",
+    "weight": 0.0001,
+    "share_of_equity": 0.0014
+   }
+  ],
+  "uncovered_equity": 0.0321,
+  "csrc_industries": [
+   {
+    "industry": "制造业",
+    "weight": 0.0097
+   },
+   {
+    "industry": "信息传输、软件和信息技术服务业",
+    "weight": 0.0035
+   },
+   {
+    "industry": "电力、热力、燃气及水生产和供应业",
+    "weight": 0.0009
+   },
+   {
+    "industry": "采矿业",
+    "weight": 0.0006
+   }
+  ],
+  "top_stocks": [
+   {
+    "key": "us:AMD",
+    "name": "AMD（雇主股票，已归属）",
+    "weight": 0.185,
+    "sources": [
+     {
+      "label": "AMD（雇主股票，已归属）",
+      "weight": 0.185
+     }
+    ]
+   },
+   {
+    "key": "000425",
+    "name": "徐工机械",
+    "weight": 0.007,
+    "sources": [
+     {
+      "label": "徐工机械（000425）",
+      "weight": 0.007
+     }
+    ]
+   },
+   {
+    "key": "600900",
+    "name": "长江电力",
+    "weight": 0.0002,
+    "sources": [
+     {
+      "label": "嘉实中证国新央企现代能源ETF联接A（019592）",
+      "weight": 0.0002
+     }
+    ]
+   },
+   {
+    "key": "688498",
+    "name": "源杰科技",
+    "weight": 0.0002,
+    "sources": [
+     {
+      "label": "国金量化多因子股票A（006195）",
+      "weight": 0.0002
+     }
+    ]
+   },
+   {
+    "key": "600815",
+    "name": "厦工股份",
+    "weight": 0.0002,
+    "sources": [
+     {
+      "label": "招商产业债券A（217022）",
+      "weight": 0.0002
+     }
+    ]
+   },
+   {
+    "key": "688175",
+    "name": "高凌信息",
+    "weight": 0.0001,
+    "sources": [
+     {
+      "label": "大成360互联网+大数据100A（002236）",
+      "weight": 0.0001
+     }
+    ]
+   },
+   {
+    "key": "600406",
+    "name": "国电南瑞",
+    "weight": 0.0001,
+    "sources": [
+     {
+      "label": "嘉实中证国新央企现代能源ETF联接A（019592）",
+      "weight": 0.0001
+     }
+    ]
+   },
+   {
+    "key": "300691",
+    "name": "联合光电",
+    "weight": 0.0001,
+    "sources": [
+     {
+      "label": "大成360互联网+大数据100A（002236）",
+      "weight": 0.0001
+     }
+    ]
+   },
+   {
+    "key": "688012",
+    "name": "中微公司",
+    "weight": 0.0001,
+    "sources": [
+     {
+      "label": "国金量化多因子股票A（006195）",
+      "weight": 0.0001
+     }
+    ]
+   },
+   {
+    "key": "001326",
+    "name": "联域股份",
+    "weight": 0.0001,
+    "sources": [
+     {
+      "label": "大成360互联网+大数据100A（002236）",
+      "weight": 0.0001
+     }
+    ]
+   }
+  ],
+  "overlaps": [],
+  "shared_fund_holdings": []
+ },
+ "risk": {
+  "window": {
+   "start": "2023-11-18",
+   "end": "2026-11-17",
+   "trading_days_per_year": 252
+  },
+  "portfolio_volatility": 0.1166,
+  "portfolio_volatility_1y": 0.1392,
+  "risk_contributions": [
+   {
+    "asset_id": "asset:fac0a15a-236c-46f3-a071-16d964f8b37a",
+    "label": "AMD（雇主股票，已归属）",
+    "weight": 0.185,
+    "volatility": 0.615,
+    "risk_share": 0.9687
+   },
+   {
+    "asset_id": "bucket:equity:其他高风险基金（未细分）",
+    "label": "其他高风险基金（未细分）",
+    "weight": 0.018,
+    "volatility": 0.1836,
+    "risk_share": 0.0084
+   },
+   {
+    "asset_id": "bucket:gold_commodity:黄金ETF（未给代码）",
+    "label": "黄金ETF（未给代码）",
+    "weight": 0.03,
+    "volatility": 0.2168,
+    "risk_share": 0.0072
+   },
+   {
+    "asset_id": "asset:cda4244c-58dc-4770-8198-3b4074f4e569",
+    "label": "嘉实中证国新央企现代能源ETF联接A（019592）",
+    "weight": 0.018,
+    "volatility": 0.1592,
+    "risk_share": 0.0053
+   },
+   {
+    "asset_id": "asset:b072ca55-d7a8-4b91-a23d-04cd74d43a97",
+    "label": "国金量化多因子股票A（006195）",
+    "weight": 0.008,
+    "volatility": 0.2657,
+    "risk_share": 0.0048
+   },
+   {
+    "asset_id": "asset:dac18186-2655-4d53-8400-2ade47b640c5",
+    "label": "大成360互联网+大数据100A（002236）",
+    "weight": 0.008,
+    "volatility": 0.3333,
+    "risk_share": 0.0044
+   },
+   {
+    "asset_id": "asset:d8dab1e1-9479-4f25-878b-6cd546d7b82b",
+    "label": "徐工机械（000425）",
+    "weight": 0.007,
+    "volatility": 0.3618,
+    "risk_share": 0.0014
+   },
+   {
+    "asset_id": "asset:d3ca89e5-336c-42e6-929b-e9e71980f2ad",
+    "label": "招商产业债券A（217022）",
+    "weight": 0.03,
+    "volatility": 0.0048,
+    "risk_share": 0.0
+   },
+   {
+    "asset_id": "asset:d4262102-ccfa-4cd6-b980-ff398835b2f2",
+    "label": "鹏华年年红一年持有期债券A（009920）",
+    "weight": 0.013,
+    "volatility": 0.0066,
+    "risk_share": 0.0
+   },
+   {
+    "asset_id": "asset:4f2ab8eb-fc9a-471c-8be0-ecd2627808a0",
+    "label": "长信30天滚动持有债券C（013237）",
+    "weight": 0.01,
+    "volatility": 0.0016,
+    "risk_share": 0.0
+   },
+   {
+    "asset_id": "cash",
+    "label": "现金",
+    "weight": 0.623,
+    "volatility": 0.0,
+    "risk_share": 0.0
+   },
+   {
+    "asset_id": "bucket:bond:其他债券、分红类低风险标的",
+    "label": "其他债券、分红类低风险标的",
+    "weight": 0.05,
+    "volatility": 0.0163,
+    "risk_share": -0.0003
+   }
+  ],
+  "correlations": [
+   {
+    "pair": [
+     "招商产业债券A（217022）",
+     "鹏华年年红一年持有期债券A（009920）"
+    ],
+    "correlation": 0.884
+   },
+   {
+    "pair": [
+     "国金量化多因子股票A（006195）",
+     "大成360互联网+大数据100A（002236）"
+    ],
+    "correlation": 0.835
+   },
+   {
+    "pair": [
+     "国金量化多因子股票A（006195）",
+     "其他高风险基金（未细分）"
+    ],
+    "correlation": 0.785
+   },
+   {
+    "pair": [
+     "招商产业债券A（217022）",
+     "长信30天滚动持有债券C（013237）"
+    ],
+    "correlation": 0.708
+   },
+   {
+    "pair": [
+     "鹏华年年红一年持有期债券A（009920）",
+     "长信30天滚动持有债券C（013237）"
+    ],
+    "correlation": 0.652
+   },
+   {
+    "pair": [
+     "嘉实中证国新央企现代能源ETF联接A（019592）",
+     "其他高风险基金（未细分）"
+    ],
+    "correlation": 0.619
+   },
+   {
+    "pair": [
+     "大成360互联网+大数据100A（002236）",
+     "其他高风险基金（未细分）"
+    ],
+    "correlation": 0.609
+   },
+   {
+    "pair": [
+     "鹏华年年红一年持有期债券A（009920）",
+     "其他债券、分红类低风险标的"
+    ],
+    "correlation": 0.581
+   },
+   {
+    "pair": [
+     "招商产业债券A（217022）",
+     "其他债券、分红类低风险标的"
+    ],
+    "correlation": 0.508
+   },
+   {
+    "pair": [
+     "其他高风险基金（未细分）",
+     "徐工机械（000425）"
+    ],
+    "correlation": 0.429
+   },
+   {
+    "pair": [
+     "嘉实中证国新央企现代能源ETF联接A（019592）",
+     "国金量化多因子股票A（006195）"
+    ],
+    "correlation": 0.427
+   },
+   {
+    "pair": [
+     "嘉实中证国新央企现代能源ETF联接A（019592）",
+     "徐工机械（000425）"
+    ],
+    "correlation": 0.427
+   },
+   {
+    "pair": [
+     "长信30天滚动持有债券C（013237）",
+     "其他债券、分红类低风险标的"
+    ],
+    "correlation": 0.313
+   },
+   {
+    "pair": [
+     "国金量化多因子股票A（006195）",
+     "徐工机械（000425）"
+    ],
+    "correlation": 0.297
+   },
+   {
+    "pair": [
+     "黄金ETF（未给代码）",
+     "嘉实中证国新央企现代能源ETF联接A（019592）"
+    ],
+    "correlation": 0.291
+   },
+   {
+    "pair": [
+     "嘉实中证国新央企现代能源ETF联接A（019592）",
+     "大成360互联网+大数据100A（002236）"
+    ],
+    "correlation": 0.285
+   },
+   {
+    "pair": [
+     "黄金ETF（未给代码）",
+     "其他高风险基金（未细分）"
+    ],
+    "correlation": 0.243
+   },
+   {
+    "pair": [
+     "大成360互联网+大数据100A（002236）",
+     "徐工机械（000425）"
+    ],
+    "correlation": 0.239
+   },
+   {
+    "pair": [
+     "黄金ETF（未给代码）",
+     "国金量化多因子股票A（006195）"
+    ],
+    "correlation": 0.23
+   },
+   {
+    "pair": [
+     "AMD（雇主股票，已归属）",
+     "其他高风险基金（未细分）"
+    ],
+    "correlation": 0.21
+   },
+   {
+    "pair": [
+     "黄金ETF（未给代码）",
+     "徐工机械（000425）"
+    ],
+    "correlation": 0.192
+   },
+   {
+    "pair": [
+     "AMD（雇主股票，已归属）",
+     "国金量化多因子股票A（006195）"
+    ],
+    "correlation": 0.178
+   },
+   {
+    "pair": [
+     "AMD（雇主股票，已归属）",
+     "嘉实中证国新央企现代能源ETF联接A（019592）"
+    ],
+    "correlation": 0.138
+   },
+   {
+    "pair": [
+     "黄金ETF（未给代码）",
+     "大成360互联网+大数据100A（002236）"
+    ],
+    "correlation": 0.131
+   },
+   {
+    "pair": [
+     "AMD（雇主股票，已归属）",
+     "大成360互联网+大数据100A（002236）"
+    ],
+    "correlation": 0.123
+   },
+   {
+    "pair": [
+     "黄金ETF（未给代码）",
+     "长信30天滚动持有债券C（013237）"
+    ],
+    "correlation": 0.079
+   },
+   {
+    "pair": [
+     "AMD（雇主股票，已归属）",
+     "长信30天滚动持有债券C（013237）"
+    ],
+    "correlation": 0.07
+   },
+   {
+    "pair": [
+     "黄金ETF（未给代码）",
+     "招商产业债券A（217022）"
+    ],
+    "correlation": 0.06
+   },
+   {
+    "pair": [
+     "黄金ETF（未给代码）",
+     "鹏华年年红一年持有期债券A（009920）"
+    ],
+    "correlation": 0.057
+   },
+   {
+    "pair": [
+     "AMD（雇主股票，已归属）",
+     "黄金ETF（未给代码）"
+    ],
+    "correlation": 0.05
+   },
+   {
+    "pair": [
+     "长信30天滚动持有债券C（013237）",
+     "嘉实中证国新央企现代能源ETF联接A（019592）"
+    ],
+    "correlation": 0.044
+   },
+   {
+    "pair": [
+     "长信30天滚动持有债券C（013237）",
+     "徐工机械（000425）"
+    ],
+    "correlation": 0.031
+   },
+   {
+    "pair": [
+     "AMD（雇主股票，已归属）",
+     "招商产业债券A（217022）"
+    ],
+    "correlation": 0.02
+   },
+   {
+    "pair": [
+     "AMD（雇主股票，已归属）",
+     "鹏华年年红一年持有期债券A（009920）"
+    ],
+    "correlation": 0.01
+   },
+   {
+    "pair": [
+     "AMD（雇主股票，已归属）",
+     "徐工机械（000425）"
+    ],
+    "correlation": 0.001
+   },
+   {
+    "pair": [
+     "黄金ETF（未给代码）",
+     "其他债券、分红类低风险标的"
+    ],
+    "correlation": -0.004
+   },
+   {
+    "pair": [
+     "长信30天滚动持有债券C（013237）",
+     "国金量化多因子股票A（006195）"
+    ],
+    "correlation": -0.012
+   },
+   {
+    "pair": [
+     "招商产业债券A（217022）",
+     "徐工机械（000425）"
+    ],
+    "correlation": -0.026
+   },
+   {
+    "pair": [
+     "长信30天滚动持有债券C（013237）",
+     "其他高风险基金（未细分）"
+    ],
+    "correlation": -0.026
+   },
+   {
+    "pair": [
+     "长信30天滚动持有债券C（013237）",
+     "大成360互联网+大数据100A（002236）"
+    ],
+    "correlation": -0.033
+   },
+   {
+    "pair": [
+     "AMD（雇主股票，已归属）",
+     "其他债券、分红类低风险标的"
+    ],
+    "correlation": -0.041
+   },
+   {
+    "pair": [
+     "招商产业债券A（217022）",
+     "嘉实中证国新央企现代能源ETF联接A（019592）"
+    ],
+    "correlation": -0.052
+   },
+   {
+    "pair": [
+     "鹏华年年红一年持有期债券A（009920）",
+     "嘉实中证国新央企现代能源ETF联接A（019592）"
+    ],
+    "correlation": -0.057
+   },
+   {
+    "pair": [
+     "鹏华年年红一年持有期债券A（009920）",
+     "徐工机械（000425）"
+    ],
+    "correlation": -0.064
+   },
+   {
+    "pair": [
+     "其他债券、分红类低风险标的",
+     "徐工机械（000425）"
+    ],
+    "correlation": -0.096
+   },
+   {
+    "pair": [
+     "其他债券、分红类低风险标的",
+     "大成360互联网+大数据100A（002236）"
+    ],
+    "correlation": -0.113
+   },
+   {
+    "pair": [
+     "其他债券、分红类低风险标的",
+     "嘉实中证国新央企现代能源ETF联接A（019592）"
+    ],
+    "correlation": -0.114
+   },
+   {
+    "pair": [
+     "其他债券、分红类低风险标的",
+     "国金量化多因子股票A（006195）"
+    ],
+    "correlation": -0.14
+   },
+   {
+    "pair": [
+     "招商产业债券A（217022）",
+     "国金量化多因子股票A（006195）"
+    ],
+    "correlation": -0.141
+   },
+   {
+    "pair": [
+     "鹏华年年红一年持有期债券A（009920）",
+     "国金量化多因子股票A（006195）"
+    ],
+    "correlation": -0.149
+   },
+   {
+    "pair": [
+     "鹏华年年红一年持有期债券A（009920）",
+     "大成360互联网+大数据100A（002236）"
+    ],
+    "correlation": -0.15
+   },
+   {
+    "pair": [
+     "招商产业债券A（217022）",
+     "大成360互联网+大数据100A（002236）"
+    ],
+    "correlation": -0.152
+   },
+   {
+    "pair": [
+     "招商产业债券A（217022）",
+     "其他高风险基金（未细分）"
+    ],
+    "correlation": -0.182
+   },
+   {
+    "pair": [
+     "鹏华年年红一年持有期债券A（009920）",
+     "其他高风险基金（未细分）"
+    ],
+    "correlation": -0.205
+   },
+   {
+    "pair": [
+     "其他债券、分红类低风险标的",
+     "其他高风险基金（未细分）"
+    ],
+    "correlation": -0.229
+   }
+  ],
+  "high_correlations": [
+   {
+    "pair": [
+     "招商产业债券A（217022）",
+     "鹏华年年红一年持有期债券A（009920）"
+    ],
+    "correlation": 0.884
+   },
+   {
+    "pair": [
+     "国金量化多因子股票A（006195）",
+     "大成360互联网+大数据100A（002236）"
+    ],
+    "correlation": 0.835
+   }
+  ],
+  "proxied": [],
+  "excluded": [],
+  "observations": {
+   "AMD（雇主股票，已归属）": 749,
+   "黄金ETF（未给代码）": 724,
+   "招商产业债券A（217022）": 726,
+   "鹏华年年红一年持有期债券A（009920）": 726,
+   "长信30天滚动持有债券C（013237）": 727,
+   "其他债券、分红类低风险标的": 724,
+   "嘉实中证国新央企现代能源ETF联接A（019592）": 695,
+   "国金量化多因子股票A（006195）": 726,
+   "大成360互联网+大数据100A（002236）": 725,
+   "其他高风险基金（未细分）": 724,
+   "徐工机械（000425）": 724,
+   "现金": 0
+  }
+ },
+ "stress": [
+  {
+   "scenario_id": "crash_2015",
+   "label": "2015 年 6–8 月股灾",
+   "start": "2015-06-08",
+   "end": "2015-08-26",
+   "benchmark_return": -0.4348,
+   "portfolio_return": -0.0645,
+   "uncovered_weight": 0.0,
+   "positions": [
+    {
+     "label": "AMD（雇主股票，已归属）",
+     "return": -0.2554,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "黄金ETF（未给代码）",
+     "return": -0.0084,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "招商产业债券A（217022）",
+     "return": 0.0125,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "鹏华年年红一年持有期债券A（009920）",
+     "return": 0.0032,
+     "method": "beta_proxy",
+     "beta": -0.01
+    },
+    {
+     "label": "长信30天滚动持有债券C（013237）",
+     "return": 0.0001,
+     "method": "beta_proxy",
+     "beta": -0.0
+    },
+    {
+     "label": "其他债券、分红类低风险标的",
+     "return": 0.0089,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "嘉实中证国新央企现代能源ETF联接A（019592）",
+     "return": 0.0,
+     "method": "cash",
+     "beta": null
+    },
+    {
+     "label": "国金量化多因子股票A（006195）",
+     "return": -0.4941,
+     "method": "beta_proxy",
+     "beta": 1.14
+    },
+    {
+     "label": "大成360互联网+大数据100A（002236）",
+     "return": -0.4808,
+     "method": "beta_proxy",
+     "beta": 1.11
+    },
+    {
+     "label": "其他高风险基金（未细分）",
+     "return": -0.4348,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "徐工机械（000425）",
+     "return": -0.3208,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "现金",
+     "return": 0.0,
+     "method": "cash",
+     "beta": null
+    }
+   ],
+   "managed_return": -0.0299,
+   "exit_day": "2015-07-07"
+  },
+  {
+   "scenario_id": "bear_2018",
+   "label": "2018 年熊市",
+   "start": "2018-01-24",
+   "end": "2019-01-03",
+   "benchmark_return": -0.3246,
+   "portfolio_return": 0.0565,
+   "uncovered_weight": 0.0,
+   "positions": [
+    {
+     "label": "AMD（雇主股票，已归属）",
+     "return": 0.3415,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "黄金ETF（未给代码）",
+     "return": 0.0339,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "招商产业债券A（217022）",
+     "return": 0.0845,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "鹏华年年红一年持有期债券A（009920）",
+     "return": 0.0024,
+     "method": "beta_proxy",
+     "beta": -0.01
+    },
+    {
+     "label": "长信30天滚动持有债券C（013237）",
+     "return": 0.0001,
+     "method": "beta_proxy",
+     "beta": -0.0
+    },
+    {
+     "label": "其他债券、分红类低风险标的",
+     "return": 0.0592,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "嘉实中证国新央企现代能源ETF联接A（019592）",
+     "return": 0.0,
+     "method": "cash",
+     "beta": null
+    },
+    {
+     "label": "国金量化多因子股票A（006195）",
+     "return": -0.3689,
+     "method": "beta_proxy",
+     "beta": 1.14
+    },
+    {
+     "label": "大成360互联网+大数据100A（002236）",
+     "return": -0.276,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "其他高风险基金（未细分）",
+     "return": -0.3246,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "徐工机械（000425）",
+     "return": -0.3227,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "现金",
+     "return": 0.0,
+     "method": "cash",
+     "beta": null
+    }
+   ],
+   "managed_return": -0.0192,
+   "exit_day": "2018-02-08"
+  },
+  {
+   "scenario_id": "covid_2020",
+   "label": "2020 年 2–3 月疫情冲击",
+   "start": "2020-01-14",
+   "end": "2020-03-23",
+   "benchmark_return": -0.1574,
+   "portfolio_return": -0.0288,
+   "uncovered_weight": 0.0,
+   "positions": [
+    {
+     "label": "AMD（雇主股票，已归属）",
+     "return": -0.1363,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "黄金ETF（未给代码）",
+     "return": -0.011,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "招商产业债券A（217022）",
+     "return": 0.015,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "鹏华年年红一年持有期债券A（009920）",
+     "return": 0.0012,
+     "method": "beta_proxy",
+     "beta": -0.01
+    },
+    {
+     "label": "长信30天滚动持有债券C（013237）",
+     "return": 0.0,
+     "method": "beta_proxy",
+     "beta": -0.0
+    },
+    {
+     "label": "其他债券、分红类低风险标的",
+     "return": 0.0209,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "嘉实中证国新央企现代能源ETF联接A（019592）",
+     "return": 0.0,
+     "method": "cash",
+     "beta": null
+    },
+    {
+     "label": "国金量化多因子股票A（006195）",
+     "return": -0.1003,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "大成360互联网+大数据100A（002236）",
+     "return": -0.0428,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "其他高风险基金（未细分）",
+     "return": -0.1574,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "徐工机械（000425）",
+     "return": -0.1083,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "现金",
+     "return": 0.0,
+     "method": "cash",
+     "beta": null
+    }
+   ],
+   "managed_return": -0.0022,
+   "exit_day": "2020-02-25"
+  },
+  {
+   "scenario_id": "decline_2022",
+   "label": "2022 年下跌",
+   "start": "2022-01-04",
+   "end": "2022-10-31",
+   "benchmark_return": -0.2865,
+   "portfolio_return": -0.11,
+   "uncovered_weight": 0.0,
+   "positions": [
+    {
+     "label": "AMD（雇主股票，已归属）",
+     "return": -0.5841,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "黄金ETF（未给代码）",
+     "return": 0.0517,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "招商产业债券A（217022）",
+     "return": 0.0388,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "鹏华年年红一年持有期债券A（009920）",
+     "return": 0.0336,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "长信30天滚动持有债券C（013237）",
+     "return": 0.0293,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "其他债券、分红类低风险标的",
+     "return": 0.0257,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "嘉实中证国新央企现代能源ETF联接A（019592）",
+     "return": 0.0,
+     "method": "cash",
+     "beta": null
+    },
+    {
+     "label": "国金量化多因子股票A（006195）",
+     "return": 0.0657,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "大成360互联网+大数据100A（002236）",
+     "return": -0.0794,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "其他高风险基金（未细分）",
+     "return": -0.2865,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "徐工机械（000425）",
+     "return": -0.1963,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "现金",
+     "return": 0.0,
+     "method": "cash",
+     "beta": null
+    }
+   ],
+   "managed_return": -0.0321,
+   "exit_day": "2022-01-24"
+  },
+  {
+   "scenario_id": "smallcap_2024",
+   "label": "2024 年 1–2 月小微盘踩踏",
+   "start": "2024-01-02",
+   "end": "2024-02-05",
+   "benchmark_return": -0.0549,
+   "portfolio_return": 0.0417,
+   "uncovered_weight": 0.0,
+   "positions": [
+    {
+     "label": "AMD（雇主股票，已归属）",
+     "return": 0.2573,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "黄金ETF（未给代码）",
+     "return": -0.0049,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "招商产业债券A（217022）",
+     "return": 0.0073,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "鹏华年年红一年持有期债券A（009920）",
+     "return": 0.0059,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "长信30天滚动持有债券C（013237）",
+     "return": 0.0034,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "其他债券、分红类低风险标的",
+     "return": 0.0073,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "嘉实中证国新央企现代能源ETF联接A（019592）",
+     "return": -0.018,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "国金量化多因子股票A（006195）",
+     "return": -0.3152,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "大成360互联网+大数据100A（002236）",
+     "return": -0.3417,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "其他高风险基金（未细分）",
+     "return": -0.0549,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "徐工机械（000425）",
+     "return": 0.0143,
+     "method": "history",
+     "beta": null
+    },
+    {
+     "label": "现金",
+     "return": 0.0,
+     "method": "cash",
+     "beta": null
+    }
+   ],
+   "managed_return": 0.0417,
+   "exit_day": null
+  }
+ ],
+ "preference_id": "preference:e1be865ed1ed13b1",
+ "preference_checks": [
+  {
+   "check_id": "equity_weight",
+   "label": "权益比例（含跨境）",
+   "value": 0.2266,
+   "low": 0.1,
+   "high": 0.3,
+   "status": "ok"
+  },
+  {
+   "check_id": "cash_weight",
+   "label": "现金底线",
+   "value": 0.6406,
+   "low": 0.2,
+   "high": null,
+   "status": "ok"
+  },
+  {
+   "check_id": "single_stock",
+   "label": "单只个股上限",
+   "limit": 0.1,
+   "value": 0.185,
+   "status": "above",
+   "detail": "AMD（雇主股票，已归属） 18.5%"
+  },
+  {
+   "check_id": "single_industry",
+   "label": "单一行业上限",
+   "limit": 0.2,
+   "value": 0.185,
+   "status": "ok",
+   "detail": ""
+  },
+  {
+   "check_id": "volatility",
+   "label": "目标年化波动",
+   "value": 0.1166,
+   "low": null,
+   "high": 0.06,
+   "status": "above"
+  },
+  {
+   "check_id": "stress_loss",
+   "label": "可接受最大回撤",
+   "limit": 0.1,
+   "value": 0.0321,
+   "status": "ok",
+   "detail": "最差历史情景：2022 年下跌（风险资产回撤 15% 时收手）"
+  }
+ ],
+ "main_risks": [
+  "风险贡献最大的持仓：AMD（雇主股票，已归属）（权重 18%，风险 97%）、其他高风险基金（未细分）（权重 2%，风险 1%）、黄金ETF（未给代码）（权重 3%，风险 1%）",
+  "最大的行业暴露：美股（未分行业） 18%、机械设备 1%、电子 0%",
+  "高相关持仓 2 对，分散效果有限",
+  "最差历史情景：2022 年下跌，组合 -11.0%",
+  "与偏好不符：单只个股上限 18.5%（偏好 ≤10%），AMD（雇主股票，已归属） 18.5%",
+  "与偏好不符：目标年化波动 11.7%（偏好 ≤6%）"
+ ],
+ "portfolio_snapshot_id": null,
+ "gaps": [
+  "持仓按比例记录（2026-11-17，weights:331218be5a04d937）：金额按名义总资产 1,000,000 元换算，实际金额按你的总资产等比例缩放；手数取整与最低佣金按名义金额估算",
+  "嘉实中证国新央企现代能源ETF联接A（019592） 跟踪的中证国新央企现代能源指数没有可用的成分权重来源，按前十大持仓穿透",
+  "大成360互联网+大数据100A（002236） 跟踪的中证360互联网+大数据100指数没有可用的成分权重来源，按前十大持仓穿透"
+ ],
+ "limitations": [
+  "指数基金与 ETF 按跟踪指数在中证指数公司公布的月末成分权重全部穿透（只覆盖已登记的中证、上证系列指数，返回的指数名称须与跟踪标的一致）；其余基金按最近一期已披露季报（季末后 25 天视为可得）的前十大股票穿透，港股部分按季报港股行业配置归类，A 股其余部分记为“未穿透”，并给出季报证监会行业分布作对照；季报之后的调仓看不到。",
+  "基金大类按季报“股票、债券、现金占净比”归一拆分；货币、QDII、商品和固收指数基金整体归类。",
+  "港股行业为季报的港股行业分类（接近 GICS），不是申万；美股持仓不分行业；个股行业为申万一级当前归属。",
+  "波动与相关性用近 3 年日收益（每年 252 个交易日），并给出近 1 年组合波动对照；历史不足 120 个交易日的权益类持仓用沪深300 代替。",
+  "压力情景为固定的 5 段历史区间，按持仓实际历史重放；区间内没有历史的持仓用近 3 年对沪深300 的 Beta 估算，现金类按 0 计。这是历史重演，不是对未来跌幅的预测。",
+  "价格为截止日或之前最近一个交易日的收盘价或单位净值；货币基金按每份 1 元估值，与现金一起按零波动计。"
+ ]
+}

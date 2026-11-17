@@ -11,13 +11,18 @@ from .bse import BseDisclosureDataSource
 from .cninfo import CninfoDataSource
 from .csindex import CsIndexDataSource
 from .cs_fund import CsFundDisclosureDataSource
+from .common import DataSourceError
 from .eastmoney import (
     EastmoneyExchangeFundDataSource,
     EastmoneyResearchReportDataSource,
 )
+from .federal_register import FederalRegisterDataSource
+from .google_news import GoogleNewsDataSource
 from .mootdx import MootdxDataSource
+from .nasdaq import NasdaqDataSource
 from .nbs import NBSMacroDataSource
-from .sina import SinaExchangeFundDataSource
+from .sec_edgar import SecEdgarDataSource
+from .sina import SinaExchangeFundDataSource, SinaUsStockDataSource
 from .sse import SseDisclosureDataSource
 from .szse import SzseDisclosureDataSource
 from .tencent import TencentExchangeFundDataSource
@@ -27,6 +32,7 @@ from .total_return_bars import (
     sina_tdx_fund_total_return_bars,
     ths_tdx_total_return_bars,
 )
+from .web_page import fetch_web_page
 
 
 def fetch_a_share_daily_bars(
@@ -151,6 +157,99 @@ def fetch_total_return_bars(
     if source == "ths":
         return ths_tdx_total_return_bars(symbol, start_date, end_date)
     raise ValueError(f"Unsupported total-return bar source: {source}")
+
+
+def fetch_us_total_return_bars(
+    *,
+    source: str,
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    asset_type: str,
+):
+    if source == "sina_us":
+        return SinaUsStockDataSource().get_total_return_bars(symbol, start_date, end_date)
+    if source == "nasdaq_us":
+        return NasdaqDataSource().get_daily_bars(symbol, start_date, end_date, asset_type=asset_type)
+    raise ValueError(f"Unsupported US bar source: {source}")
+
+
+def fetch_hk_total_return_bars(*, symbol: str, start_date: str, end_date: str):
+    from .sina.hk_stock import SinaHkStockDataSource
+
+    return SinaHkStockDataSource().get_total_return_bars(symbol, start_date, end_date)
+
+
+def fetch_hk_listing(*, symbol: str):
+    from .sina.hk_stock import hk_listing
+
+    return hk_listing(symbol)
+
+
+def fetch_us_listing(*, symbol: str):
+    try:
+        return NasdaqDataSource().get_listing(symbol)
+    except DataSourceError as nasdaq_error:
+        # SEC's ticker file covers operating companies (not ETFs) with their exchange.
+        try:
+            return SecEdgarDataSource().listing(symbol)
+        except DataSourceError as sec_error:
+            raise DataSourceError(f"{nasdaq_error}; {sec_error}") from sec_error
+
+
+def search_news(*, query: str, since: str | None, until: str | None, language: str):
+    return GoogleNewsDataSource().search(query, since=since, until=until, language=language)
+
+
+def sec_filings(*, ticker: str, forms: tuple[str, ...], since: str | None, until: str | None):
+    return SecEdgarDataSource().filings(ticker, forms=tuple(forms), since=since, until=until)
+
+
+def sec_full_text_search(*, query: str, forms: tuple[str, ...], since: str | None, until: str | None):
+    return SecEdgarDataSource().full_text_search(query, forms=tuple(forms), since=since, until=until)
+
+
+def sec_company_facts(*, ticker: str):
+    return SecEdgarDataSource().company_facts(ticker)
+
+
+def us_treasury_10y(*, as_of_date: str):
+    """Latest 10-year par yield (percent) on or before the date, from the US Treasury daily yield curve."""
+
+    import csv
+    import io
+
+    from .http_client import UrlLibHttpClient
+
+    url = "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/{year}/all"
+    points = []
+    year = int(as_of_date[:4])
+    for target in (year, year - 1):
+        text = UrlLibHttpClient().get_text(
+            url.format(year=target),
+            {"type": "daily_treasury_yield_curve", "field_tdr_date_value": target, "_format": "csv"},
+        )
+        for row in csv.DictReader(io.StringIO(text)):
+            month, day, full_year = row["Date"].split("/")
+            iso = f"{full_year}-{month}-{day}"
+            if iso <= as_of_date and row.get("10 Yr"):
+                points.append((iso, float(row["10 Yr"])))
+        if points:
+            break
+    if not points:
+        raise DataSourceError("US Treasury yield curve has no 10-year value on or before " + as_of_date)
+    latest = max(points)
+    return {"date": latest[0], "percent": latest[1], "source": "US Treasury daily par yield curve (10 Yr)"}
+
+
+def federal_register_documents(
+    *, query: str | None, agency: str | None, since: str | None, until: str | None, limit: int
+):
+    return FederalRegisterDataSource().documents(query, agency=agency, since=since, until=until, limit=limit)
+
+
+def fetch_page(*, url: str):
+    return fetch_web_page(url)
 
 
 def fetch_etf_nav_history(

@@ -37,6 +37,13 @@ INTERVALS: dict[str, float] = {
     "chinamoney": 0.5,
     "stats": 1.0,
     "mootdx": 0.2,
+    "nasdaq": 0.5,
+    "google_news": 1.0,
+    # SEC allows 10 requests per second per client.
+    "sec_data": 0.15,
+    "sec_efts": 0.15,
+    "sec_www": 0.15,
+    "federal_register": 0.3,
 }
 DEFAULT_INTERVAL = 0.2
 JITTER = 0.3
@@ -55,6 +62,12 @@ _HOST_FAMILIES = (
     ("bse.cn", "bse"),
     ("chinamoney.com.cn", "chinamoney"),
     ("stats.gov.cn", "stats"),
+    ("nasdaq.com", "nasdaq"),
+    ("news.google.com", "google_news"),
+    ("data.sec.gov", "sec_data"),
+    ("efts.sec.gov", "sec_efts"),
+    ("sec.gov", "sec_www"),
+    ("federalregister.gov", "federal_register"),
 )
 _DEFAULT_DB = Path(__file__).resolve().parents[2] / "data" / "database" / "source_throttle.sqlite3"
 _LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "unknown"})

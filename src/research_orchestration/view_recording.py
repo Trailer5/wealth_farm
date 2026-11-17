@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.event_intel import OBS_PREFIX
 from src.master_data import MasterDataService
 from src.research_contracts import SettlementMethod, View, ViewOrigin
 from src.research_ledger import (
@@ -44,7 +45,21 @@ class ViewRecorder:
             and not self.metrics.known(rule.observed_id)
         ):
             raise ValueError(
-                f"未知指标 {rule.observed_id}；宏观指标写 macro:<series_id>（见 cli macro），公司财务指标写 fin:<asset_id>:<指标>"
+                f"未知指标 {rule.observed_id}；宏观指标写 macro:<series_id>（见 cli macro），公司财务指标写 fin:<asset_id>:<指标>，"
+                "事件或非结构化数值先 define-observable 再写 obs:<id>"
+            )
+        if (
+            rule is not None
+            and rule.method is SettlementMethod.METRIC_OBSERVATION
+            and rule.observed_id.startswith(OBS_PREFIX)
+            and not any(
+                item.available_at <= view.as_of_date
+                for item in self.metrics.series(rule.observed_id, view.as_of_date, view.as_of_date)
+            )
+        ):
+            raise ValueError(
+                f"{rule.observed_id} 在观点日 {view.as_of_date} 前没有可得的观测，无法确定参考值；"
+                "观点日不能早于 define-observable 的基线 available_at"
             )
         if rule is not None and rule.method is SettlementMethod.PRICE_RELATIVE:
             for asset_id in (rule.observed_id, rule.benchmark_id, rule.alternative_id):

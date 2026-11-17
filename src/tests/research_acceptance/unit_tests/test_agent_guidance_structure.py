@@ -34,9 +34,12 @@ REQUIRED_RESEARCH_GUIDES = (
     "playbooks/holding.md",
     "playbooks/portfolio.md",
     "playbooks/strategy.md",
+    "playbooks/global_events.md",
+    "playbooks/debate.md",
 )
 FLOW_GUIDES = ("question_routing.md", "playbooks/market_macro.md", "playbooks/sector.md",
-               "playbooks/holding.md", "playbooks/portfolio.md", "playbooks/strategy.md")
+               "playbooks/holding.md", "playbooks/portfolio.md", "playbooks/strategy.md",
+               "playbooks/global_events.md", "playbooks/debate.md")
 
 
 class AgentGuidanceTest(unittest.TestCase):
