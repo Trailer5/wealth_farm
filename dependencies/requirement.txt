@@ -7,4 +7,5 @@ mootdx
 pikepdf
 pdfplumber
 requests
+tzdata
 uvicorn

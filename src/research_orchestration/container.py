@@ -105,6 +105,7 @@ from src.user_space import (
     SQLiteUserSpaceRepository,
     UserSpaceService,
 )
+from src.user_space.plan_registry import PlanRegistryService, SQLitePlanRegistryRepository
 
 from .capabilities import (
     ResearchCapabilityRegistry,
@@ -130,6 +131,7 @@ from .portfolio_plan import PortfolioPlanService
 from .decision_review import DecisionReviewService
 from .debate import DebateWorkflow
 from .routine import RoutineService
+from .execution_plans import ExecutionPlanService
 from .price_history import PriceHistoryService
 from .event_watch import ObservableWatchService
 from .position_guidance import PositionGuidanceService
@@ -212,6 +214,7 @@ class ResearchOrchestrationContainer:
     adjustment_proposal: AdjustmentProposalService
     portfolio_plan: PortfolioPlanService
     decision_review: DecisionReviewService
+    execution_plans: ExecutionPlanService
     routine: RoutineService
     strategy_archive: StrategyArchiveService
     strategy_backtest: StrategyBacktestService
@@ -410,6 +413,9 @@ def create_default_container(
     capability_registry = default_capability_registry()
     user_space = UserSpaceService(
         SQLiteUserSpaceRepository(database_path)
+    )
+    execution_plans = ExecutionPlanService(
+        registry=PlanRegistryService(SQLitePlanRegistryRepository(database_path)), users=user_space,
     )
     research_state_repository = SQLiteResearchStateRepository(
         database_path
@@ -735,6 +741,7 @@ def create_default_container(
         adjustment_proposal=adjustment_proposal,
         portfolio_plan=portfolio_plan,
         decision_review=decision_review,
+        execution_plans=execution_plans,
         routine=RoutineService(
             settlement=ledger_settlement,
             market=market_state,
@@ -743,6 +750,7 @@ def create_default_container(
             thesis=thesis,
             decision_review=decision_review,
             master_data=master_data,
+            calendar=lambda user, as_of: execution_plans.calendar(user_id=user, at=as_of),
             strategies=lambda as_of, remote: strategy_track.track_all(as_of_date=as_of, allow_remote=remote),
             events=lambda user, as_of, remote: ObservableWatchService(ledger=ledger, intel=event_intel).run(
                 user_id=user,

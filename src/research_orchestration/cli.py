@@ -1023,6 +1023,25 @@ def build_parser() -> argparse.ArgumentParser:
         default="data/database/wealth_farm.sqlite3",
     )
     strategy_track.add_argument("--report-root", default="report")
+    for name in ("plan-register", "plan-show", "calendar", "task-resolve", "plan-review"):
+        execution = commands.add_parser(name, help="Execution plan registry and global calendar (offline).")
+        execution.add_argument("--user-id", required=True)
+        execution.add_argument("--db-path", default="data/database/wealth_farm.sqlite3")
+        execution.add_argument("--report-root", default="report")
+        if name in ("plan-register", "task-resolve"):
+            execution.add_argument("--json", required=True, help="UTF-8 JSON file; see the schema below.")
+        if name == "plan-register":
+            execution.add_argument("--key", required=True, help="Stable registration key; reuse for retries and revisions.")
+            execution.add_argument("--expected-revision", type=int)
+        if name in ("plan-show", "plan-review"):
+            execution.add_argument("--plan-id", required=True)
+        if name in ("calendar", "plan-show", "plan-review"):
+            execution.add_argument("--known-at", help="Historical knowledge cutoff, as an offset-aware ISO timestamp.")
+        if name in ("calendar", "plan-review"):
+            execution.add_argument("--at", help="ISO date (whole local day) or offset-aware timestamp; default now.")
+        if name == "calendar":
+            execution.add_argument("--through", help="Include future tasks through this date/time, plus unresolved older tasks.")
+            execution.add_argument("--include-closed", action="store_true")
     for name, epilog in EPILOGS.items():
         command = commands.choices[name]
         command.epilog = epilog
@@ -1054,6 +1073,24 @@ def main(
             db_path=args.db_path,
             report_root=args.report_root,
         )
+        if args.command in ("plan-register", "plan-show", "calendar", "task-resolve", "plan-review"):
+            service = container.execution_plans
+            if args.command == "plan-register":
+                payload = service.register(user_id=args.user_id, registration_key=args.key,
+                    plan=json.loads(Path(args.json).read_text(encoding="utf-8-sig")),
+                    expected_revision=args.expected_revision)
+            elif args.command == "task-resolve":
+                payload = service.resolve(user_id=args.user_id,
+                    **json.loads(Path(args.json).read_text(encoding="utf-8-sig")))
+            elif args.command == "calendar":
+                payload = service.calendar(user_id=args.user_id, at=args.at, through=args.through,
+                    known_at=args.known_at, include_closed=args.include_closed)
+            elif args.command == "plan-review":
+                payload = service.review(user_id=args.user_id, plan_id=args.plan_id, at=args.at, known_at=args.known_at)
+            else:
+                payload = service.show(user_id=args.user_id, plan_id=args.plan_id, known_at=args.known_at)
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=output)
+            return 0
         if args.command == "plan-single":
             planning_result = container.request_planner.plan(
                 ResearchPlanningRequest(

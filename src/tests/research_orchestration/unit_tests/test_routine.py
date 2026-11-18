@@ -108,6 +108,28 @@ class RoutineServiceTest(unittest.TestCase):
         self.assertIn("市场档案失败", payload["gaps"][0])
         self.assertIsNotNone(payload["steps"]["theses"])
 
+    def test_execution_calendar_survives_remote_failure_and_is_failure_isolated(self):
+        service = _service(market=_Archive("x", fail=True))
+        service.calendar = lambda user, day: {
+            "counts": {"overdue": 2, "due": 1, "blocked": 0},
+            "gaps": ["One task has an invalid schedule"],
+            "next_actions": [{"command": "plan-show", "reason": "Read plan"}],
+        }
+        payload = service.run(user_id="user:u", as_of_date=AS_OF)
+        self.assertEqual(payload["steps"]["calendar"]["counts"]["overdue"], 2)
+        self.assertTrue(any(item["command"] == "plan-show" for item in payload["next_actions"]))
+        self.assertTrue(any("执行日历" in line for line in payload["summary"]))
+        self.assertIn("One task has an invalid schedule", payload["gaps"])
+
+        def unavailable(user, day):
+            raise RuntimeError("registry unavailable")
+
+        service.calendar = unavailable
+        payload = service.run(user_id="user:u", as_of_date=AS_OF)
+        self.assertIsNone(payload["steps"]["calendar"])
+        self.assertIsNotNone(payload["steps"]["review"])
+        self.assertTrue(any("全局执行日历失败" in gap for gap in payload["gaps"]))
+
     def test_source_cooldowns_are_reported(self):
         cooldowns = {"baostock": {"until": "2026-10-29 20:00:00", "reason": "黑名单"}}
         payload = _service(cooldowns=lambda: cooldowns).run(user_id="user:u", as_of_date=AS_OF)

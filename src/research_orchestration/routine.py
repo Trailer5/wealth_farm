@@ -43,6 +43,7 @@ class RoutineService:
         events: Callable[[str, str, bool], list[dict[str, Any]]] | None = None,
         guidance: Callable[[str, str], list[dict[str, Any]]] | None = None,
         debates: Callable[[str, str], dict[str, Any]] | None = None,
+        calendar: Callable[[str, str], dict[str, Any]] | None = None,
     ) -> None:
         self.settlement = settlement
         self.market = market
@@ -56,6 +57,7 @@ class RoutineService:
         self.events = events
         self.guidance = guidance
         self.debates = debates
+        self.calendar = calendar
 
     def run(
         self,
@@ -69,6 +71,9 @@ class RoutineService:
         steps: dict[str, Any] = {
             "settlement": _step("结算到期判断", gaps, lambda: self.settlement.settle_due(as_of_date).to_dict()),
         }
+        if self.calendar is not None:
+            steps["calendar"] = _step("全局执行日历", gaps, lambda: self.calendar(user_id, as_of_date))
+            gaps.extend((steps["calendar"] or {}).get("gaps", []))
         if self.strategies is not None:
             steps["strategies"] = _step("策略前向跟踪", gaps, lambda: self.strategies(as_of_date, allow_remote))
         if self.events is not None:
@@ -144,6 +149,10 @@ def _archive(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _summary(steps: dict[str, Any]) -> list[str]:
     lines = []
+    calendar = steps.get("calendar")
+    if calendar is not None:
+        counts = calendar["counts"]
+        lines.append(f"执行日历：逾期 {counts['overdue']}，本日待办 {counts['due']}，阻塞 {counts['blocked']}")
     settlement = steps["settlement"]
     if settlement is not None:
         appended = len(settlement["appended_settlement_ids"])
@@ -189,6 +198,7 @@ def _summary(steps: dict[str, Any]) -> list[str]:
 
 def _next_actions(steps: dict[str, Any], user_id: str, as_of_date: str) -> list[dict[str, str]]:
     actions = watch_next_actions(steps.get("events") or [], as_of_date)
+    actions.extend((steps.get("calendar") or {}).get("next_actions", []))
     actions.extend(debate_next_actions(steps.get("debates")))
     for row in steps.get("guidance") or ():
         target = f"--asset-id {row['asset_id']}"

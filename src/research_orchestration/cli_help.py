@@ -381,6 +381,112 @@ _DECISION_REVIEW = """\
 调整、计划）。不替用户改偏好；“未用上”只是信息，不据此劝用户加风险。
 """
 
+_PLAN_REGISTER = """\
+登记通用执行计划（离线）；这不是组合配置算法，也不代替观点入账。
+先明确用户已确认的承诺。未确认方案用 draft；确认后以同一 --key 修订为 active。
+--key 是用户范围内稳定的登记键，重复提交相同内容不产生新计划或重复待办。
+修改时先 plan-show，再带 --expected-revision <revision> 提交完整快照；不做部分字段合并。
+status: draft / active / paused / completed / cancelled。只有 active 进入默认日历。
+计划可附 constraints / uncertainties 文本列表，分别保存全局约束及未解决分歧；日历每项会附带展示，不自动求值或替用户确认。
+
+--json 文件示例（年份和日期按真实计划填写，不要照抄示例作正式数据）：
+{
+  "title": "政策节点与配置计划",
+  "objective": "依据政策事实决定是否执行下一批配置",
+  "status": "draft",
+  "reason": "登记研究建议，尚待用户确认",
+  "source_refs": ["report:<报告路径>", "debate:<研究编号>"],
+  "tasks": [{
+    "task_id": "policy-check",
+    "title": "核实政策续期",
+    "kind": "observe",
+    "priority": "high",
+    "instruction": "查询双方官方文件，记录生效日和续期期限",
+    "completion": "附官方证据，明确成立、不成立或证据不足",
+    "schedule": {"start": "2027-01-10", "timezone": "Asia/Shanghai"},
+    "condition": "双方均续期且不少于六个月",
+    "on_met": "复核最新持仓、现金和跨计划风险约束后提出执行建议",
+    "on_unmet": "不执行，说明是否需要下一检查时间",
+    "depends_on": [],
+    "source_refs": ["obs:<可观测量编号>"]
+  }]
+}
+task 必填 task_id/title/instruction/completion/schedule；kind 默认 observe，可选 review/action。
+条件为 Agent 要核实的文字，不是自动执行表达式；有 condition 时必须同时给 on_met/on_unmet。
+depends_on 只能引用本计划非周期节点；completed/executed 才解除依赖，不成立或取消不会解除。
+任务有过处理记录后不可原地改写，变更条件应移除旧节点并用新 task_id 登记；历史仍保留。
+source_refs 为研究产物的稳定引用，系统不复制或自动核实其正文，也不会自动导入旧报告。
+迁移既有计划时，节点可附 source_excerpt 原文摘录，保留数字、条件及动作措辞用于逐条对照。
+提醒日期不等于投资分支到期；持续条件未触发时用 deferred 保留下一检查，不能用 not_triggered 关闭整个持续分支。
+
+时间规则：
+  start 为 ISO 日期或带 UTC 偏移的时刻；timezone 默认 Asia/Shanghai。
+  执行窗口加 deadline（含截止日全天），不加时单日任务截止于当天结束，时刻任务截止于该时刻。
+  纽约收盘示例 start="2026-11-18T16:00:00-05:00", timezone="America/New_York"。
+  周期加 repeat_days（正整数）和 until（含结束日），不得同时设置 deadline；每期独立处理。
+  周期使用当地自然日，保持当地钟点，不代表交易日；夏令时歧义时刻须拆成明确节点。
+  登记时校验完整有界周期；旧节点展开异常写入 gaps，不阻断其他节点。不能把部分成功解释为全表无遗漏。
+  财报按披露可得时间安排，不能用报告期末替代。事件日期未知也必须登记下一检查时间。
+  依赖 tzdata 提供 Windows 的 IANA 时区；不运行任何后台调度或自动交易。
+设计说明：docs/modules/4-个人数据/用户空间与研究状态模块.md「执行计划注册与全局日历」。
+"""
+
+_CALENDAR = """\
+全局只读执行日历，不联网、不执行研究、不改变任务状态。
+--at 默认当前时刻；ISO 日期表示任务时区的全天，带 UTC 偏移的时刻表示精确时间。
+--through 包含未来窗口内的节点，同时保留全部逾期未处理事项，不以窗口起点过滤旧欠项。
+返回 overdue/due/upcoming/blocked；--include-closed 另含关闭节点及未激活计划，按 plan_status 区分。
+延期保留 original deadline（deadline_at），next_check 决定下一次何时提醒；未到重查时点不催办。
+节点附 plan_id/revision、条件分支、完成标准、来源、依赖与上次记录；按 next_actions 读取完整计划。
+plan_constraints / plan_uncertainties 随事项展示原计划约束和待确认事项；source_excerpt 保留已登记原文。
+gaps 非空表示部分日程无法展开，其他节点仍返回；先处理缺口，不能声称已完整覆盖所有待办。
+条件成立不等于已获准交易；行动前核对最新持仓、现金、损失预算及其他计划的冲突。
+默认采用当前已知修订；历史复盘必须显式 --known-at <带偏移时刻> 排除后来记录，不得晚于现在。
+例：calendar --user-id user:default --at 2026-11-18 --through 2026-11-25
+精确时点：calendar --user-id user:default --at 2026-11-18T17:00:00+08:00
+"""
+
+_PLAN_SHOW = """\
+按稳定 plan_id 读取完整计划、来源、历次修订、已删除节点的原始定义及全部处理记录。
+用户之间按 user_id 过滤，不是安全多租户。--known-at 用于按当时已知信息回看。
+修改计划使用输出的 registration_key 和 revision 调用 plan-register；修订理由写 reason。
+关闭或暂停也通过完整快照修订完成，不删除历史。不知道编号时先 calendar 查询相关窗口。
+"""
+
+_TASK_RESOLVE = """\
+为一个具体节点实例追加处理记录，不是成交接口。--json 文件字段：
+{
+  "plan_id": "<plan-register 返回的 plan_id>",
+  "task_id": "policy-check",
+  "occurrence": "2027-01-10",
+  "expected_revision": 1,
+  "request_id": "policy-check-first-pass",
+  "outcome": "completed",
+  "note": "当时核实的事实、结论和动作理由",
+  "evidence_refs": ["<真实证据引用>"]
+}
+occurrence 原样使用 calendar 返回值，不能提前关闭未来节点。每次处理使用新的 request_id，
+重试复用同一 request_id 与相同内容，不可把旧请求键用于另一结论。
+outcome：
+  completed：观察/复核任务按完成标准完成，不说明交易已经执行。
+  executed：仅 action 节点；必须再提供 execution_ref（真实成交记录或明确用户确认引用）。
+  not_triggered：本次条件未成立，关闭本次实例；不是数据不足，也不代表后续周期都关闭。
+  cancelled：明确取消本次实例，理由和依据仍须保留。
+  deferred / blocked / awaiting_confirmation：尚未完成；必须再给未来 next_check（带偏移时刻）。
+  证据不足用 blocked，不得当成不触发；需继续观察用 deferred，不得先关闭再口头承诺重查。
+原始截止时间不因延期被覆盖；所有结果记录真实登记时间，不支持改写或回填历史。
+条件变更先修订计划再处理，revision 冲突时先 plan-show，不得盲目重试覆盖。
+"""
+
+_PLAN_REVIEW = """\
+按 plan_id 汇总计划修订、逐次处理、当前未完成节点及 handling_counts。
+execution_summary 的 deferrals/blocked_checks 是处理次数；late_closures 是晚于原截止时间登记关闭的实例数，
+不是推断的实际成交延误。移除节点的处理记录也保留在 records 和 revisions。
+计划完成率不能解释为判断命中率或收益贡献；executed 也只是所附成交/用户确认引用的登记。
+投资判断是否成立仍走 settle-ledger / decision-review，实际持仓改变另走 record-holding / record-weights。
+--at 选择日历观察日；历史重放同时传 --known-at，不能使用事后修订解释当时决策。
+"""
+
 _ROUTINE = """\
 手动例行：结算到期判断 → 策略前向跟踪 → 事件核实 → 推荐仓位复评 → 辩论观察点 → 刷新市场与宏观档案 → 检查用户有效论点 → 列出到期的
 计划复盘节点。每一步单独失败，失败写进 gaps，其余步骤照常运行。按输出的 next_actions 继续（论点偏离或失效 →
@@ -391,6 +497,8 @@ decided 已判定）、最新观测，以及按 watch_queries 检索到的自上
 按 criteria 核实、优先找官方来源，满足才记录。
 不建定时任务；结算对所有用户的到期条目生效。
 source_cooldowns 列出当前因封禁或限流而暂停请求的数据来源及解除时间；取数失败是因为来源冷却时，如实告诉用户，不要反复重试。
+steps.calendar 是离线全局执行日历，列逾期、本日待办和阻塞，按 next_actions 读取所属计划后处理。
+只需查待办时用 calendar，不必执行联网的例行研究。任务处理用 task-resolve，不因 routine 查询自动标记完成。
 """
 
 _SETTLE = """\
@@ -671,6 +779,11 @@ EPILOGS: dict[str, str] = {
     "record-holding": _RECORD_HOLDING,
     "record-preference": _RECORD_PREFERENCE,
     "record-weights": _RECORD_WEIGHTS,
+    "plan-register": _PLAN_REGISTER,
+    "plan-show": _PLAN_SHOW,
+    "calendar": _CALENDAR,
+    "task-resolve": _TASK_RESOLVE,
+    "plan-review": _PLAN_REVIEW,
     "financial-fields": _FINANCIAL_FIELDS,
     "portfolio-diagnose": _PORTFOLIO_DIAGNOSE,
     "allocation-proposal": _ALLOCATION,

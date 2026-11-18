@@ -26,6 +26,7 @@
 2. 把节点表、目标区间与概率、复盘节点和冲突处理讲给用户，给出 HTML 文件路径。
 3. 用户确认后 `portfolio-plan ... --record` 入账。
 4. 作答：读法见 `portfolio-plan --help`。
+5. 按 `playbooks/execution_plans.md` 将已确认的节点、观察与应对动作登记到执行日历，引用组合计划账本编号及报告；未确认方案只登记草稿。
 
 ## E. 复盘与偏好校准（`intents=["review"]`）
 

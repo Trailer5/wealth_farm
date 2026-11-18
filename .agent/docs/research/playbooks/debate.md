@@ -43,3 +43,4 @@
 
 19. `routine --user-id <id>` 的 `steps.debates` 列出到期或有新观测、新结算的观察点：按触发条件核对，成立则执行对应动作；推论被推翻时开新一轮辩论（`parent_debate_id`）。超过 7 天没有第一层辩论时，`next_actions` 会提示运行议程。
 20. `debate --action scorecard` 看用户、Agent 与各视角观点的结算命中情况；样本少时不作为依据。
+21. 决策含后续安排时按 `playbooks/execution_plans.md` 登记执行计划，引用辩论、观察点和账本；未确认的执行承诺只登记草稿，确认后激活。`routine` 的 `steps.calendar` 用于处理和留痕，不能用观察点表替代注册。

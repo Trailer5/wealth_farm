@@ -22,6 +22,7 @@
 1. `routine --user-id <id>`；看 `steps.events` 与 `next_actions`。
 2. 有新闻或到期：按 A 核实；满足判定标准才 `record-observation --json <path>`，到期核实写到期日状态。
 3. 记录后 `settle-ledger`，结果用 `decision-review` 汇总。
+4. 事件结论产生持续观察、复评或应对动作时，按 `playbooks/execution_plans.md` 登记，引用可观测量及观点；事件日期不确定也要安排下一检查节点。
 
 ## D. 只按比例管理的持仓（雇主股票、海外股票）
 
