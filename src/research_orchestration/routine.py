@@ -66,39 +66,62 @@ class RoutineService:
         as_of_date: str,
         allow_remote: bool = True,
         archives: bool = True,
+        mode: str = "maintain",
+        only: tuple[str, ...] | None = None,
     ) -> dict[str, Any]:
+        if mode not in {"inspect", "maintain"}:
+            raise ValueError("mode must be inspect or maintain")
+        valid = {"calendar", "settlement", "strategies", "events", "guidance", "debates", "market", "macro", "theses", "review"}
+        if only is not None and (not only or set(only) - valid):
+            raise ValueError("unknown or empty routine step selection")
+        if mode == "inspect":
+            if only and set(only) != {"calendar"}:
+                raise ValueError("inspect only reads calendar; choose maintain for other steps")
+            gaps: list[str] = []
+            calendar = _step("全局执行日历", gaps, lambda: self.calendar(user_id, as_of_date)) if self.calendar else None
+            gaps.extend((calendar or {}).get("gaps", []))
+            return {"user_id": user_id, "as_of_date": as_of_date, "mode": mode, "writes": False,
+                    "steps": {"calendar": calendar}, "gaps": gaps,
+                    "next_actions": (calendar or {}).get("next_actions", []),
+                    "summary": ["只读巡检：未联网、未结算、未写入策略或档案。"]}
+        selected = set(only) if only is not None else valid
         gaps: list[str] = []
         steps: dict[str, Any] = {
-            "settlement": _step("结算到期判断", gaps, lambda: self.settlement.settle_due(as_of_date).to_dict()),
+            "settlement": _step("结算到期判断", gaps, lambda: self.settlement.settle_due(as_of_date).to_dict())
+                          if "settlement" in selected else None,
         }
-        if self.calendar is not None:
+        if self.calendar is not None and "calendar" in selected:
             steps["calendar"] = _step("全局执行日历", gaps, lambda: self.calendar(user_id, as_of_date))
             gaps.extend((steps["calendar"] or {}).get("gaps", []))
-        if self.strategies is not None:
+        if self.strategies is not None and "strategies" in selected:
             steps["strategies"] = _step("策略前向跟踪", gaps, lambda: self.strategies(as_of_date, allow_remote))
-        if self.events is not None:
+        if self.events is not None and "events" in selected:
             steps["events"] = _step("事件核实", gaps, lambda: self.events(user_id, as_of_date, allow_remote))
-        if self.guidance is not None:
+        if self.guidance is not None and "guidance" in selected:
             steps["guidance"] = _step("推荐仓位复评", gaps, lambda: self.guidance(user_id, as_of_date))
-        if self.debates is not None:
+        if self.debates is not None and "debates" in selected:
             steps["debates"] = _step("辩论观察点", gaps, lambda: self.debates(user_id, as_of_date))
         if archives:
             for name, label, recorder in (("market", "市场档案", self.market), ("macro", "宏观档案", self.macro)):
+                if name not in selected:
+                    continue
                 steps[name] = _step(
                     label, gaps, lambda recorder=recorder: _archive(recorder.run(as_of_date, allow_remote=allow_remote))
                 )
-        steps["theses"] = _step("论点检查", gaps, lambda: self._theses(user_id, as_of_date))
+        steps["theses"] = _step("论点检查", gaps, lambda: self._theses(user_id, as_of_date)) if "theses" in selected else None
         steps["review"] = _step(
             "决策复盘",
             gaps,
             lambda: self.decision_review.run(
                 user_id=user_id, as_of_date=as_of_date, calibrate=False, allow_remote=allow_remote, write_report=False
             ),
-        )
+        ) if "review" in selected else None
         cooldowns = self.cooldowns()
         gaps.extend(f"数据来源 {key} 冷却至 {item['until']}：{item['reason']}" for key, item in cooldowns.items())
         return {
             "user_id": user_id,
+            "mode": mode,
+            "writes": True,
             "as_of_date": as_of_date,
             "steps": steps,
             "source_cooldowns": cooldowns,

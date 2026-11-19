@@ -1,19 +1,4 @@
 {
-  "title": "核心配置计划：2026-11-17 原计划的执行登记",
-  "objective": "将原核心配置计划及其明确引用的安集科技、北方华创细则登记为可追溯事项；只转换格式，不重做研究，不改变仓位、门槛、逻辑关系或动作。",
-  "status": "active",
-  "reason": "2026-11-18 用户在登记后明确确认宽基不止损例外，并要求安集使用现计划新条款；本次只落实这两项确认，保留其余条件与历史，不表示已成交。确认原话及适用范围见 report/计划确认-user_default-2026-11-18.md。",
-  "source_refs": [
-    "report/核心配置-user_default-2026-11-17.md",
-    "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md",
-    "docs/personal_info/holding_261116.md",
-    "report/计划确认-user_default-2026-11-18.md",
-    "preference:e1be865ed1ed13b1",
-    "weights:331218be5a04d937",
-    "debate:2026-11-16:6190a959",
-    "debate:2026-11-16:85f3d1a5",
-    "ledger-50f62115af58ededbd8be035"
-  ],
   "constraints": [
     "全部比例沿用原报告的总资产占比，不添加金额或持仓数量。",
     "原计划偏好：期限三年内，最大回撤 10%（按持续观察、及早收手后的实际亏损理解），目标年化波动 6%；不以登记或任一触发条件豁免原风险约束。",
@@ -29,6 +14,853 @@
     "所有动作执行前核对真实持仓、现金、交易窗口、用户确认与本计划其他节点；同一批次只执行一次，替代触发条件不构成新增买入额度。",
     "日历中的巡检起点和重查安排是行政时间，不是新增交易期限。未触发但仍有效的条件使用 deferred 并给 next_check，不用 not_triggered 永久关闭持续观察。"
   ],
+  "objective": "将原核心配置计划及其明确引用的安集科技、北方华创细则登记为可追溯事项；只转换格式，不重做研究，不改变仓位、门槛、逻辑关系或动作。",
+  "reason": "2026-11-18 Agent 使用优化：关联原研究规则并恢复报告转存遗漏的黄金精确确认条件及国债收益率复核节点；不改变已确认的宽基例外、安集新条款或 AMD 暂缓决定。",
+  "source_refs": [
+    "report/核心配置-user_default-2026-11-17.md",
+    "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md",
+    "docs/personal_info/holding_261116.md",
+    "report/计划确认-user_default-2026-11-18.md",
+    "preference:e1be865ed1ed13b1",
+    "weights:331218be5a04d937",
+    "debate:2026-11-16:6190a959",
+    "debate:2026-11-16:85f3d1a5",
+    "ledger-50f62115af58ededbd8be035",
+    "debate:2026-11-16:6143587b"
+  ],
+  "status": "active",
+  "tasks": [
+    {
+      "completion": "有用户明确确认或成交引用证明整批完成，记录实际分次与最终比例；未成交不标完成。",
+      "condition": "第一批约 4%；AMD 未卖出前为 3.5%；全部权益含 AMD 不超过 30%。",
+      "depends_on": [],
+      "instruction": "按原文完成第一批，不新增止损或估值闸门。核对 AMD 当前比例及全部权益 30% 上限；2026-11-18 用户已确认宽基停止加仓并复核、不因该规则卖出的例外。原文只要求分 2-3 次，不预设等分；每次部分成交用 awaiting_confirmation 留证据及下一检查时间，整批完成后才 executed。",
+      "kind": "action",
+      "on_met": "按窗口与原比例执行，先核对是否已成交，禁止重复买同一批次。",
+      "on_unmet": "不擅自放大比例；依原约束登记阻塞或延期及下一检查时间。",
+      "priority": "high",
+      "schedule": {
+        "deadline": "2026-11-30",
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "1. **第一批（现在，11-18 至 11-30 分 2–3 次买）：** 约 4%（AMD 未卖出前为 3.5%）。",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "broad-first-batch",
+      "title": "宽基第一批：窗口内分 2-3 次配置",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:decision:1f7fe24a29886692",
+          "content_hash": "23e8014a0fc7d5d46c94f88bb983fab4523b72d13208c95db2b1822407587cb5"
+        }
+      ]
+    },
+    {
+      "completion": "两次实际执行及合计比例均有用户确认或成交引用。",
+      "condition": null,
+      "depends_on": [],
+      "instruction": "按原配置窗口分两次买，总计 5%；不擅自等分或把原有低风险资产强制卖出。优先核对是否已成交；若选择场外替代工具，先核对费率及其国开债而非国债的区别。部分成交用未完成处理留痕，不能再次购买整笔 5%。",
+      "kind": "action",
+      "on_met": null,
+      "on_unmet": null,
+      "priority": "normal",
+      "schedule": {
+        "deadline": "2026-11-30",
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 10 年期国债 ETF | 0 → 5% | 5% | 现在，分两次买 | 2027-05-17 检验：如果它为负、落后货币基金超过 1 个百分点，且宽基同期也跌，就卖出改放货币基金 |",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "treasury-initial-five-percent",
+      "title": "10 年期国债：分两次配置至 5%",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:decision:a8936776c9c02db9",
+          "content_hash": "956c5ec813de65ffd1301e7849a30695afdb9ad59405d6afaec1558b7bad9d18"
+        }
+      ]
+    },
+    {
+      "completion": "首批买入有明确执行引用；价格与比例均符合原文。",
+      "condition": "价格不高于 225 元。",
+      "depends_on": [],
+      "instruction": "采用 11-17 更新并由用户于 2026-11-18 确认的首批 2%、目标 6%；核对价格、风险预算和已有成交，不沿用旧段落首批 1%。原有降到 1% 或清仓的退出条件不变。窗口结束而条件不满足时保留记录并复核，不擅自抬价。",
+      "kind": "action",
+      "on_met": "买入 2%，目标仍为 6%，其余按独立加仓条件。",
+      "on_unmet": "不追价；记录未完成原因及下一检查时间。",
+      "priority": "high",
+      "schedule": {
+        "deadline": "2026-11-30",
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 688019 安集科技 | 买入 | 2%（目标 6%） | 价格不高于 225 元（11-17 收盘 216.3 元） | 连续 3 日收盘低于 170 元降到 1%；连续两个季度单季毛利率低于 52% 降到 1%；半年报或年报抛光液毛利率同比降 3 个百分点以上清仓；美国放行 Blackwell 对华销售时降到 1% 以内。损失预算：6% ×（21% + 10%）≈ 1.9% |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"
+      ],
+      "task_id": "anji-initial-two-percent",
+      "title": "安集首批：不高于 225 元配置 2%",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:decision:beae0b6edeaacbf0",
+          "content_hash": "14ad7603a7172ac33d4b9640814503054e912529f5838f3675a6b014ea50eb82"
+        }
+      ]
+    },
+    {
+      "completion": "记录财报证据、用户后续决定和对宽基比例的影响；若无新决定则继续等待并安排重查。",
+      "condition": null,
+      "depends_on": [],
+      "instruction": "先核实英伟达财报已披露；原文是 11-19 之后，不是假定当天具体时刻。按最新用户决定讨论 AMD，不能自动恢复旧卖出批次或把卖到 0 当作已确认。确认后登记新的 AMD 安排，再核对宽基第一批 3.5% 或 4% 及后续批次约束。",
+      "kind": "review",
+      "on_met": null,
+      "on_unmet": null,
+      "priority": "high",
+      "schedule": {
+        "start": "2026-11-19",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 11-19 之后 | AMD 讨论 | 定下 AMD 后，确定宽基第一批是 3.5% 还是 4% |",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "amd-after-earnings-review",
+      "title": "英伟达财报后讨论 AMD 后续安排"
+    },
+    {
+      "completion": "第二批 4% 有明确执行引用，只计一次；未满足或尚无执行确认保持待办。",
+      "condition": "满足任一：2027-01-10 双方暂停均续期且不少于 6 个月；或（全 A 60 日新低超过 2000 家，或 510300 五日跌幅至少 5%）同时有国家队或央行托底；或 510300 收盘高于前 20 日最高收盘且站上 60 日均价。04-30 另按原兜底状态条件。",
+      "depends_on": [],
+      "instruction": "持续核对原文第二批三条替代路径，并与 04-30 兜底节点共用同一个批次额度。满足任一路径也要核对 AMD 已降到约 6% 以下、全权益上限、原计划其他约束及该批是否已买。未触发用 deferred 安排下一交易日检查，不能关闭整个分支。",
+      "kind": "action",
+      "on_met": "按第二批 4% 执行；替代路径共用本批，不重复加仓。",
+      "on_unmet": "不买本批，继续检查；只续 1-3 个月不算续期条件成立。",
+      "priority": "normal",
+      "schedule": {
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "2. **第二批 4%（满足任一）：**\n   - 2027-01-10 美方关联方规则暂停与中方稀土暂停同日到期，双方都续期，且期限不短于 6 个月。只续 1–3 个月视为风险后移，不算。\n   - 急跌加托底：全 A 60 日新低超过 2000 家，或 510300 五日跌幅 ≥5%，同时出现国家队或央行的托底动作。\n   - 价格确认：510300 收盘高于前 20 日最高收盘，并站上 60 日均价。",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "broad-second-batch",
+      "title": "宽基第二批 4%：三条替代路径或时间兜底",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:s1",
+          "content_hash": "0c37d257165743799c2b742eb1d60cab6724bd9df75634da93b44a8b8010791a"
+        },
+        {
+          "rule_id": "debate:2026-11-16:6190a959:s2",
+          "content_hash": "3f4a886063f6ecbe85cc0c55eab77e6498fd4dd622fc2ce47b5aa0f3691bce48"
+        }
+      ]
+    },
+    {
+      "completion": "第三批 4% 有明确执行引用且只计一次，或按正式修订关闭。",
+      "condition": "满足任一：两会赤字、超长期特别国债与专项债合计比 2026 年多 5000 亿元以上，且新增人民币贷款连续两个月同比多增；或价格确认（510300 收盘高于前 20 日最高收盘并站上 60 日均价）。04-30 另按原兜底状态条件。",
+      "depends_on": [],
+      "instruction": "持续核对原文第三批两条替代条件，另有 04-30 时间兜底；不把预算与信用各自当成独立替代条件。核对 AMD、全权益约束及本批是否已完成；不能因第二批与第三批使用同一价格信号就重复执行已完成的批次。",
+      "kind": "action",
+      "on_met": "按第三批 4% 和原组合约束执行。",
+      "on_unmet": "不买本批，继续观察并指定下一检查时间，数据不足不能视为条件不成立。",
+      "priority": "normal",
+      "schedule": {
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "3. **第三批 4%（满足任一）：**\n   - 2027 年两会的赤字、超长期特别国债与专项债合计比 2026 年多 5000 亿元以上，且新增人民币贷款连续两个月同比多增。\n   - 价格确认（同上）。",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "broad-third-batch",
+      "title": "宽基第三批 4%：预算与信用或价格确认",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:s2",
+          "content_hash": "3f4a886063f6ecbe85cc0c55eab77e6498fd4dd622fc2ce47b5aa0f3691bce48"
+        },
+        {
+          "rule_id": "debate:2026-11-16:6190a959:s3",
+          "content_hash": "653aaf4e89b019e1dc00d0c5b28ff1cf24417d82bb63c974026dddf32b3af6f0"
+        }
+      ]
+    },
+    {
+      "completion": "有官方证据与明确分支结论，并将后续动作或重查留痕。",
+      "condition": "双方均续期且不短于 6 个月；短期续期；双方都失效。",
+      "depends_on": [],
+      "instruction": "核对双方官方文件、期限及生效日，区分长期续期、短期续期、双方失效。日历日期不保证政策当天公布，证据不足继续重查。引用相应批次节点，不另创买入额度。",
+      "kind": "observe",
+      "on_met": "长期续期按第二批条件；短期续期后移；双方失效等待急跌加托底，并检查黄金是否确实对冲。北方华创与安集另核对原政策暂停条款。",
+      "on_unmet": "未有足够证据不执行，安排下一检查时间。",
+      "priority": "normal",
+      "schedule": {
+        "start": "2027-01-10",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 2027-01-10 | 关联方规则与稀土暂停同日到期 | 续期且不短于 6 个月：买第二批；短期续期：后移；双方都失效：等急跌加托底后买第二批，并检查黄金是否表现出对冲 |",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "policy-january-ten",
+      "title": "01-10 成对续期、宽基第二批与黄金对冲核查",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:s1",
+          "content_hash": "0c37d257165743799c2b742eb1d60cab6724bd9df75634da93b44a8b8010791a"
+        }
+      ]
+    },
+    {
+      "completion": "记录预算与月度信贷来源，给出两者同时满足与否或数据不足。",
+      "condition": null,
+      "depends_on": [],
+      "instruction": "原文只写中旬，本窗口只是行政核查。逐项核对预算合计比 2026 年多 5000 亿元以上，并确认新增人民币贷款连续两个月同比多增；只有合并累计信贷数时不能擅自判定。未披露则安排重查，窗口结束不取消第三批。",
+      "kind": "observe",
+      "on_met": null,
+      "on_unmet": null,
+      "priority": "normal",
+      "schedule": {
+        "deadline": "2027-03-20",
+        "start": "2027-03-11",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 2027-03 中旬 | 两会预算、1–2 月信贷 | 满足条件买第三批 |",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "budget-and-credit-march",
+      "title": "3 月中旬：预算与 1-2 月信贷核查",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:s3",
+          "content_hash": "653aaf4e89b019e1dc00d0c5b28ff1cf24417d82bb63c974026dddf32b3af6f0"
+        }
+      ]
+    },
+    {
+      "completion": "为每个未完成批次记录执行或顺延理由；顺延后继续保留价格确认待办。",
+      "condition": "当天 510300 是否处在 60 日新低，或收盘低于 3.638。",
+      "depends_on": [],
+      "instruction": "先查哪些批次尚未买，绝不重新买已完成批次；本节点检查原替代路径，不新增一批。保留全权益及 AMD 约束，不能把日历到日视为解除组合约束。",
+      "kind": "review",
+      "on_met": "顺延到价格确认，不在阴跌中补满。",
+      "on_unmet": "还没买的批次按原时间兜底执行，仍核对原组合约束与执行确认。",
+      "priority": "high",
+      "schedule": {
+        "start": "2027-04-30",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "4. **时间兜底：** 2027-04-30 还没买的批次照常买。但如果当天 510300 处在 60 日新低或收盘低于 3.638，就顺延到价格确认，不在阴跌中补满。",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "april-thirty-backstop",
+      "title": "04-30 尚未完成批次的时间兜底检查",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:s4",
+          "content_hash": "06eec47e02dc9f80701f54c83d44b736f3ed035c548ec61967a3d2a74e7b3221"
+        }
+      ]
+    },
+    {
+      "completion": "持续留存检查证据；触发时登记停止加仓与复核，不自动卖出。",
+      "condition": "510300 收盘低于 3.638，且没有新增稳市工具。",
+      "depends_on": [],
+      "instruction": "每个交易日收盘后核对价格与是否有新增稳市工具。未触发或已完成本日核查但计划仍有效时用 deferred 安排下一交易日；本持续节点不因完成一次检查而永久关闭。2026-11-18 用户已确认宽基不设移动止损例外，触发时只停加并复核，不按通用 15% 移动退出线卖出。",
+      "kind": "observe",
+      "on_met": "停止加仓并复核，不卖出。",
+      "on_unmet": "维持原计划，不新增动作，安排下一交易日检查。",
+      "priority": "high",
+      "schedule": {
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 沪深300 宽基 | 0 → 约 4% | 约 12% | 分三批，每批 4%（条件见下节） | 不设移动止损。510300 收盘低于 3.638（比 11-17 再跌 10%）且没有新增稳市工具时，停止加仓并复核，不卖出 |",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "broad-stop-adding-watch",
+      "title": "持续观察宽基停止加仓条件，不登记为卖出止损",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:s4",
+          "content_hash": "06eec47e02dc9f80701f54c83d44b736f3ed035c548ec61967a3d2a74e7b3221"
+        }
+      ]
+    },
+    {
+      "completion": "三项分别有证据，结论和后续动作留痕；建议卖出不等于已卖出。",
+      "condition": "10 年国债自身为负，且落后货币基金超过 1 个百分点，且宽基同期也跌。",
+      "depends_on": [],
+      "instruction": "按实际执行和同期一致的收益口径检验三项 AND 条件，不用时间表中股债同跌的简写替代。若没有买入记录先核实，不虚构持有收益。",
+      "kind": "review",
+      "on_met": "卖出改放货币基金；实际执行另附用户确认或成交引用。",
+      "on_unmet": "不将不完整条件当成卖出触发；按原计划记录检验结果。",
+      "priority": "normal",
+      "schedule": {
+        "start": "2027-05-17",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 10 年期国债 ETF | 0 → 5% | 5% | 现在，分两次买 | 2027-05-17 检验：如果它为负、落后货币基金超过 1 个百分点，且宽基同期也跌，就卖出改放货币基金 |",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "treasury-six-month-review",
+      "title": "05-17 国债三条件检验",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:s6",
+          "content_hash": "ea01279f074741943c71e08305ec29f73f768034746ca8676377266dedf20b8c"
+        }
+      ]
+    },
+    {
+      "completion": "区间检验、证据与误差来源留痕，判断结算与交易执行分开。",
+      "condition": null,
+      "depends_on": [],
+      "instruction": "核对原判断基准起点及全收益口径，检验区间判断；不把价格涨跌冒充全收益，也不把本项结论直接变成买卖指令。观点账本另按自身结算规则结算。",
+      "kind": "review",
+      "on_met": null,
+      "on_unmet": null,
+      "priority": "normal",
+      "schedule": {
+        "start": "2027-05-17",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "- **马克斯：** 到 2027-05-17，510300 的全收益大概率落在 -8%~+8% 之间，但途中回撤超过 10% 的概率有三到四成。“中性”意味着现在就分步补到中性仓位，只有沪深300 PE 不高于 11 倍且 PB 不高于 1.25 时才多买。红利持有不加；长债撤回“回到常态就亏”的判断。",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md",
+        "ledger-50f62115af58ededbd8be035"
+      ],
+      "task_id": "broad-six-month-outcome",
+      "title": "05-17 宽基区间判断检验",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:s6",
+          "content_hash": "ea01279f074741943c71e08305ec29f73f768034746ca8676377266dedf20b8c"
+        }
+      ]
+    },
+    {
+      "completion": "持续检查有证据，触发后保留减仓执行确认，或原条件期结束后据实关闭。",
+      "condition": "2027-05-16 前，518880 收盘低于 6.67。",
+      "depends_on": [],
+      "instruction": "在原有效区间逐个交易日核查；条件仍有效而未触发时延后重查。到 2027-05-16 核对区间结束后关闭该观察，不把之后的价格套用此条件。",
+      "kind": "observe",
+      "on_met": "降到 3% 以下，不改为恰好 3%。",
+      "on_unmet": "现在不加，保持原安排并继续重查；期满关闭本观察。",
+      "priority": "normal",
+      "schedule": {
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 黄金 | 3% | 3%，确认后最多 5% | 现在不加 | 2027-05-16 前 518880 收盘低于 6.67，降到 3% 以下 |",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "gold-reduction-watch",
+      "title": "黄金至 05-16 前的减仓条件",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:s5",
+          "content_hash": "60d3ce10803e66468417597b4321e2a2c6ae57f5d6f0e63bf640000d17848bb7"
+        }
+      ]
+    },
+    {
+      "completion": "确认依据、是否增配及执行确认分别留痕；未确认继续等待。",
+      "condition": "518880 收盘高于前20日最高收盘且高于60日均价，此后不再跌破7.852；或2027-01-10冲击中确实跑出对冲效果。",
+      "depends_on": [],
+      "instruction": "保留现在不加、不在下跌中加。原研究观察点已给出精确公式，应读取关联规则而非仅依据简写报告；价格确认需高于前20日最高收盘及60日均价，此后不再跌破7.852；01-10事件对冲仍是原有替代分支。",
+      "kind": "review",
+      "on_met": "评估由 3% 增至最多 5%，不是无条件买至 5%。",
+      "on_unmet": "不加仓，保持原计划。",
+      "priority": "normal",
+      "schedule": {
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "- **索罗斯：** 指数处在见顶反转后的考验段，同类样本约四分之三在价格确认前会再跌 4.75% 以上。这只决定节奏，不否定第一批。黄金不在下跌中加，只在价格确认，或 2027-01-10 冲击中确实跑出对冲效果时才加。",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "gold-confirmation-review",
+      "title": "黄金仅在确认后评估增加，最多 5%",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:s5",
+          "content_hash": "60d3ce10803e66468417597b4321e2a2c6ae57f5d6f0e63bf640000d17848bb7"
+        },
+        {
+          "rule_id": "debate:2026-11-16:6190a959:decision:d52bf5ac36c58b44",
+          "content_hash": "3e42154008b09604f35cd6ce664a402a0e2d0e95a1b7efdb2fa8d3571c94122a"
+        }
+      ]
+    },
+    {
+      "completion": "记录实际选用工具和执行前费率、限额证据；未选产品不伪造交易。",
+      "condition": null,
+      "depends_on": [],
+      "instruction": "原现金约 50%、随用不低于 20%；现金分层候选保留 511880、204001/131810、000198、006662、070009、已有 013237。国债候选 511260/003376，宽基候选 510300/460300 是工具替代，不叠加买两套。买前核实限额、赎回、费用与不超过一年封闭期；保留原报告每只工具的区别，不因为登记默认换掉全部旧持仓。",
+      "kind": "review",
+      "on_met": null,
+      "on_unmet": null,
+      "priority": "normal",
+      "schedule": {
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "## 现金放哪里（都可随时或 7 天后取出，没有超过 1 年的封闭期）",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "cash-product-check",
+      "title": "现金分层及场内外工具执行前核对",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:decision:05a4edca3757336e",
+          "content_hash": "cb4d6b26251da702e27feefce645265ba72ba28826bd91574d226f581a45fa3a"
+        }
+      ]
+    },
+    {
+      "completion": "定价、上市日、20 个交易日和 A 股价格均有证据，加仓执行另附确认。",
+      "condition": "H 股定价公布并上市满 20 个交易日后，A 股不高于 225 元。",
+      "depends_on": [],
+      "instruction": "持续追踪实际公告与上市交易日；06-30 是原观察时间表的检查界限，不擅自解释为条件永久到期。尚未满足时 deferred 重查；同一加仓只执行一次。",
+      "kind": "action",
+      "on_met": "加 2% 到 4%，核对当前实际比例，不重复增加已执行部分。",
+      "on_unmet": "不加，等待条件，安排下一检查时间。",
+      "priority": "normal",
+      "schedule": {
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 安集科技 | H 股定价公布并上市满 20 个交易日后，A 股不高于 225 元 | 加 2%（到 4%） |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"
+      ],
+      "task_id": "anji-h-share-check",
+      "title": "安集 H 股定价及上市满 20 个交易日后的加仓",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:s8",
+          "content_hash": "77fce3f19a81bafa0565dc70da4eb5c01961d4721fc69e80a9edbe31b30f1df2"
+        }
+      ]
+    },
+    {
+      "completion": "说明实际上市进度、交易日计数和附加条件是否成立；仍未上市不擅自取消后续观察。",
+      "condition": null,
+      "depends_on": [],
+      "instruction": "核对 H 股进度及原表中跌破 180 元且毛利率低于 55% 的附加减仓条件。它与主表连续三日低于 170 元是不同原文条款，不能互相覆盖；需按各自语义核实，缺少价格/毛利率口径时不臆断。",
+      "kind": "review",
+      "on_met": null,
+      "on_unmet": null,
+      "priority": "normal",
+      "schedule": {
+        "start": "2027-06-30",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 2027-06-30 前 | 安集 H 股定价与上市 | 上市满 20 个交易日 | A 股 ≤225 元加 2%（到 4%）；跌破 180 元且毛利率 <55% 减到 1% |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"
+      ],
+      "task_id": "anji-h-share-june-checkpoint",
+      "title": "06-30 安集 H 股节点与原表附加减仓条件复核",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:s8",
+          "content_hash": "77fce3f19a81bafa0565dc70da4eb5c01961d4721fc69e80a9edbe31b30f1df2"
+        }
+      ]
+    },
+    {
+      "completion": "原始披露日期、单季转换和缺失指标留痕；Q2 仍由后续节点处理。",
+      "condition": null,
+      "depends_on": [],
+      "instruction": "收集实际披露的一季报、单季口径及近四季现金流；尚未披露就记录缺口重查。不把 Q1 单季通过当作原文 Q1、Q2 同时满足，更不因此提前执行依赖两季的买入。原有季度/半年报退出条件按原义独立核查。",
+      "kind": "observe",
+      "on_met": null,
+      "on_unmet": null,
+      "priority": "normal",
+      "schedule": {
+        "start": "2027-04-30",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 2027-04-30 至 08-31 | 安集、北方华创 2027Q1、Q2 单季数据 | 见上方条件 | 按计划加仓或买入；毛利率条件触发时减仓 |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"
+      ],
+      "task_id": "financial-q1-availability",
+      "title": "04-30 安集、北方华创 Q1 可得事实收集",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:s9",
+          "content_hash": "50257828670150e27acc85a484ae6b326685fd6257c9abb92c299cdd5b82042b"
+        },
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:s10",
+          "content_hash": "5ea798307798c767aaa7c172e22594576f4813db814cc37233e181af52ef6e7f"
+        }
+      ]
+    },
+    {
+      "completion": "对安集、北方华创分别给出完整指标核对表和相应动作，不改变买入门槛。",
+      "condition": null,
+      "depends_on": [],
+      "instruction": "行政复核点不替代实际披露时间。若半年度数据提前公布，持续财务节点当时就检查，不必等本日。核对 Q1 与 Q2 各自满足，不用半年累计替代单季；缺失数据继续重查而非判为未达标。",
+      "kind": "observe",
+      "on_met": null,
+      "on_unmet": null,
+      "priority": "normal",
+      "schedule": {
+        "start": "2027-08-31",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 2027-04-30 至 08-31 | 安集、北方华创 2027Q1、Q2 单季数据 | 见上方条件 | 按计划加仓或买入；毛利率条件触发时减仓 |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"
+      ],
+      "task_id": "financial-q2-availability",
+      "title": "08-31 两个单季条件的完整核查",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:s9",
+          "content_hash": "50257828670150e27acc85a484ae6b326685fd6257c9abb92c299cdd5b82042b"
+        },
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:s10",
+          "content_hash": "5ea798307798c767aaa7c172e22594576f4813db814cc37233e181af52ef6e7f"
+        }
+      ]
+    },
+    {
+      "completion": "两季全部指标和价格均可核验，实际加到 6% 有确认；同一目标不重复买入。",
+      "condition": "2027Q1、Q2 两个单季同时满足：每股扣非（H 股摊薄后、剔除公允价值收益）同比至少 20%，单季毛利率至少 55%，存货同比增速不高于营收同比增速，近四季（经营现金流 − 购建长期资产）/扣非至少 25%。",
+      "depends_on": [],
+      "instruction": "从原观察区间起跟踪，依实际披露判断；Q2 未可得前不得认为两季已满足。每项用原会计口径，核对 H 股摊薄与公允价值剔除，不擅自推算缺失字段。",
+      "kind": "action",
+      "on_met": "不高于 243 元加到 6%。",
+      "on_unmet": "不按此路径加仓；两季尚未披露或字段不足时继续等待或 blocked 重查。",
+      "priority": "normal",
+      "schedule": {
+        "start": "2027-04-30",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 安集科技 | 2027Q1、Q2 两个单季同时满足：每股扣非（H 股摊薄后、剔除公允价值收益）同比 ≥20%，单季毛利率 ≥55%，存货同比增速不高于营收同比增速，近四季（经营现金流 − 购建长期资产）/扣非 ≥25% | 不高于 243 元加到 6% |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"
+      ],
+      "task_id": "anji-financial-add-to-six",
+      "title": "安集两季全部满足后不高于 243 元加到 6%",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:s9",
+          "content_hash": "50257828670150e27acc85a484ae6b326685fd6257c9abb92c299cdd5b82042b"
+        }
+      ]
+    },
+    {
+      "completion": "两季指标、价格、路径归属和执行确认完整；未满足继续保留任务。",
+      "condition": "2027Q1、Q2 两个单季同时满足扣非（剔除其他收益同比增量）同比至少 15% 且不低于营收同比、单季毛利率至少 40%、近四季（经营现金流 − 应付账款增加 − 购建长期资产）/扣非至少 40%；买入价不高于 480 元。",
+      "depends_on": [],
+      "instruction": "只按实际已披露的 Q1、Q2 单季判断；近四季扣除应付账款增加，扣非剔除其他收益同比增量。检查长鑫、关联方规则、Blackwell 和中芯资本开支等原暂停/取消条件。与价格路径合计上限 4%，不重复执行本路径。",
+      "kind": "action",
+      "on_met": "买 2%；该路径买入后连续 3 日收盘低于 400 元清仓。",
+      "on_unmet": "不买；数据不足记录 blocked 或 deferred 及下一检查时间。",
+      "priority": "normal",
+      "schedule": {
+        "start": "2027-04-30",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 002371 北方华创 | 现在不买（11-17 收盘 568.75 元），2027-01-10 前不买。基本面路径：2027Q1、Q2 两个单季同时满足扣非（剔除其他收益同比增量）同比 ≥15% 且不低于营收同比、单季毛利率 ≥40%、近四季（经营现金流 − 应付账款增加 − 购建长期资产）/扣非 ≥40% | 不高于 480 元买 2%；买入后连续 3 日收盘低于 400 元清仓 |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"
+      ],
+      "task_id": "naura-fundamental-entry",
+      "title": "北方华创基本面路径：两季满足且不高于 480 元买 2%",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:s10",
+          "content_hash": "5ea798307798c767aaa7c172e22594576f4813db814cc37233e181af52ef6e7f"
+        },
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:decision:0a50d8fb7b417906",
+          "content_hash": "e9e770a098615a39036e02ac05158206add6d0ff510d7255df7a785a4ab8822b"
+        }
+      ]
+    },
+    {
+      "completion": "价格与三项生意闸门、政策限制和实际执行证据齐备，不把低价单独视为买入条件。",
+      "condition": "不高于 410 元，且最新一季单季毛利率不低于上一季、合同负债不低于 45 亿元、剔除其他收益后的单季扣非同比不为负。",
+      "depends_on": [],
+      "instruction": "保留同表 2027-01-10 前不买和核心配置表 2027-01-10 后按条件买的原文；01-10 是行政检查起点，不代表当天已获买入授权。最新一季指标按单季核实；若下跌由长鑫实体清单或关联方规则生效引起，等下一财报确认合同负债与存货无恶化再判断。与基本面路径合计最多 4%。",
+      "kind": "action",
+      "on_met": "买 2%；该路径买入后连续 3 日收盘低于 340 元清仓。",
+      "on_unmet": "不买，继续核查，不擅自改低毛利率/合同负债门槛。",
+      "priority": "normal",
+      "schedule": {
+        "start": "2027-01-10",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 北方华创 | 价格路径：不高于 410 元，且最新一季单季毛利率不低于上一季、合同负债不低于 45 亿元、剔除其他收益后的单季扣非同比不为负 | 买 2%；买入后连续 3 日收盘低于 340 元清仓；两条路径合计上限 4%（损失预算 4% ×（17% + 10%）≈ 1.1%） |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"
+      ],
+      "task_id": "naura-price-entry",
+      "title": "北方华创价格路径：不高于 410 元且生意闸门全部满足",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:s10",
+          "content_hash": "5ea798307798c767aaa7c172e22594576f4813db814cc37233e181af52ef6e7f"
+        }
+      ]
+    },
+    {
+      "completion": "每次核查保留交易日收盘证据、适用路径、动作与实际确认；持续规则未被修订前不因一次检查而关闭。",
+      "condition": null,
+      "depends_on": [],
+      "instruction": "先核实实际持仓和北方华创的买入路径。安集连续 3 日收盘低于 170 元降到 1%；北方华创基本面路径连续 3 日低于 400 元清仓、价格路径连续 3 日低于 340 元清仓。不能换成盘中跌破或自然日计数，也不能用 340 替换所有路径的 400。没有持仓也持续追踪计划但不伪造卖出。每日检查后 deferred 安排下一交易日。",
+      "kind": "observe",
+      "on_met": null,
+      "on_unmet": null,
+      "priority": "high",
+      "schedule": {
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 北方华创 | 价格路径：不高于 410 元，且最新一季单季毛利率不低于上一季、合同负债不低于 45 亿元、剔除其他收益后的单季扣非同比不为负 | 买 2%；买入后连续 3 日收盘低于 340 元清仓；两条路径合计上限 4%（损失预算 4% ×（17% + 10%）≈ 1.1%） |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"
+      ],
+      "task_id": "single-stock-price-exits",
+      "title": "持续核查安集与北方华创各自价格退出线",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:s9",
+          "content_hash": "50257828670150e27acc85a484ae6b326685fd6257c9abb92c299cdd5b82042b"
+        },
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:s10",
+          "content_hash": "5ea798307798c767aaa7c172e22594576f4813db814cc37233e181af52ef6e7f"
+        }
+      ]
+    },
+    {
+      "completion": "留存披露日期、口径与连续期数；条件触发则提出原动作并另记执行确认，未触发继续安排披露后检查。",
+      "condition": "连续两个季度单季毛利率低于 52%；或半年报/年报抛光液毛利率同比降 3 个百分点以上；或美国放行 Blackwell 对华销售。",
+      "depends_on": [],
+      "instruction": "按实际披露持续跟踪，不只等到 2027 年的预定检查点。季度低毛利率用单季，抛光液毛利率使用半年报或年报的分部口径；原表 H 股节点还附跌破 180 元且毛利率低于 55% 的条件，核对其适用口径，不默删。",
+      "kind": "observe",
+      "on_met": "第一种降到 1%；第二种清仓；第三种降到 1% 以内并复核。",
+      "on_unmet": "不按这些退出条款交易，继续跟踪实际公告。",
+      "priority": "high",
+      "schedule": {
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 688019 安集科技 | 买入 | 2%（目标 6%） | 价格不高于 225 元（11-17 收盘 216.3 元） | 连续 3 日收盘低于 170 元降到 1%；连续两个季度单季毛利率低于 52% 降到 1%；半年报或年报抛光液毛利率同比降 3 个百分点以上清仓；美国放行 Blackwell 对华销售时降到 1% 以内。损失预算：6% ×（21% + 10%）≈ 1.9% |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"
+      ],
+      "task_id": "anji-fundamental-exits",
+      "title": "持续核查安集季度及半年报/年报退出条件",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:85f3d1a5:s9",
+          "content_hash": "50257828670150e27acc85a484ae6b326685fd6257c9abb92c299cdd5b82042b"
+        }
+      ]
+    },
+    {
+      "completion": "官方依据、适用条款与暂停/恢复理由留痕；恢复须满足原文要求，不自行增加买入。",
+      "condition": null,
+      "depends_on": [],
+      "instruction": "按原报告观察长鑫实体清单、Blackwell 放行和 01-10 规则。长鑫列入则核对两只敞口、暂停北方华创价格路径；Blackwell 放行则安集降到 1% 以内并复核、北方华创暂停；暂停成对失效时北方华创价格路径暂停、安集不加。若下跌由长鑫或规则生效导致，等下一财报确认合同负债与存货无恶化，之前不接。每日或官方新信息后核查，不把暂无消息当不触发而永久关闭。",
+      "kind": "observe",
+      "on_met": null,
+      "on_unmet": null,
+      "priority": "high",
+      "schedule": {
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 北方华创 | 下跌由长鑫被列入实体清单或 2027-01-10 关联方规则生效引起 | 等下一期财报确认合同负债与存货没有恶化，之前不接 |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md",
+        "obs:us-cxmt-entity-list",
+        "obs:us-blackwell-china-allowed"
+      ],
+      "task_id": "domestic-policy-risk-watch",
+      "title": "持续观察长鑫、Blackwell 与政策生效对两只个股的限制",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6143587b:s4",
+          "content_hash": "af2891e0c788fa26f5b95fd020154d29ba328b8a9c35bf5473b5aa18f321cf88"
+        },
+        {
+          "rule_id": "debate:2026-11-16:6143587b:s5",
+          "content_hash": "d40defbf0661e4efdae1fbc1cb40260462a352e3b69f7e09c899076f2031655f"
+        },
+        {
+          "rule_id": "debate:2026-11-16:6143587b:s8",
+          "content_hash": "7c292fae919954f6f7e7b97705d05b3487a3f81c03e08b79e1cd598a029949f8"
+        }
+      ]
+    },
+    {
+      "completion": "法案原文和条款分支有证据；按用户确认的新建仓口径执行，实际交易另附确认。",
+      "condition": null,
+      "depends_on": [],
+      "instruction": "12-11 只是原文中下旬的行政检查起点，不预测立法时间。核实最终条款；2026-11-18 用户确认使用安集现计划新条款，因此不含相关条款时维持首批 2%、不加仓，旧摘录中的 1% 仅作历史追溯，不作为新指令。此确认不取消独立的减仓/清仓条件。MATCH 强制版按原文复核供应与产线风险。",
+      "kind": "review",
+      "on_met": null,
+      "on_unmet": null,
+      "priority": "normal",
+      "schedule": {
+        "deadline": "2027-01-15",
+        "start": "2026-12-11",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 12 月中下旬至 2027-01-15 | FY2027 NDAA 芯片条款（obs:us-ndaa-fy27-chip-export） | 含条款 / 不含 / MATCH 强制版 | 含：设计公司利好出尽，维持不买；不含：安集维持 1% 不加；MATCH 强制版：复核北方华创零部件成本与安集存量产线服务风险 |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md",
+        "obs:us-ndaa-fy27-chip-export",
+        "report/计划确认-user_default-2026-11-18.md"
+      ],
+      "task_id": "ndaa-domestic-exposure-review",
+      "title": "12 月中下旬至 01-15：NDAA 对两只个股的影响",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6143587b:s15",
+          "content_hash": "dd4add579dbc1aa834cda0179a983137482baa379684d22d5cb9a8614edb204f"
+        }
+      ]
+    },
+    {
+      "completion": "指标、披露日和各原分支结论留痕；未有数据继续安排重查。",
+      "condition": "毛利率至少 35%；利用率低于 90%；资本开支低于 2026 年。",
+      "depends_on": [],
+      "instruction": "按实际披露核对毛利率、利用率和年度资本开支；日期不是承诺已披露。保留原文的重算、重开辩论、取消北方华创三种不同动作，不合并为单一价格信号。",
+      "kind": "review",
+      "on_met": "分别按原文制造重算、瓶颈判断失败重开辩论；资本开支下降则取消北方华创计划。",
+      "on_unmet": "不凭空取消或解禁，依原条件继续跟踪。",
+      "priority": "normal",
+      "schedule": {
+        "start": "2027-02-28",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 2027-02-28 | 中芯 2026 年四季报（毛利率、利用率、2027 资本开支） | 毛利率 ≥35% / 利用率 <90% / 资本开支低于 2026 | 制造重算；瓶颈判断失败重开辩论；资本开支下降则取消北方华创计划 |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"
+      ],
+      "task_id": "smic-capex-february-review",
+      "title": "02-28 中芯四季报与北方华创取消条件",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6143587b:s11",
+          "content_hash": "e074a5a160267eeda6e5dbb1a7f30f32a9550fe34a75b503c6c935b382c962c8"
+        }
+      ]
+    },
+    {
+      "completion": "原始序列、窗口、分支结论及暂停安排有记录。",
+      "condition": "3 个月内收益率上行 25 个基点以上，或两融连续 4 周净降。",
+      "depends_on": [],
+      "instruction": "按原表核对中国 10 年国债收益率的三个月变动及两融连续四周净变化，保留该节点对国产链分批计划的影响，不把收益率变动与债券价格回报混同。",
+      "kind": "review",
+      "on_met": "复核国产链，暂停分批买入。",
+      "on_unmet": "不按此条暂停，不改变其他独立暂停条件。",
+      "priority": "normal",
+      "schedule": {
+        "start": "2027-05-14",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "| 2027-05-14 | 中国 10 年国债与两融 | 3 个月内收益率上行 25 个基点以上 / 两融连续 4 周净降 | 复核国产链；暂停分批买入 |",
+      "source_refs": [
+        "report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"
+      ],
+      "task_id": "domestic-rates-may-review",
+      "title": "05-14 国内利率、两融与暂停分批买入",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6143587b:s13",
+          "content_hash": "b8005140758748709b0db763319e71950e8d7a0c79876e9b20d8b74a48d98695"
+        }
+      ]
+    },
+    {
+      "completion": "本周执行偏离、待确认事项、持仓变化、持续任务及下周检查时间均有记录。",
+      "condition": null,
+      "depends_on": [],
+      "instruction": "沿用原文每周 routine，不设置新的投资截止日；每次检查后 deferred 指定下周检查，避免有界周期结束时默默漏掉长期规则。先读全局日历和实际执行记录，再运行所需研究步骤；只核对执行，不在本迁移中更改投资语义。",
+      "kind": "review",
+      "on_met": null,
+      "on_unmet": null,
+      "priority": "normal",
+      "schedule": {
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "source_excerpt": "例行检查：每周运行 `routine --user-id user:default`，观察点到期或有新观测时会列出。",
+      "source_refs": [
+        "report/核心配置-user_default-2026-11-17.md"
+      ],
+      "task_id": "weekly-plan-execution-check",
+      "title": "每周核对本计划执行、持仓变化和下一检查时间",
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:decision:efc75a02dc77d42e",
+          "content_hash": "324d0216ebbcaf906ec9a404e79a108d0aa837b8b1741564eb569e1093a41816"
+        },
+        {
+          "rule_id": "debate:2026-11-16:6190a959:decision:2cf0b88e19985146",
+          "content_hash": "6078be050811c7c1932e5dca7bf92bc897618339f05d716d666cdbab2e55a0ca"
+        },
+        {
+          "rule_id": "debate:2026-11-16:6190a959:decision:21393fcaac7f5d9a",
+          "content_hash": "db8b690a5109572de454c209dffc3582ce365fec4366f2ec36ef095ad5187ca7"
+        }
+      ]
+    },
+    {
+      "task_id": "treasury-yield-review-watch",
+      "title": "10年国债收益率升破1.90%时复核",
+      "kind": "observe",
+      "priority": "normal",
+      "schedule": {
+        "start": "2026-11-18",
+        "timezone": "Asia/Shanghai"
+      },
+      "instruction": "恢复原研究决策中已有、报告日历转存遗漏的复核条件。持续观察中国10年国债收益率，不将收益率混同ETF价格或直接卖出。未触发时安排下次检查。",
+      "completion": "有收益率来源、时点与复核结论；没有成交不记执行。",
+      "condition": "中国10年国债收益率升破1.90%。",
+      "on_met": "复核10年国债配置，不自动卖出。",
+      "on_unmet": "维持原计划并安排下一检查。",
+      "source_refs": [
+        "debate:2026-11-16:6190a959:decision:a8936776c9c02db9",
+        "debate:2026-11-16:6190a959"
+      ],
+      "source_excerpt": "2027-05-17 检验：511260 为负且落后货币基金超过 1 个百分点、同时宽基也下跌时卖出改放货币基金；10 年国债收益率升破 1.90% 时复核",
+      "depends_on": [],
+      "rule_refs": [
+        {
+          "rule_id": "debate:2026-11-16:6190a959:decision:a8936776c9c02db9",
+          "content_hash": "956c5ec813de65ffd1301e7849a30695afdb9ad59405d6afaec1558b7bad9d18"
+        }
+      ]
+    }
+  ],
+  "title": "核心配置计划：2026-11-17 原计划的执行登记",
   "uncertainties": [
     "核心报告的国债检验完整条件是：自身为负、落后货币基金超过 1 个百分点、宽基同期也跌，三者同时成立；观察时间表的简写不得替代完整条件。",
     "北方华创价格路径一行未重复 2027-01-10 前不买，但同表明确写有该限制，核心配置表还写 2027-01-10 后按条件买；原文一并保留，01-10 只是行政检查起点，不把它当作当天已获买入授权。",
@@ -38,355 +870,21 @@
     "初始配置是否已实际成交尚未收到确认；原文的 2-3 次或两次执行不擅自等分，不生成虚构成交、执行日期或数量。",
     "短债、联接基金的实时申赎限制和 460300、003376 费率需执行前核实；这不是新增投资判断。"
   ],
-  "tasks": [
-    {
-      "task_id": "broad-first-batch",
-      "title": "宽基第一批：窗口内分 2-3 次配置",
-      "kind": "action",
-      "priority": "high",
-      "schedule": {"start": "2026-11-18", "deadline": "2026-11-30"},
-      "instruction": "按原文完成第一批，不新增止损或估值闸门。核对 AMD 当前比例及全部权益 30% 上限；2026-11-18 用户已确认宽基停止加仓并复核、不因该规则卖出的例外。原文只要求分 2-3 次，不预设等分；每次部分成交用 awaiting_confirmation 留证据及下一检查时间，整批完成后才 executed。",
-      "completion": "有用户明确确认或成交引用证明整批完成，记录实际分次与最终比例；未成交不标完成。",
-      "condition": "第一批约 4%；AMD 未卖出前为 3.5%；全部权益含 AMD 不超过 30%。",
-      "on_met": "按窗口与原比例执行，先核对是否已成交，禁止重复买同一批次。",
-      "on_unmet": "不擅自放大比例；依原约束登记阻塞或延期及下一检查时间。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "1. **第一批（现在，11-18 至 11-30 分 2–3 次买）：** 约 4%（AMD 未卖出前为 3.5%）。"
-    },
-    {
-      "task_id": "treasury-initial-five-percent",
-      "title": "10 年期国债：分两次配置至 5%",
-      "kind": "action",
-      "schedule": {"start": "2026-11-18", "deadline": "2026-11-30"},
-      "instruction": "按原配置窗口分两次买，总计 5%；不擅自等分或把原有低风险资产强制卖出。优先核对是否已成交；若选择场外替代工具，先核对费率及其国开债而非国债的区别。部分成交用未完成处理留痕，不能再次购买整笔 5%。",
-      "completion": "两次实际执行及合计比例均有用户确认或成交引用。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "| 10 年期国债 ETF | 0 → 5% | 5% | 现在，分两次买 | 2027-05-17 检验：如果它为负、落后货币基金超过 1 个百分点，且宽基同期也跌，就卖出改放货币基金 |"
-    },
-    {
-      "task_id": "anji-initial-two-percent",
-      "title": "安集首批：不高于 225 元配置 2%",
-      "kind": "action",
-      "priority": "high",
-      "schedule": {"start": "2026-11-18", "deadline": "2026-11-30"},
-      "instruction": "采用 11-17 更新并由用户于 2026-11-18 确认的首批 2%、目标 6%；核对价格、风险预算和已有成交，不沿用旧段落首批 1%。原有降到 1% 或清仓的退出条件不变。窗口结束而条件不满足时保留记录并复核，不擅自抬价。",
-      "completion": "首批买入有明确执行引用；价格与比例均符合原文。",
-      "condition": "价格不高于 225 元。",
-      "on_met": "买入 2%，目标仍为 6%，其余按独立加仓条件。",
-      "on_unmet": "不追价；记录未完成原因及下一检查时间。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"],
-      "source_excerpt": "| 688019 安集科技 | 买入 | 2%（目标 6%） | 价格不高于 225 元（11-17 收盘 216.3 元） | 连续 3 日收盘低于 170 元降到 1%；连续两个季度单季毛利率低于 52% 降到 1%；半年报或年报抛光液毛利率同比降 3 个百分点以上清仓；美国放行 Blackwell 对华销售时降到 1% 以内。损失预算：6% ×（21% + 10%）≈ 1.9% |"
-    },
-    {
-      "task_id": "amd-after-earnings-review",
-      "title": "英伟达财报后讨论 AMD 后续安排",
-      "kind": "review",
-      "priority": "high",
-      "schedule": {"start": "2026-11-19"},
-      "instruction": "先核实英伟达财报已披露；原文是 11-19 之后，不是假定当天具体时刻。按最新用户决定讨论 AMD，不能自动恢复旧卖出批次或把卖到 0 当作已确认。确认后登记新的 AMD 安排，再核对宽基第一批 3.5% 或 4% 及后续批次约束。",
-      "completion": "记录财报证据、用户后续决定和对宽基比例的影响；若无新决定则继续等待并安排重查。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "| 11-19 之后 | AMD 讨论 | 定下 AMD 后，确定宽基第一批是 3.5% 还是 4% |"
-    },
-    {
-      "task_id": "broad-second-batch",
-      "title": "宽基第二批 4%：三条替代路径或时间兜底",
-      "kind": "action",
-      "schedule": {"start": "2026-11-18"},
-      "instruction": "持续核对原文第二批三条替代路径，并与 04-30 兜底节点共用同一个批次额度。满足任一路径也要核对 AMD 已降到约 6% 以下、全权益上限、原计划其他约束及该批是否已买。未触发用 deferred 安排下一交易日检查，不能关闭整个分支。",
-      "completion": "第二批 4% 有明确执行引用，只计一次；未满足或尚无执行确认保持待办。",
-      "condition": "满足任一：2027-01-10 双方暂停均续期且不少于 6 个月；或（全 A 60 日新低超过 2000 家，或 510300 五日跌幅至少 5%）同时有国家队或央行托底；或 510300 收盘高于前 20 日最高收盘且站上 60 日均价。04-30 另按原兜底状态条件。",
-      "on_met": "按第二批 4% 执行；替代路径共用本批，不重复加仓。",
-      "on_unmet": "不买本批，继续检查；只续 1-3 个月不算续期条件成立。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "2. **第二批 4%（满足任一）：**\n   - 2027-01-10 美方关联方规则暂停与中方稀土暂停同日到期，双方都续期，且期限不短于 6 个月。只续 1–3 个月视为风险后移，不算。\n   - 急跌加托底：全 A 60 日新低超过 2000 家，或 510300 五日跌幅 ≥5%，同时出现国家队或央行的托底动作。\n   - 价格确认：510300 收盘高于前 20 日最高收盘，并站上 60 日均价。"
-    },
-    {
-      "task_id": "broad-third-batch",
-      "title": "宽基第三批 4%：预算与信用或价格确认",
-      "kind": "action",
-      "schedule": {"start": "2026-11-18"},
-      "instruction": "持续核对原文第三批两条替代条件，另有 04-30 时间兜底；不把预算与信用各自当成独立替代条件。核对 AMD、全权益约束及本批是否已完成；不能因第二批与第三批使用同一价格信号就重复执行已完成的批次。",
-      "completion": "第三批 4% 有明确执行引用且只计一次，或按正式修订关闭。",
-      "condition": "满足任一：两会赤字、超长期特别国债与专项债合计比 2026 年多 5000 亿元以上，且新增人民币贷款连续两个月同比多增；或价格确认（510300 收盘高于前 20 日最高收盘并站上 60 日均价）。04-30 另按原兜底状态条件。",
-      "on_met": "按第三批 4% 和原组合约束执行。",
-      "on_unmet": "不买本批，继续观察并指定下一检查时间，数据不足不能视为条件不成立。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "3. **第三批 4%（满足任一）：**\n   - 2027 年两会的赤字、超长期特别国债与专项债合计比 2026 年多 5000 亿元以上，且新增人民币贷款连续两个月同比多增。\n   - 价格确认（同上）。"
-    },
-    {
-      "task_id": "policy-january-ten",
-      "title": "01-10 成对续期、宽基第二批与黄金对冲核查",
-      "kind": "observe",
-      "schedule": {"start": "2027-01-10"},
-      "instruction": "核对双方官方文件、期限及生效日，区分长期续期、短期续期、双方失效。日历日期不保证政策当天公布，证据不足继续重查。引用相应批次节点，不另创买入额度。",
-      "completion": "有官方证据与明确分支结论，并将后续动作或重查留痕。",
-      "condition": "双方均续期且不短于 6 个月；短期续期；双方都失效。",
-      "on_met": "长期续期按第二批条件；短期续期后移；双方失效等待急跌加托底，并检查黄金是否确实对冲。北方华创与安集另核对原政策暂停条款。",
-      "on_unmet": "未有足够证据不执行，安排下一检查时间。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "| 2027-01-10 | 关联方规则与稀土暂停同日到期 | 续期且不短于 6 个月：买第二批；短期续期：后移；双方都失效：等急跌加托底后买第二批，并检查黄金是否表现出对冲 |"
-    },
-    {
-      "task_id": "budget-and-credit-march",
-      "title": "3 月中旬：预算与 1-2 月信贷核查",
-      "kind": "observe",
-      "schedule": {"start": "2027-03-11", "deadline": "2027-03-20"},
-      "instruction": "原文只写中旬，本窗口只是行政核查。逐项核对预算合计比 2026 年多 5000 亿元以上，并确认新增人民币贷款连续两个月同比多增；只有合并累计信贷数时不能擅自判定。未披露则安排重查，窗口结束不取消第三批。",
-      "completion": "记录预算与月度信贷来源，给出两者同时满足与否或数据不足。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "| 2027-03 中旬 | 两会预算、1–2 月信贷 | 满足条件买第三批 |"
-    },
-    {
-      "task_id": "april-thirty-backstop",
-      "title": "04-30 尚未完成批次的时间兜底检查",
-      "kind": "review",
-      "priority": "high",
-      "schedule": {"start": "2027-04-30"},
-      "instruction": "先查哪些批次尚未买，绝不重新买已完成批次；本节点检查原替代路径，不新增一批。保留全权益及 AMD 约束，不能把日历到日视为解除组合约束。",
-      "completion": "为每个未完成批次记录执行或顺延理由；顺延后继续保留价格确认待办。",
-      "condition": "当天 510300 是否处在 60 日新低，或收盘低于 3.638。",
-      "on_met": "顺延到价格确认，不在阴跌中补满。",
-      "on_unmet": "还没买的批次按原时间兜底执行，仍核对原组合约束与执行确认。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "4. **时间兜底：** 2027-04-30 还没买的批次照常买。但如果当天 510300 处在 60 日新低或收盘低于 3.638，就顺延到价格确认，不在阴跌中补满。"
-    },
-    {
-      "task_id": "broad-stop-adding-watch",
-      "title": "持续观察宽基停止加仓条件，不登记为卖出止损",
-      "kind": "observe",
-      "priority": "high",
-      "schedule": {"start": "2026-11-18"},
-      "instruction": "每个交易日收盘后核对价格与是否有新增稳市工具。未触发或已完成本日核查但计划仍有效时用 deferred 安排下一交易日；本持续节点不因完成一次检查而永久关闭。2026-11-18 用户已确认宽基不设移动止损例外，触发时只停加并复核，不按通用 15% 移动退出线卖出。",
-      "completion": "持续留存检查证据；触发时登记停止加仓与复核，不自动卖出。",
-      "condition": "510300 收盘低于 3.638，且没有新增稳市工具。",
-      "on_met": "停止加仓并复核，不卖出。",
-      "on_unmet": "维持原计划，不新增动作，安排下一交易日检查。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "| 沪深300 宽基 | 0 → 约 4% | 约 12% | 分三批，每批 4%（条件见下节） | 不设移动止损。510300 收盘低于 3.638（比 11-17 再跌 10%）且没有新增稳市工具时，停止加仓并复核，不卖出 |"
-    },
-    {
-      "task_id": "treasury-six-month-review",
-      "title": "05-17 国债三条件检验",
-      "kind": "review",
-      "schedule": {"start": "2027-05-17"},
-      "instruction": "按实际执行和同期一致的收益口径检验三项 AND 条件，不用时间表中股债同跌的简写替代。若没有买入记录先核实，不虚构持有收益。",
-      "completion": "三项分别有证据，结论和后续动作留痕；建议卖出不等于已卖出。",
-      "condition": "10 年国债自身为负，且落后货币基金超过 1 个百分点，且宽基同期也跌。",
-      "on_met": "卖出改放货币基金；实际执行另附用户确认或成交引用。",
-      "on_unmet": "不将不完整条件当成卖出触发；按原计划记录检验结果。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "| 10 年期国债 ETF | 0 → 5% | 5% | 现在，分两次买 | 2027-05-17 检验：如果它为负、落后货币基金超过 1 个百分点，且宽基同期也跌，就卖出改放货币基金 |"
-    },
-    {
-      "task_id": "broad-six-month-outcome",
-      "title": "05-17 宽基区间判断检验",
-      "kind": "review",
-      "schedule": {"start": "2027-05-17"},
-      "instruction": "核对原判断基准起点及全收益口径，检验区间判断；不把价格涨跌冒充全收益，也不把本项结论直接变成买卖指令。观点账本另按自身结算规则结算。",
-      "completion": "区间检验、证据与误差来源留痕，判断结算与交易执行分开。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md", "ledger-50f62115af58ededbd8be035"],
-      "source_excerpt": "- **马克斯：** 到 2027-05-17，510300 的全收益大概率落在 -8%~+8% 之间，但途中回撤超过 10% 的概率有三到四成。“中性”意味着现在就分步补到中性仓位，只有沪深300 PE 不高于 11 倍且 PB 不高于 1.25 时才多买。红利持有不加；长债撤回“回到常态就亏”的判断。"
-    },
-    {
-      "task_id": "gold-reduction-watch",
-      "title": "黄金至 05-16 前的减仓条件",
-      "kind": "observe",
-      "schedule": {"start": "2026-11-18"},
-      "instruction": "在原有效区间逐个交易日核查；条件仍有效而未触发时延后重查。到 2027-05-16 核对区间结束后关闭该观察，不把之后的价格套用此条件。",
-      "completion": "持续检查有证据，触发后保留减仓执行确认，或原条件期结束后据实关闭。",
-      "condition": "2027-05-16 前，518880 收盘低于 6.67。",
-      "on_met": "降到 3% 以下，不改为恰好 3%。",
-      "on_unmet": "现在不加，保持原安排并继续重查；期满关闭本观察。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "| 黄金 | 3% | 3%，确认后最多 5% | 现在不加 | 2027-05-16 前 518880 收盘低于 6.67，降到 3% 以下 |"
-    },
-    {
-      "task_id": "gold-confirmation-review",
-      "title": "黄金仅在确认后评估增加，最多 5%",
-      "kind": "review",
-      "schedule": {"start": "2026-11-18"},
-      "instruction": "保留现在不加、不在下跌中加的原语义。原文没有给黄金价格确认的精确公式，不借用宽基公式，不新增数值门槛；若走该分支，先把确认依据说明清楚。",
-      "completion": "确认依据、是否增配及执行确认分别留痕；未确认继续等待。",
-      "condition": "价格确认，或 2027-01-10 冲击中确实跑出对冲效果。",
-      "on_met": "评估由 3% 增至最多 5%，不是无条件买至 5%。",
-      "on_unmet": "不加仓，保持原计划。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "- **索罗斯：** 指数处在见顶反转后的考验段，同类样本约四分之三在价格确认前会再跌 4.75% 以上。这只决定节奏，不否定第一批。黄金不在下跌中加，只在价格确认，或 2027-01-10 冲击中确实跑出对冲效果时才加。"
-    },
-    {
-      "task_id": "cash-product-check",
-      "title": "现金分层及场内外工具执行前核对",
-      "kind": "review",
-      "schedule": {"start": "2026-11-18"},
-      "instruction": "原现金约 50%、随用不低于 20%；现金分层候选保留 511880、204001/131810、000198、006662、070009、已有 013237。国债候选 511260/003376，宽基候选 510300/460300 是工具替代，不叠加买两套。买前核实限额、赎回、费用与不超过一年封闭期；保留原报告每只工具的区别，不因为登记默认换掉全部旧持仓。",
-      "completion": "记录实际选用工具和执行前费率、限额证据；未选产品不伪造交易。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "## 现金放哪里（都可随时或 7 天后取出，没有超过 1 年的封闭期）"
-    },
-    {
-      "task_id": "anji-h-share-check",
-      "title": "安集 H 股定价及上市满 20 个交易日后的加仓",
-      "kind": "action",
-      "schedule": {"start": "2026-11-18"},
-      "instruction": "持续追踪实际公告与上市交易日；06-30 是原观察时间表的检查界限，不擅自解释为条件永久到期。尚未满足时 deferred 重查；同一加仓只执行一次。",
-      "completion": "定价、上市日、20 个交易日和 A 股价格均有证据，加仓执行另附确认。",
-      "condition": "H 股定价公布并上市满 20 个交易日后，A 股不高于 225 元。",
-      "on_met": "加 2% 到 4%，核对当前实际比例，不重复增加已执行部分。",
-      "on_unmet": "不加，等待条件，安排下一检查时间。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"],
-      "source_excerpt": "| 安集科技 | H 股定价公布并上市满 20 个交易日后，A 股不高于 225 元 | 加 2%（到 4%） |"
-    },
-    {
-      "task_id": "anji-h-share-june-checkpoint",
-      "title": "06-30 安集 H 股节点与原表附加减仓条件复核",
-      "kind": "review",
-      "schedule": {"start": "2027-06-30"},
-      "instruction": "核对 H 股进度及原表中跌破 180 元且毛利率低于 55% 的附加减仓条件。它与主表连续三日低于 170 元是不同原文条款，不能互相覆盖；需按各自语义核实，缺少价格/毛利率口径时不臆断。",
-      "completion": "说明实际上市进度、交易日计数和附加条件是否成立；仍未上市不擅自取消后续观察。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"],
-      "source_excerpt": "| 2027-06-30 前 | 安集 H 股定价与上市 | 上市满 20 个交易日 | A 股 ≤225 元加 2%（到 4%）；跌破 180 元且毛利率 <55% 减到 1% |"
-    },
-    {
-      "task_id": "financial-q1-availability",
-      "title": "04-30 安集、北方华创 Q1 可得事实收集",
-      "kind": "observe",
-      "schedule": {"start": "2027-04-30"},
-      "instruction": "收集实际披露的一季报、单季口径及近四季现金流；尚未披露就记录缺口重查。不把 Q1 单季通过当作原文 Q1、Q2 同时满足，更不因此提前执行依赖两季的买入。原有季度/半年报退出条件按原义独立核查。",
-      "completion": "原始披露日期、单季转换和缺失指标留痕；Q2 仍由后续节点处理。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"],
-      "source_excerpt": "| 2027-04-30 至 08-31 | 安集、北方华创 2027Q1、Q2 单季数据 | 见上方条件 | 按计划加仓或买入；毛利率条件触发时减仓 |"
-    },
-    {
-      "task_id": "financial-q2-availability",
-      "title": "08-31 两个单季条件的完整核查",
-      "kind": "observe",
-      "schedule": {"start": "2027-08-31"},
-      "instruction": "行政复核点不替代实际披露时间。若半年度数据提前公布，持续财务节点当时就检查，不必等本日。核对 Q1 与 Q2 各自满足，不用半年累计替代单季；缺失数据继续重查而非判为未达标。",
-      "completion": "对安集、北方华创分别给出完整指标核对表和相应动作，不改变买入门槛。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"],
-      "source_excerpt": "| 2027-04-30 至 08-31 | 安集、北方华创 2027Q1、Q2 单季数据 | 见上方条件 | 按计划加仓或买入；毛利率条件触发时减仓 |"
-    },
-    {
-      "task_id": "anji-financial-add-to-six",
-      "title": "安集两季全部满足后不高于 243 元加到 6%",
-      "kind": "action",
-      "schedule": {"start": "2027-04-30"},
-      "instruction": "从原观察区间起跟踪，依实际披露判断；Q2 未可得前不得认为两季已满足。每项用原会计口径，核对 H 股摊薄与公允价值剔除，不擅自推算缺失字段。",
-      "completion": "两季全部指标和价格均可核验，实际加到 6% 有确认；同一目标不重复买入。",
-      "condition": "2027Q1、Q2 两个单季同时满足：每股扣非（H 股摊薄后、剔除公允价值收益）同比至少 20%，单季毛利率至少 55%，存货同比增速不高于营收同比增速，近四季（经营现金流 − 购建长期资产）/扣非至少 25%。",
-      "on_met": "不高于 243 元加到 6%。",
-      "on_unmet": "不按此路径加仓；两季尚未披露或字段不足时继续等待或 blocked 重查。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"],
-      "source_excerpt": "| 安集科技 | 2027Q1、Q2 两个单季同时满足：每股扣非（H 股摊薄后、剔除公允价值收益）同比 ≥20%，单季毛利率 ≥55%，存货同比增速不高于营收同比增速，近四季（经营现金流 − 购建长期资产）/扣非 ≥25% | 不高于 243 元加到 6% |"
-    },
-    {
-      "task_id": "naura-fundamental-entry",
-      "title": "北方华创基本面路径：两季满足且不高于 480 元买 2%",
-      "kind": "action",
-      "schedule": {"start": "2027-04-30"},
-      "instruction": "只按实际已披露的 Q1、Q2 单季判断；近四季扣除应付账款增加，扣非剔除其他收益同比增量。检查长鑫、关联方规则、Blackwell 和中芯资本开支等原暂停/取消条件。与价格路径合计上限 4%，不重复执行本路径。",
-      "completion": "两季指标、价格、路径归属和执行确认完整；未满足继续保留任务。",
-      "condition": "2027Q1、Q2 两个单季同时满足扣非（剔除其他收益同比增量）同比至少 15% 且不低于营收同比、单季毛利率至少 40%、近四季（经营现金流 − 应付账款增加 − 购建长期资产）/扣非至少 40%；买入价不高于 480 元。",
-      "on_met": "买 2%；该路径买入后连续 3 日收盘低于 400 元清仓。",
-      "on_unmet": "不买；数据不足记录 blocked 或 deferred 及下一检查时间。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"],
-      "source_excerpt": "| 002371 北方华创 | 现在不买（11-17 收盘 568.75 元），2027-01-10 前不买。基本面路径：2027Q1、Q2 两个单季同时满足扣非（剔除其他收益同比增量）同比 ≥15% 且不低于营收同比、单季毛利率 ≥40%、近四季（经营现金流 − 应付账款增加 − 购建长期资产）/扣非 ≥40% | 不高于 480 元买 2%；买入后连续 3 日收盘低于 400 元清仓 |"
-    },
-    {
-      "task_id": "naura-price-entry",
-      "title": "北方华创价格路径：不高于 410 元且生意闸门全部满足",
-      "kind": "action",
-      "schedule": {"start": "2027-01-10"},
-      "instruction": "保留同表 2027-01-10 前不买和核心配置表 2027-01-10 后按条件买的原文；01-10 是行政检查起点，不代表当天已获买入授权。最新一季指标按单季核实；若下跌由长鑫实体清单或关联方规则生效引起，等下一财报确认合同负债与存货无恶化再判断。与基本面路径合计最多 4%。",
-      "completion": "价格与三项生意闸门、政策限制和实际执行证据齐备，不把低价单独视为买入条件。",
-      "condition": "不高于 410 元，且最新一季单季毛利率不低于上一季、合同负债不低于 45 亿元、剔除其他收益后的单季扣非同比不为负。",
-      "on_met": "买 2%；该路径买入后连续 3 日收盘低于 340 元清仓。",
-      "on_unmet": "不买，继续核查，不擅自改低毛利率/合同负债门槛。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"],
-      "source_excerpt": "| 北方华创 | 价格路径：不高于 410 元，且最新一季单季毛利率不低于上一季、合同负债不低于 45 亿元、剔除其他收益后的单季扣非同比不为负 | 买 2%；买入后连续 3 日收盘低于 340 元清仓；两条路径合计上限 4%（损失预算 4% ×（17% + 10%）≈ 1.1%） |"
-    },
-    {
-      "task_id": "single-stock-price-exits",
-      "title": "持续核查安集与北方华创各自价格退出线",
-      "kind": "observe",
-      "priority": "high",
-      "schedule": {"start": "2026-11-18"},
-      "instruction": "先核实实际持仓和北方华创的买入路径。安集连续 3 日收盘低于 170 元降到 1%；北方华创基本面路径连续 3 日低于 400 元清仓、价格路径连续 3 日低于 340 元清仓。不能换成盘中跌破或自然日计数，也不能用 340 替换所有路径的 400。没有持仓也持续追踪计划但不伪造卖出。每日检查后 deferred 安排下一交易日。",
-      "completion": "每次核查保留交易日收盘证据、适用路径、动作与实际确认；持续规则未被修订前不因一次检查而关闭。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"],
-      "source_excerpt": "| 北方华创 | 价格路径：不高于 410 元，且最新一季单季毛利率不低于上一季、合同负债不低于 45 亿元、剔除其他收益后的单季扣非同比不为负 | 买 2%；买入后连续 3 日收盘低于 340 元清仓；两条路径合计上限 4%（损失预算 4% ×（17% + 10%）≈ 1.1%） |"
-    },
-    {
-      "task_id": "anji-fundamental-exits",
-      "title": "持续核查安集季度及半年报/年报退出条件",
-      "kind": "observe",
-      "priority": "high",
-      "schedule": {"start": "2026-11-18"},
-      "instruction": "按实际披露持续跟踪，不只等到 2027 年的预定检查点。季度低毛利率用单季，抛光液毛利率使用半年报或年报的分部口径；原表 H 股节点还附跌破 180 元且毛利率低于 55% 的条件，核对其适用口径，不默删。",
-      "completion": "留存披露日期、口径与连续期数；条件触发则提出原动作并另记执行确认，未触发继续安排披露后检查。",
-      "condition": "连续两个季度单季毛利率低于 52%；或半年报/年报抛光液毛利率同比降 3 个百分点以上；或美国放行 Blackwell 对华销售。",
-      "on_met": "第一种降到 1%；第二种清仓；第三种降到 1% 以内并复核。",
-      "on_unmet": "不按这些退出条款交易，继续跟踪实际公告。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"],
-      "source_excerpt": "| 688019 安集科技 | 买入 | 2%（目标 6%） | 价格不高于 225 元（11-17 收盘 216.3 元） | 连续 3 日收盘低于 170 元降到 1%；连续两个季度单季毛利率低于 52% 降到 1%；半年报或年报抛光液毛利率同比降 3 个百分点以上清仓；美国放行 Blackwell 对华销售时降到 1% 以内。损失预算：6% ×（21% + 10%）≈ 1.9% |"
-    },
-    {
-      "task_id": "domestic-policy-risk-watch",
-      "title": "持续观察长鑫、Blackwell 与政策生效对两只个股的限制",
-      "kind": "observe",
-      "priority": "high",
-      "schedule": {"start": "2026-11-18"},
-      "instruction": "按原报告观察长鑫实体清单、Blackwell 放行和 01-10 规则。长鑫列入则核对两只敞口、暂停北方华创价格路径；Blackwell 放行则安集降到 1% 以内并复核、北方华创暂停；暂停成对失效时北方华创价格路径暂停、安集不加。若下跌由长鑫或规则生效导致，等下一财报确认合同负债与存货无恶化，之前不接。每日或官方新信息后核查，不把暂无消息当不触发而永久关闭。",
-      "completion": "官方依据、适用条款与暂停/恢复理由留痕；恢复须满足原文要求，不自行增加买入。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md", "obs:us-cxmt-entity-list", "obs:us-blackwell-china-allowed"],
-      "source_excerpt": "| 北方华创 | 下跌由长鑫被列入实体清单或 2027-01-10 关联方规则生效引起 | 等下一期财报确认合同负债与存货没有恶化，之前不接 |"
-    },
-    {
-      "task_id": "ndaa-domestic-exposure-review",
-      "title": "12 月中下旬至 01-15：NDAA 对两只个股的影响",
-      "kind": "review",
-      "schedule": {"start": "2026-12-11", "deadline": "2027-01-15"},
-      "instruction": "12-11 只是原文中下旬的行政检查起点，不预测立法时间。核实最终条款；2026-11-18 用户确认使用安集现计划新条款，因此不含相关条款时维持首批 2%、不加仓，旧摘录中的 1% 仅作历史追溯，不作为新指令。此确认不取消独立的减仓/清仓条件。MATCH 强制版按原文复核供应与产线风险。",
-      "completion": "法案原文和条款分支有证据；按用户确认的新建仓口径执行，实际交易另附确认。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md", "obs:us-ndaa-fy27-chip-export", "report/计划确认-user_default-2026-11-18.md"],
-      "source_excerpt": "| 12 月中下旬至 2027-01-15 | FY2027 NDAA 芯片条款（obs:us-ndaa-fy27-chip-export） | 含条款 / 不含 / MATCH 强制版 | 含：设计公司利好出尽，维持不买；不含：安集维持 1% 不加；MATCH 强制版：复核北方华创零部件成本与安集存量产线服务风险 |"
-    },
-    {
-      "task_id": "smic-capex-february-review",
-      "title": "02-28 中芯四季报与北方华创取消条件",
-      "kind": "review",
-      "schedule": {"start": "2027-02-28"},
-      "instruction": "按实际披露核对毛利率、利用率和年度资本开支；日期不是承诺已披露。保留原文的重算、重开辩论、取消北方华创三种不同动作，不合并为单一价格信号。",
-      "completion": "指标、披露日和各原分支结论留痕；未有数据继续安排重查。",
-      "condition": "毛利率至少 35%；利用率低于 90%；资本开支低于 2026 年。",
-      "on_met": "分别按原文制造重算、瓶颈判断失败重开辩论；资本开支下降则取消北方华创计划。",
-      "on_unmet": "不凭空取消或解禁，依原条件继续跟踪。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"],
-      "source_excerpt": "| 2027-02-28 | 中芯 2026 年四季报（毛利率、利用率、2027 资本开支） | 毛利率 ≥35% / 利用率 <90% / 资本开支低于 2026 | 制造重算；瓶颈判断失败重开辩论；资本开支下降则取消北方华创计划 |"
-    },
-    {
-      "task_id": "domestic-rates-may-review",
-      "title": "05-14 国内利率、两融与暂停分批买入",
-      "kind": "review",
-      "schedule": {"start": "2027-05-14"},
-      "instruction": "按原表核对中国 10 年国债收益率的三个月变动及两融连续四周净变化，保留该节点对国产链分批计划的影响，不把收益率变动与债券价格回报混同。",
-      "completion": "原始序列、窗口、分支结论及暂停安排有记录。",
-      "condition": "3 个月内收益率上行 25 个基点以上，或两融连续 4 周净降。",
-      "on_met": "复核国产链，暂停分批买入。",
-      "on_unmet": "不按此条暂停，不改变其他独立暂停条件。",
-      "source_refs": ["report/事件研究-美国中期选举与黄仁勋离任-2026-11-15.md"],
-      "source_excerpt": "| 2027-05-14 | 中国 10 年国债与两融 | 3 个月内收益率上行 25 个基点以上 / 两融连续 4 周净降 | 复核国产链；暂停分批买入 |"
-    },
-    {
-      "task_id": "weekly-plan-execution-check",
-      "title": "每周核对本计划执行、持仓变化和下一检查时间",
-      "kind": "review",
-      "schedule": {"start": "2026-11-18"},
-      "instruction": "沿用原文每周 routine，不设置新的投资截止日；每次检查后 deferred 指定下周检查，避免有界周期结束时默默漏掉长期规则。先读全局日历和实际执行记录，再运行所需研究步骤；只核对执行，不在本迁移中更改投资语义。",
-      "completion": "本周执行偏离、待确认事项、持仓变化、持续任务及下周检查时间均有记录。",
-      "source_refs": ["report/核心配置-user_default-2026-11-17.md"],
-      "source_excerpt": "例行检查：每周运行 `routine --user-id user:default`，观察点到期或有新观测时会列出。"
-    }
-  ]
+  "rule_exclusions": {
+    "debate:2026-11-16:6143587b:s1": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:6143587b:s6": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:6143587b:s7": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:6143587b:s9": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:6143587b:s10": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:6143587b:s12": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:6143587b:s14": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:6143587b:decision:6da3d2b438c5362b": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:6143587b:decision:019c9a671166966d": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:6143587b:decision:96634ea8e9c63bb3": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:6143587b:decision:7e7956f5b9b816c8": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:6143587b:decision:a3ba99f798020d22": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:6143587b:decision:319e29c7c904fcb9": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:6143587b:decision:aaae0ee8c70a477e": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。",
+    "debate:2026-11-16:85f3d1a5:decision:a92d8c52fb72be45": "原事件研究的其他交易/政治推演分支不在本核心配置范围内；不重新激活旧AMD卖出或新增北美链交易。相关回避约束已在本计划保留。"
+  }
 }

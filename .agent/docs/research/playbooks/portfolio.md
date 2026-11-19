@@ -31,7 +31,7 @@
 ## E. 复盘与偏好校准（`intents=["review"]`）
 
 1. 用户说了实际买卖：每笔 `record-trade`；持仓变了再 `record-holding`。
-2. `routine --user-id <id>`（含结算）或 `settle-ledger`。
+2. `routine --mode maintain --user-id <id>`（含结算）或 `settle-ledger`；默认 routine 只读，不触发结算。
 3. `route` → `run-recipe --cash <元>`（或 `decision-review --user-id <id> --cash <元>`）。
 4. 作答：读法与两种处理选项见 `decision-review --help`；用户选定后按 A.3 或 C 继续。
 
@@ -40,3 +40,9 @@
 1. 从漏斗候选里挑与偏好相符的 1–3 只（基础包足以作为候选依据，回答说明未做完整决策）。
 2. `adjustment-proposal --user-id <id> --cash <元> --candidate <代码>[:<类型>] ...`；先看输出的数据缺口。
 3. 作答：加入后的目标区间、金额与股数，行业、重叠和波动变化。
+
+## G. 执行窗口内的节奏（每一笔已定的买入或卖出）
+
+1. 研究给出标的、数量和执行窗口后，下单前运行 `entry-timing --symbol <代码> --side buy|sell --window-days <窗口交易日数>`（读法与纪律见 `entry-timing --help`），不凭“最近在跌”“最近在涨”的印象择时。
+2. 按 `recommendation` 告诉用户每批比例与大致日期，并说明依据的相似状态、段数和与全部交易日的差距；样本不足或差距很小时照常分两批。
+3. 延后的批次在窗口末必须执行（研究的退出或停止条件触发除外）；节奏改变已登记的执行计划时，按 `playbooks/execution_plans.md` 修订节点。

@@ -146,6 +146,21 @@ _ANALOG = """\
 insufficient_samples 的周期不下结论。
 """
 
+_ENTRY_TIMING = """\
+已定交易在执行窗口内的节奏：研究先定买卖什么、多少、哪个窗口，本命令只回答窗口内“现在一次做完、分两批、
+还是延后一半到窗口末”。--symbol <代码> [--asset-type exchange_fund|stock] [--market us|hk] --side buy|sell
+--window-days <交易日，默认 21> [--as-of-date] [--years 15]。
+读法：state 为当前状态（相对 60 日均值、60 日区间位置、近 250 日收益分档）；matched_on 为实际匹配的状态项
+（样本不足时依次放宽）；samples.episodes 是近似独立的段数，少于 5 段时不倾斜。forward.<窗口>.state 与 baseline
+比较：相似状态的窗口收益中位数比全部交易日低 1 个百分点以上，或价格更低的比例高 8 个百分点以上，记为偏弱。
+recommendation.plan：front_load 现在一次做完；split_even 一半现在、一半在窗口中点；defer_part 一半现在、一半在窗口末
+（买入时偏弱、卖出时偏强才延后）。tranches.about 按交易日折算的大致日期，以实际交易日为准。
+confirmation_entry 是“等价格确认再买”相对立即买的价格差（正值表示更贵）与等待天数，只作为后续加仓批次的参考。
+纪律：所有批次在窗口末前完成，不改变目标仓位、不替代退出线；延后的一半到窗口末必须执行，除非研究的退出或停止条件
+已触发。影响很小时（交易占总资产比例 × 中位数差距 < 0.1%）照常执行即可，不必为择时改计划。
+口径：docs/modules/6-编排/研究编排模块.md「入场时机」。
+"""
+
 _INDUSTRY = """\
 申万 2021 分类。不带参数列一级行业（--level 2|3、--parent <代码> 看下级）；--symbol <股票代码> 给出
 一、二、三级行业、各级行业指数的 asset_id 和默认同行（同一三级行业，不足 5 个时用二级）；
@@ -418,6 +433,9 @@ depends_on 只能引用本计划非周期节点；completed/executed 才解除�
 source_refs 为研究产物的稳定引用，系统不复制或自动核实其正文，也不会自动导入旧报告。
 迁移既有计划时，节点可附 source_excerpt 原文摘录，保留数字、条件及动作措辞用于逐条对照。
 提醒日期不等于投资分支到期；持续条件未触发时用 deferred 保留下一检查，不能用 not_triggered 关闭整个持续分支。
+研究规则：debate --action rules 返回 rule_id/content_hash。任务可用 rule_refs=[{"rule_id":"...","content_hash":"..."}]
+引用原规则；plan-show --audit 检查 uncovered_rules，每条须补登记或在计划 rule_exclusions 中写明不适用理由。
+源规则变化/被替换后节点变 stale，拒绝直接完成/执行，先复核后修订；不自动猜测新旧文本是否等义。
 
 时间规则：
   start 为 ISO 日期或带 UTC 偏移的时刻；timezone 默认 Asia/Shanghai。
@@ -438,7 +456,10 @@ _CALENDAR = """\
 返回 overdue/due/upcoming/blocked；--include-closed 另含关闭节点及未激活计划，按 plan_status 区分。
 延期保留 original deadline（deadline_at），next_check 决定下一次何时提醒；未到重查时点不催办。
 节点附 plan_id/revision、条件分支、完成标准、来源、依赖与上次记录；按 next_actions 读取完整计划。
-plan_constraints / plan_uncertainties 随事项展示原计划约束和待确认事项；source_excerpt 保留已登记原文。
+默认紧凑：plans 只列一次共享约束和待确认事项；节点只含身份、时刻、状态与 rule_state。
+--details 展开原文、条件、最新规则及上次处理；--fields title,status,... 选择字段（身份始终保留）。
+--plan-id/--task-id 精确筛选，--limit 100 --offset 0 分页；counts 是筛选后的总数，page.next_offset 指向下一页。
+next_actions.operation/arguments 可直接调用；plan-show --plan-id <id> --task-id <node> 读取单节点，不必重读全计划。
 gaps 非空表示部分日程无法展开，其他节点仍返回；先处理缺口，不能声称已完整覆盖所有待办。
 条件成立不等于已获准交易；行动前核对最新持仓、现金、损失预算及其他计划的冲突。
 默认采用当前已知修订；历史复盘必须显式 --known-at <带偏移时刻> 排除后来记录，不得晚于现在。
@@ -447,7 +468,8 @@ gaps 非空表示部分日程无法展开，其他节点仍返回；先处理缺
 """
 
 _PLAN_SHOW = """\
-按稳定 plan_id 读取完整计划、来源、历次修订、已删除节点的原始定义及全部处理记录。
+不带 --plan-id 列当前计划；带编号读取当前计划，--task-id 只展开一个节点。
+--history 加历次修订/处理，--audit 加当前源规则覆盖清单；默认保留节点规则链接，避免重复整份历史。
 用户之间按 user_id 过滤，不是安全多租户。--known-at 用于按当时已知信息回看。
 修改计划使用输出的 registration_key 和 revision 调用 plan-register；修订理由写 reason。
 关闭或暂停也通过完整快照修订完成，不删除历史。不知道编号时先 calendar 查询相关窗口。
@@ -488,6 +510,9 @@ execution_summary 的 deferrals/blocked_checks 是处理次数；late_closures �
 """
 
 _ROUTINE = """\
+默认 --mode inspect：只读执行日历，不联网、不结算、不写策略或档案。
+显式 --mode maintain 才运行下列维护；--only settlement,events,debates,... 可选择步骤，其他步骤不调用。
+步骤名 calendar,settlement,strategies,events,guidance,debates,market,macro,theses,review。
 手动例行：结算到期判断 → 策略前向跟踪 → 事件核实 → 推荐仓位复评 → 辩论观察点 → 刷新市场与宏观档案 → 检查用户有效论点 → 列出到期的
 计划复盘节点。每一步单独失败，失败写进 gaps，其余步骤照常运行。按输出的 next_actions 继续（论点偏离或失效 →
 exit-plan；有到期复盘节点或新结算 → decision-review；事件观点到期或有新闻 → 用 intel 核实后 record-observation；
@@ -513,6 +538,35 @@ _LEDGER = """\
 
 _USER_CONTEXT = """\
 查看用户、持仓、组合估值、投资任务、约束快照与偏好（最新版本与全部历史）。单用户本地使用时用 user:default。
+比例持仓由 holdings_basis=weight 标识，quantity=null，不推算真实金额/股数，代理资产不视为真实持仓。
+execution_context 带当前有效计划的约束、用户确认与未决事项，计划例外不覆盖通用偏好。
+--as-of-date 选择可见比例快照、偏好和当时已知计划；数量持仓只是当前快照，不伪装成完整历史。
+"""
+
+_OPERATIONS = """\
+业务操作的预览、幂等提交和恢复。--json <文件或->，不带 --apply 只预览，绝不写投资状态。
+所有命令可加 --envelope 返回 ok/status/data/error/gaps/next_actions；--describe <命令> 返回机器可读参数且不初始化服务。
+支持 JSON 输入的本入口、计划登记、节点处理、辩论及研究请求可用 '-' 从 stdin 读 UTF-8 JSON。
+
+请求：{"request_id":"稳定业务键","steps":[{"step_id":"唯一子步骤","kind":"plan_patch","arguments":{
+  "plan_id":"...","expected_revision":3,
+  "changes":{"reason":"用户明确确认，来源...","constraints":["完整的新约束列表"]},
+  "task_changes":{"节点编号":{"instruction":"更新后的说明"}}
+}}]}
+kind 与 arguments：
+  plan_patch：plan_id,expected_revision；changes 只改显式字段；task_changes 只改指定节点，未触及节点保留；
+              add_tasks/remove_task_ids 增删节点；最终仍检查历史不可变、修订冲突及规则引用。
+  plan_revision：registration_key,expected_revision（修订时）,plan（完整快照）。
+  task_resolution：task-resolve 的字段；必须自带稳定 request_id。
+  debate_amendment：debate_id,reason,as_of_date,decisions；对应已结论研究的 amend。
+  position_acceptance：debate_id,position_id,statement（用户原话）,confirmation_ref。
+
+--apply 提交后用 --request-id <键> 检查；同键同内容重试不重复已完成步骤，同键不同内容拒绝。
+retryable_failure：保持请求内容再次 --apply，只续跑未完成的安全步骤。
+running/needs_reconciliation：先确认旧进程已停，再查所属计划/辩论实际状态，不可盲目重复非幂等写入。
+--reconcile --json 文件：{"request_id":"...","confirmed_applied":true,"evidence_ref":"核对证据","result":{实际结果}}
+若确认未应用则 confirmed_applied=false，不填 result，之后恢复；核对证据单独追加保留。
+这不是跨产品单事务；结果明确记录部分完成，不能把步骤全部成功前的请求当作整项完成或成交。
 """
 
 _RUN_SINGLE = """\
@@ -615,6 +669,9 @@ _STRATEGY_TRACK = """\
 """
 
 _PRICES = """\
+输出改为逐项结果：items[].key/status/result/failure，顶层 completed/failed/retry_items；一只失败不丢其他结果。
+--request-id <稳定键> 保存每项检查点；同标的/参数重新运行复用成功项，--retry-failed 仅重试失败项。
+退出码2可代表部分成功，先读 items，不应整批从头重跑。批次参数变更需新请求编号。
 股票与场内基金（A 股或美股）按复权总回报的区间表现：total_return、max_drawdown（峰值日与谷底日）、
 high/low（实际收盘价）、from_high（相对区间最高的回撤）；--rows 给逐日 close（实际收盘价）与 total_return_level。
 美股加 --market us（代码即交易代码，如 NVDA、AMD、SMH），首次使用时按 Nasdaq 资料登记；美元计价，不换汇；
@@ -705,6 +762,11 @@ _POSITION_GUIDANCE = """\
 """
 
 _DEBATE = """\
+补充动作：rules 只读列当前观察点/决策的 rule_id/content_hash；可用 --debate-id 限定范围。
+观点来源：新用户原话保存 original_text；Agent 建议改写用 party=agent、source_position_id 指向原话，不替换原话。
+party=user 且 supersedes 必须带 user_confirmation={"statement":"用户确认原话","ref":"来源"}，不能代用户接受。
+accept-position 输入 position_id,statement,confirmation_ref，追加用户接受，不改原作者、原文或研究判定。
+旧记录 provenance=legacy_unverified 只表示缺少显式来源/确认，不得猜测已确认。
 观点辩论：用户、Agent 与角色视角各自提出前瞻观点，互相驳斥，立住的推论落到入账命题、计划与观察点。观点分两层：
 world 第一层（行业、整体市场与世界观，视角：达利欧、索罗斯、马克斯、产业链研究员、政策与地缘研究员）；
 asset 第二层（具体标的，视角：段永平、巴菲特、芒格、李录、查诺斯）。
@@ -714,8 +776,11 @@ asset 第二层（具体标的，视角：段永平、巴菲特、芒格、李�
   start      {"topic": 辩题, "trigger": 起因（事件、议程项或问题）, "as_of_date": 截止日, "evidence_refs": [...],
               "layers": ["world"] | ["asset"] | ["world", "asset"]（默认 world）, "subjects": [标的代码与名称]
               （asset 层必填）, "parent_debate_id": 上一轮或产生候选标的的第一层辩论（可选）,
-              "significance": major（默认：影响行业的重大事件，必须形成决策）| routine（常规新闻与日常观察）}；
-              --user-id 默认 user:default
+              "significance": major（默认：影响行业的重大事件，必须形成决策）| routine（常规新闻与日常观察）,
+              "personas": [本场视角]（必填，每层最多 3 个；按本题主要的不确定性对照 personas 输出的 use_when
+              挑选，至少一个反方视角）}；--user-id 默认 user:default
+  cast       {"personas": [追加的视角], "reason": 原名单漏掉了哪个不确定性}：未结论时追加，仍受上限约束；
+             不在名单里的视角不能 brief 或 import
   position   {"party": "user"|"agent"|"persona:<角色>", "statement": 命题, "mechanism": 因果链,
               "layer": world|asset（默认 world）, "subject": 标的（asset 层必填）,
               "horizon": short|medium_short|medium_long|long, "falsifiers": [证伪条件]（用户观点可空）,
@@ -740,7 +805,8 @@ asset 第二层（具体标的，视角：段永平、巴菲特、芒格、李�
   personas [--layer world|asset]：可用角色；brief --persona <角色>：给子代理的提示词（只读取证，按 JSON 返回）；
   import --persona <角色> --json <子代理返回的 JSON>：按角色写入观点与驳斥；没有观点时 JSON 写 no_view（原因），
              也记为参与
-覆盖：show 的 coverage 按层列出每个视角是否发言（spoke）、声明无观点（no_view）或未参与（absent，即盲点）；
+覆盖：show 的 coverage 按层列出本场名单里每个视角是否发言（spoke）、声明无观点（no_view）或未参与（absent，即盲点）；
+名单外的视角不算盲点（早于名单机制的辩论仍按本层全部视角计算）；
 未参与的视角进 next_actions 与 gaps，不阻止结论，结论里写明。
 纪律（命令会拒绝违反的写法）：驳斥来自其他参与方；立住需要至少一条已回应的驳斥且没有未回应的驳斥
 （同一方修正时继承前一版的驳斥；他方改写的版本要重新接受驳斥）；被驳倒需要一条已接受的驳斥；修正写新观点
@@ -750,6 +816,7 @@ docs/modules/5-研究产物/观点辩论模块.md。
 """
 
 EPILOGS: dict[str, str] = {
+  "operations": _OPERATIONS,
     "debate": _DEBATE,
     "position-guidance": _POSITION_GUIDANCE,
     "prices": _PRICES,
@@ -767,6 +834,7 @@ EPILOGS: dict[str, str] = {
     "macro-archive": _ARCHIVE,
     "macro": _MACRO,
     "analog": _ANALOG,
+    "entry-timing": _ENTRY_TIMING,
     "industry": _INDUSTRY,
     "cross-section": _CROSS_SECTION,
     "valuation-position": _VALUATION_POSITION,

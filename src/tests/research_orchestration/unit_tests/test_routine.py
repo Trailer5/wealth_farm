@@ -142,6 +142,17 @@ class RoutineServiceTest(unittest.TestCase):
         self.assertNotIn("market", payload["steps"])
         self.assertEqual(market.calls, [])
 
+    def test_inspection_never_invokes_mutating_or_remote_steps(self):
+        service = _service()
+        service.settlement.settle_due = lambda day: self.fail("inspection must not settle")
+        service.strategies = lambda *args: self.fail("inspection must not track strategies")
+        service.calendar = lambda user, day: {"counts": {"overdue": 0, "due": 0, "blocked": 0}, "next_actions": [], "gaps": []}
+        inspected = service.run(user_id="user:u", as_of_date=AS_OF, mode="inspect")
+        self.assertFalse(inspected["writes"])
+        self.assertEqual(set(inspected["steps"]), {"calendar"})
+        selected = service.run(user_id="user:u", as_of_date=AS_OF, mode="maintain", only=("calendar",))
+        self.assertIsNone(selected["steps"]["settlement"])
+
     def test_new_settlements_suggest_review_when_nothing_else_is_due(self):
         class _QuietThesis(_Thesis):
             STATUS = {"asset:a": (ON_TRACK, "按预期"), "asset:b": (ON_TRACK, "按预期")}

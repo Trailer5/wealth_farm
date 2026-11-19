@@ -89,7 +89,8 @@ class DebateDisciplineTest(unittest.TestCase):
             self.debate_id, position_id=original.position_id, party="agent", argument="开支外移而非消失", kind="inference"
         )
         self.service.answer(self.debate_id, rebuttal_id=rebuttal.rebuttal_id, accepted=True, response="接受，改写幅度")
-        refined = self._position(party="user", statement="美国本土数据中心增速 2028 年后放缓", supersedes=original.position_id)
+        refined = self._position(party="user", statement="美国本土数据中心增速 2028 年后放缓", supersedes=original.position_id,
+                     user_confirmation={"statement": "我确认这个修订", "ref": "user:confirmation:1"})
 
         record = self.service.show(self.debate_id)
         by_id = {item["position_id"]: item for item in record["positions"]}
@@ -107,6 +108,25 @@ class DebateDisciplineTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "没有经过驳斥"):
             self.service.resolve(self.debate_id, position_id=rewrite.position_id, status="stands", note="立住")
+
+    def test_agent_rewrite_does_not_replace_or_impersonate_user_and_acceptance_is_explicit(self):
+        original = self._position()
+        with self.assertRaisesRegex(ValueError, "user_confirmation"):
+            self._position(supersedes=original.position_id)
+        proposal = self._position(party="agent", source_position_id=original.position_id,
+                                  statement="A suggested refinement")
+        self.assertEqual(proposal.provenance, "agent_proposal")
+        self.assertEqual(proposal.user_acceptances, ())
+        saved = self.service.show(self.debate_id)["positions"]
+        self.assertEqual(saved[0]["status"], "open")
+        self.assertEqual(saved[0]["original_text"], original.statement)
+        accepted = self.service.accept_position(self.debate_id, position_id=proposal.position_id,
+                                               statement="I accept this wording", confirmation_ref="user:turn:2")
+        self.assertEqual(accepted.party, "agent")
+        self.assertEqual(len(accepted.user_acceptances), 1)
+        retry = self.service.accept_position(self.debate_id, position_id=proposal.position_id,
+                                            statement="I accept this wording", confirmation_ref="user:turn:2")
+        self.assertEqual(len(retry.user_acceptances), 1)
 
     def test_conclude_waits_for_open_positions_and_flags_unlinked_consensus(self):
         position = self._position()
@@ -310,6 +330,35 @@ class DebateLayersTest(unittest.TestCase):
         brief = self.service.brief(debate.debate_id, "buffett")["brief"]
         self.assertIn("002371 北方华创", brief)
         self.assertIn("valuation-model --no-record", brief)
+
+    def test_cast_limits_lenses_and_counts_only_cast_blind_spots(self):
+        with self.assertRaisesRegex(ValueError, "最多 3 个"):
+            self.service.start(
+                user_id="user:default", topic="安集", trigger="候选", as_of_date="2026-11-16", layers=("asset",),
+                subjects=("688019 安集科技",), personas=("duan_yongping", "buffett", "munger", "chanos"),
+            )
+        debate = self.service.start(
+            user_id="user:default", topic="安集值不值得买", trigger="候选", as_of_date="2026-11-16", layers=("asset",),
+            subjects=("688019 安集科技",), personas=("duan_yongping", "munger"),
+        )
+
+        record = self.service.show(debate.debate_id)
+        cast = {row["party"] for row in record["coverage"]["asset"] if row["party"].startswith("persona:")}
+        self.assertEqual(cast, {"persona:duan_yongping", "persona:munger"})
+        self.assertFalse(any("巴菲特" in gap for gap in record["gaps"]))
+        with self.assertRaisesRegex(ValueError, "不在本场名单"):
+            self.service.brief(debate.debate_id, "buffett")
+        with self.assertRaisesRegex(ValueError, "不在本场名单"):
+            self.service.import_persona(debate.debate_id, "buffett", {"no_view": "x"})
+        with self.assertRaisesRegex(ValueError, "reason"):
+            self.service.cast(debate.debate_id, personas=("buffett",), reason=" ")
+
+        self.service.cast(debate.debate_id, personas=("buffett",), reason="估值是主要分歧，名单里没有估值视角")
+
+        self.assertIn("buffett", self.service.show(debate.debate_id)["debate"]["personas"])
+        self.assertIn("688019", self.service.brief(debate.debate_id, "buffett")["brief"])
+        with self.assertRaisesRegex(ValueError, "最多 3 个"):
+            self.service.cast(debate.debate_id, personas=("chanos",), reason="排雷")
 
     def test_coverage_marks_absent_lenses_and_records_declared_no_view(self):
         debate = self.service.start(

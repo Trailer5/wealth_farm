@@ -793,7 +793,7 @@ class ResearchOrchestrationTest(unittest.TestCase):
         )
 
         self.assertEqual(return_code, 2)
-        self.assertEqual(output.getvalue(), "")
+        self.assertEqual(json.loads(output.getvalue())["status"], "error")
         self.assertIn("blocked", error.getvalue())
 
     def test_cli_builds_cycle_options_from_commodity_weights(self):

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import sys
+from contextlib import redirect_stderr, redirect_stdout
 from collections.abc import Sequence
 from datetime import date, timedelta
 from decimal import Decimal
@@ -36,6 +38,7 @@ from src.research_contracts import (
 )
 from src.master_data import ASSET_TYPE_STOCK
 from src.financial_data import SQLiteFinancialDataRepository
+from src.research_orchestration.entry_timing import EntryTimingService
 from src.research_orchestration.financial_fields import DEFAULT_FIELDS, available_fields, field_series
 from src.research_orchestration.us_valuation import USValuationService
 from src.data_src.process_executor import run_provider_task
@@ -73,6 +76,7 @@ from .container import (
 )
 from .models import ResearchRunRequest, ResearchRunStatus
 from .cli_help import EPILOGS
+from .agent_protocol import failure, read_json_input
 from .strategy_archive import StrategyArchiveError
 from src.strategy import LifecycleState
 from .event_name_discovery import EventNameDiscoveryRunRequest
@@ -88,6 +92,8 @@ def build_parser() -> argparse.ArgumentParser:
         prog="wealth-farm-research",
         description="Run the unified research orchestration entry point.",
     )
+    parser.add_argument("--envelope", action="store_true", help="Wrap any result in the common Agent JSON protocol.")
+    parser.add_argument("--describe", metavar="COMMAND", help="Return machine-readable command parameters without running it.")
     commands = parser.add_subparsers(dest="command", required=True)
     run_single = commands.add_parser(
         "run-single",
@@ -340,6 +346,8 @@ def build_parser() -> argparse.ArgumentParser:
     prices.add_argument("--end-date", default=date.today().isoformat())
     prices.add_argument("--rows", action="store_true", help="Include the daily rows.")
     prices.add_argument("--no-remote", action="store_true")
+    prices.add_argument("--request-id", help="Stable batch ID for checkpoint/resume with unchanged items and parameters.")
+    prices.add_argument("--retry-failed", action="store_true")
     prices.add_argument(
         "--db-path",
         default="data/database/wealth_farm.sqlite3",
@@ -441,7 +449,7 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         choices=(
             "start", "position", "rebut", "answer", "resolve", "link", "signpost", "conclude", "amend",
-            "show", "list", "personas", "brief", "import", "scorecard", "agenda",
+            "show", "list", "personas", "brief", "import", "scorecard", "agenda", "accept-position", "rules", "cast",
         ),
     )
     debate.add_argument("--debate-id")
@@ -651,6 +659,23 @@ def build_parser() -> argparse.ArgumentParser:
         default="data/database/wealth_farm.sqlite3",
     )
     analog.add_argument("--report-root", default="report")
+    entry_timing = commands.add_parser(
+        "entry-timing",
+        help="Pace one decided trade inside its execution window from past days in the same price state.",
+    )
+    entry_timing.add_argument("--symbol", required=True)
+    entry_timing.add_argument("--market", choices=("us", "hk"))
+    entry_timing.add_argument("--asset-type", choices=("stock", "exchange_fund"))
+    entry_timing.add_argument("--side", choices=("buy", "sell"), default="buy")
+    entry_timing.add_argument("--window-days", type=int, default=21, help="Execution window in trading days.")
+    entry_timing.add_argument("--years", type=int, default=15, help="History length used for analogues.")
+    entry_timing.add_argument("--as-of-date", default=date.today().isoformat())
+    entry_timing.add_argument("--no-remote", action="store_true")
+    entry_timing.add_argument(
+        "--db-path",
+        default="data/database/wealth_farm.sqlite3",
+    )
+    entry_timing.add_argument("--report-root", default="report")
     route = commands.add_parser(
         "route",
         help="Route one structured research request to recipes and gaps.",
@@ -702,6 +727,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show users, holdings, valuations, mandates and constraints.",
     )
     user_context.add_argument("--user-id")
+    user_context.add_argument("--as-of-date", default=date.today().isoformat())
     user_context.add_argument(
         "--db-path",
         default="data/database/wealth_farm.sqlite3",
@@ -935,6 +961,8 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     routine.add_argument("--user-id", required=True)
+    routine.add_argument("--mode", choices=("inspect", "maintain"), default="inspect")
+    routine.add_argument("--only", help="Comma-separated maintenance steps; inspect only supports calendar.")
     routine.add_argument("--as-of-date", default=date.today().isoformat())
     routine.add_argument("--no-remote", action="store_true")
     routine.add_argument(
@@ -1034,14 +1062,32 @@ def build_parser() -> argparse.ArgumentParser:
             execution.add_argument("--key", required=True, help="Stable registration key; reuse for retries and revisions.")
             execution.add_argument("--expected-revision", type=int)
         if name in ("plan-show", "plan-review"):
-            execution.add_argument("--plan-id", required=True)
+            execution.add_argument("--plan-id", required=name == "plan-review")
+        if name == "plan-show":
+            execution.add_argument("--task-id")
+            execution.add_argument("--history", action="store_true")
+            execution.add_argument("--audit", action="store_true")
         if name in ("calendar", "plan-show", "plan-review"):
             execution.add_argument("--known-at", help="Historical knowledge cutoff, as an offset-aware ISO timestamp.")
         if name in ("calendar", "plan-review"):
             execution.add_argument("--at", help="ISO date (whole local day) or offset-aware timestamp; default now.")
         if name == "calendar":
+            execution.add_argument("--details", action="store_true")
+            execution.add_argument("--fields", help="Comma-separated result fields.")
+            execution.add_argument("--limit", type=int, default=100)
+            execution.add_argument("--offset", type=int, default=0)
+            execution.add_argument("--plan-id")
+            execution.add_argument("--task-id")
             execution.add_argument("--through", help="Include future tasks through this date/time, plus unresolved older tasks.")
             execution.add_argument("--include-closed", action="store_true")
+    operations = commands.add_parser("operations", help="Preview or recover typed Agent business operations.")
+    operations.add_argument("--user-id", required=True)
+    operations.add_argument("--json", help="Structured request file, or '-' for stdin; preview unless --apply.")
+    operations.add_argument("--request-id", help="Inspect an existing request; --apply resumes a safely retryable request.")
+    operations.add_argument("--apply", action="store_true")
+    operations.add_argument("--reconcile", action="store_true", help="Record checked evidence for an interrupted/ambiguous step.")
+    operations.add_argument("--db-path", default="data/database/wealth_farm.sqlite3")
+    operations.add_argument("--report-root", default="report")
     for name, epilog in EPILOGS.items():
         command = commands.choices[name]
         command.epilog = epilog
@@ -1049,7 +1095,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(
+def _main(
     argv: Sequence[str] | None = None,
     *,
     container_factory: Callable[
@@ -1073,22 +1119,41 @@ def main(
             db_path=args.db_path,
             report_root=args.report_root,
         )
+        if args.command == "operations":
+            if args.reconcile:
+                if not args.json or args.apply:
+                    raise ValueError("reconcile needs --json and cannot be combined with --apply")
+                payload = container.operations.reconcile(user_id=args.user_id, **read_json_input(args.json))
+            elif args.json:
+                payload = container.operations.run(user_id=args.user_id, request=read_json_input(args.json), apply=args.apply)
+            elif args.request_id:
+                payload = container.operations.inspect(user_id=args.user_id, request_id=args.request_id)
+                if args.apply:
+                    payload = container.operations.run(user_id=args.user_id, request=payload["request"], apply=True)
+            else:
+                raise ValueError("operations needs --json or --request-id")
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=output)
+            return 0 if payload.get("state") in (None, "completed") else 2
         if args.command in ("plan-register", "plan-show", "calendar", "task-resolve", "plan-review"):
             service = container.execution_plans
             if args.command == "plan-register":
                 payload = service.register(user_id=args.user_id, registration_key=args.key,
-                    plan=json.loads(Path(args.json).read_text(encoding="utf-8-sig")),
+                    plan=read_json_input(args.json),
                     expected_revision=args.expected_revision)
             elif args.command == "task-resolve":
                 payload = service.resolve(user_id=args.user_id,
-                    **json.loads(Path(args.json).read_text(encoding="utf-8-sig")))
+                    **read_json_input(args.json))
             elif args.command == "calendar":
                 payload = service.calendar(user_id=args.user_id, at=args.at, through=args.through,
-                    known_at=args.known_at, include_closed=args.include_closed)
+                    known_at=args.known_at, include_closed=args.include_closed, details=args.details,
+                    fields=args.fields.split(",") if args.fields else None, limit=args.limit, offset=args.offset,
+                    plan_id=args.plan_id, task_id=args.task_id)
             elif args.command == "plan-review":
                 payload = service.review(user_id=args.user_id, plan_id=args.plan_id, at=args.at, known_at=args.known_at)
             else:
-                payload = service.show(user_id=args.user_id, plan_id=args.plan_id, known_at=args.known_at)
+                payload = service.show(user_id=args.user_id, plan_id=args.plan_id, known_at=args.known_at,
+                    task_id=args.task_id, history=args.history, include_audit=args.audit) if args.plan_id else {
+                    "plans": service.registry.list_plans(user_id=args.user_id, known_at=args.known_at), "gaps": []}
             print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=output)
             return 0
         if args.command == "plan-single":
@@ -1286,30 +1351,23 @@ def main(
             )
             return 0 if assets else 2
         if args.command == "prices":
-            if args.asset_id:
-                asset = container.master_data.get_asset(args.asset_id)
+            targets = [args.asset_id] if args.asset_id else [item.strip() for item in args.symbols.split(",") if item.strip()]
+
+            def fetch_price(key):
+                asset = container.master_data.get_asset(key) if args.asset_id else container.price_history.resolve(
+                    key, market=args.market, asset_type=args.asset_type)
                 if asset is None:
-                    print(f"未知 asset_id {args.asset_id}", file=sys.stderr)
-                    return 2
-                targets = [asset]
-            else:
-                targets = [
-                    container.price_history.resolve(item.strip(), market=args.market, asset_type=args.asset_type)
-                    for item in args.symbols.split(",")
-                    if item.strip()
-                ]
-            payload = [
-                container.price_history.history(
-                    item,
-                    start_date=args.start_date,
-                    end_date=args.end_date,
-                    rows=args.rows,
-                    allow_remote=not args.no_remote,
-                )
-                for item in targets
-            ]
+                    raise KeyError(f"unknown asset_id {key}")
+                return container.price_history.history(asset, start_date=args.start_date, end_date=args.end_date,
+                    rows=args.rows, allow_remote=not args.no_remote)
+
+            parameters = {"start_date": args.start_date, "end_date": args.end_date, "market": args.market,
+                          "asset_type": args.asset_type, "rows": args.rows, "no_remote": args.no_remote,
+                          "asset_id": args.asset_id, "symbols": args.symbols}
+            payload = container.batch.run(items=targets, parameters=parameters, execute=fetch_price,
+                                          request_id=args.request_id, retry_failed=args.retry_failed)
             print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
-            return 0
+            return 0 if payload["status"] == "completed" else 2
         if args.command == "intel":
             payload = _intel_payload(container, args)
             print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
@@ -1477,6 +1535,19 @@ def main(
                 file=output,
             )
             return 0
+        if args.command == "entry-timing":
+            payload = EntryTimingService(price_history=container.price_history).run(
+                args.symbol,
+                as_of_date=args.as_of_date,
+                market=args.market,
+                asset_type=args.asset_type,
+                window_days=args.window_days,
+                side=args.side,
+                years=args.years,
+                allow_remote=not args.no_remote,
+            )
+            print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
+            return 0 if "error" not in payload else 2
         if args.command == "route":
             routing = container.router.route(
                 _read_research_request(args.request_json)
@@ -1542,7 +1613,7 @@ def main(
                 json.dumps(
                     {
                         "users": [
-                            container.user_context.describe(user_id)
+                            container.user_context.describe(user_id, as_of_date=args.as_of_date)
                             for user_id in user_ids
                         ]
                     },
@@ -1764,6 +1835,8 @@ def main(
                 as_of_date=args.as_of_date,
                 allow_remote=not args.no_remote,
                 archives=not args.skip_archives,
+                mode=args.mode,
+                only=tuple(item.strip() for item in args.only.split(",")) if args.only else None,
             )
             print(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str), file=output)
             return 0
@@ -1825,6 +1898,7 @@ def main(
         TypeError,
         ValueError,
     ) as exc:
+        print(json.dumps(failure(exc, operation=args.command), ensure_ascii=False), file=output)
         print(
             "error: invalid input or execution failed: "
             f"{exc}",
@@ -1849,9 +1923,72 @@ def main(
     return 0
 
 
+def main(argv: Sequence[str] | None = None, *, container_factory=create_default_container,
+         stdout: TextIO | None = None, stderr: TextIO | None = None) -> int:
+    """Agent protocol adapter. Existing success payloads remain; --envelope makes all shapes uniform."""
+
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    output, errors = stdout or sys.stdout, stderr or sys.stderr
+    if stdout is None and hasattr(output, "reconfigure"):
+        output.reconfigure(encoding="utf-8")
+    if stderr is None and hasattr(errors, "reconfigure"):
+        errors.reconfigure(encoding="utf-8")
+    if "--describe" in arguments:
+        position = arguments.index("--describe")
+        name = arguments[position + 1] if position + 1 < len(arguments) else ""
+        parser = build_parser()
+        subcommands = next(action.choices for action in parser._actions if isinstance(action, argparse._SubParsersAction))
+        if name not in subcommands:
+            print(json.dumps(failure(ValueError("unknown command for --describe"), operation="describe")), file=output)
+            return 2
+        command = subcommands[name]
+        payload = {"command": name, "parameters": [{"name": action.dest, "flags": action.option_strings,
+            "required": action.required, "choices": action.choices, "default": action.default,
+            "help": action.help, "type": getattr(action.type, "__name__", None)} for action in command._actions],
+            "notes": command.epilog, "gaps": []}
+        print(json.dumps(payload, ensure_ascii=False, default=str), file=output)
+        return 0
+    envelope = "--envelope" in arguments
+    arguments = [argument for argument in arguments if argument != "--envelope"]
+    captured, diagnostics = io.StringIO(), io.StringIO()
+    try:
+        with redirect_stdout(captured), redirect_stderr(diagnostics):
+            code = _main(arguments, container_factory=container_factory, stdout=captured, stderr=diagnostics)
+    except SystemExit as exc:
+        code = int(exc.code or 0)
+        if code == 0:
+            print(captured.getvalue(), end="", file=output)
+            return 0
+    except Exception as exc:
+        code = 2
+        captured = io.StringIO(json.dumps(failure(exc, operation=arguments[0] if arguments else "cli"), ensure_ascii=False))
+    raw = captured.getvalue()
+    try:
+        payload = json.loads(raw)
+    except (ValueError, TypeError):
+        payload = {"report_path": raw.strip()} if code == 0 and arguments[:1] == ["run-single"] else {"text": raw.strip()}
+        if code:
+            payload = failure(ValueError(diagnostics.getvalue().strip() or raw.strip() or "command failed"),
+                              operation=arguments[0] if arguments else "cli")
+    if envelope:
+        wrapped = {"ok": code == 0, "status": payload.get("status", "completed" if code == 0 else "error")
+                   if isinstance(payload, dict) else "completed" if code == 0 else "error",
+                   "data": payload, "error": payload.get("error") if isinstance(payload, dict) else None,
+                   "gaps": payload.get("gaps", []) if isinstance(payload, dict) else [],
+                   "next_actions": payload.get("next_actions", []) if isinstance(payload, dict) else []}
+        print(json.dumps(wrapped, ensure_ascii=False, default=str), file=output)
+    elif code == 0 and raw.strip():
+        print(raw, end="", file=output)
+    else:
+        print(json.dumps(payload, ensure_ascii=False, default=str), file=output)
+    if diagnostics.getvalue():
+        print(diagnostics.getvalue(), end="", file=errors)
+    return code
+
+
 def _read_research_request(path: str) -> ResearchRequest:
     return ResearchRequest.from_dict(
-        json.loads(Path(path).read_text(encoding="utf-8"))
+        read_json_input(path)
     )
 
 
@@ -2073,6 +2210,10 @@ def _debate_payload(container: ResearchOrchestrationContainer, args: argparse.Na
         return workflow.agenda(
             user_id=args.user_id, as_of_date=args.as_of_date, days=args.days, allow_remote=not args.no_remote
         )
+    if action == "rules":
+        return {"rules": [rule for rule in workflow.rules(user_id=args.user_id)
+                          if args.debate_id is None or rule["source_id"] == args.debate_id],
+                "gaps": [], "notes": ["使用 rule_id/content_hash 引用当前规则；变更后必须复核关联执行节点。"]}
     if action != "start" and not args.debate_id:
         raise ValueError(f"--action {action} 需要 --debate-id")
     if action == "show":
@@ -2083,9 +2224,11 @@ def _debate_payload(container: ResearchOrchestrationContainer, args: argparse.Na
         return service.brief(args.debate_id, args.persona)
     if not args.json_path:
         raise ValueError(f"--action {action} 需要 --json <path>（字段见 debate --help）")
-    spec = json.loads(Path(args.json_path).read_text(encoding="utf-8"))
+    spec = read_json_input(args.json_path)
     refs = lambda key: tuple(spec.get(key) or ())  # noqa: E731
     if action == "start":
+        if not spec.get("personas"):
+            raise ValueError("start 需要 personas：本场参与的视角（每层最多 3 个，按本题主要的不确定性挑，见 --action personas 的 use_when）")
         debate = service.start(
             user_id=spec.get("user_id") or args.user_id,
             topic=spec.get("topic", ""),
@@ -2096,8 +2239,11 @@ def _debate_payload(container: ResearchOrchestrationContainer, args: argparse.Na
             layers=tuple(spec.get("layers") or ("world",)),
             subjects=refs("subjects"),
             significance=spec.get("significance") or "major",
+            personas=refs("personas"),
         )
         return workflow.show(debate.debate_id)
+    if action == "cast":
+        return service.cast(args.debate_id, personas=refs("personas"), reason=spec.get("reason", ""))
     if action == "import":
         if not args.persona:
             raise ValueError("--action import 需要 --persona")
@@ -2114,7 +2260,13 @@ def _debate_payload(container: ResearchOrchestrationContainer, args: argparse.Na
             supersedes=spec.get("supersedes"),
             layer=spec.get("layer") or "world",
             subject=spec.get("subject"),
+            original_text=spec.get("original_text"),
+            source_position_id=spec.get("source_position_id"),
+            user_confirmation=spec.get("user_confirmation"),
         )
+    elif action == "accept-position":
+        item = service.accept_position(args.debate_id, position_id=spec.get("position_id", ""),
+            statement=spec.get("statement", ""), confirmation_ref=spec.get("confirmation_ref", ""))
     elif action == "rebut":
         item = service.rebut(
             args.debate_id,

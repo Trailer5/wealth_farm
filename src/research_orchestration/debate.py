@@ -12,11 +12,14 @@ docs/modules/5-研究产物/观点辩论模块.md.
 from __future__ import annotations
 
 from datetime import date, timedelta
+import hashlib
 from typing import Any
 
 from src.event_intel import OBS_PREFIX, EventIntelService, watch_query
 from src.research_debate import DEBATE_OPEN, LAYER_WORLD, PERSONAS, WORLD_TOPICS, DebateService
 from src.research_ledger import LedgerEntryType, ResearchLedgerService, SettlementStatus
+
+from .research_rules import rule_record
 
 _CLI = "python -m src.research_orchestration.cli debate"
 _DUE_WINDOW_DAYS = 14
@@ -72,6 +75,23 @@ class DebateWorkflow:
                 "样本少时命中率不作为依据；读法与口径见 docs/modules/5-研究产物/观点辩论模块.md",
             ],
         }
+
+    def rules(self, *, user_id: str) -> list[dict[str, Any]]:
+        """Active observations and current decisions, without reducing them to report prose."""
+
+        result = []
+        for record in self.debates.records(user_id=user_id):
+            source = record.debate.debate_id
+            for signpost in record.signposts:
+                if signpost.replaced_by is None:
+                    result.append(rule_record(signpost.signpost_id, source, "signpost", {
+                        "observation": signpost.observation, "trigger": signpost.trigger,
+                        "action": signpost.action, "due_on": signpost.due_on, "refs": list(signpost.refs),
+                    }))
+            for decision in record.debate.decisions:
+                subject_key = hashlib.sha256(decision["subject"].encode("utf-8")).hexdigest()[:16]
+                result.append(rule_record(f"{source}:decision:{subject_key}", source, "decision", decision))
+        return result
 
     def watch(self, *, user_id: str, as_of_date: str) -> dict[str, Any]:
         """Signposts due within 14 days, or whose observable or ledger entry changed since the signpost was written."""

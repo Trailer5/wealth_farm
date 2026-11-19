@@ -53,7 +53,7 @@ Use this file to choose the smallest relevant project guidance. Do not read ever
 | Unit tests or CI | `.agent/docs/develop/development_rule.md` | Inspect `src/tests/run_all_unit_tests.py`, `src/tests/<module>/`, and `.github/workflows/`. |
 | Agent rule changes | `.agent/SKILL.md` | Inspect `.agent/AGENT_README.md` and the owning `.agent/docs/` file. |
 | 任意研究问题 | `.agent/docs/research/question_routing.md` | 按其标准流程和任务流程表走；用到的命令先看 `--help`，按输出的 `next_actions` 继续。 |
-| 例行维护 | `routine --user-id <id>` | 按输出的 `next_actions` 继续。 |
+| 例行巡检与维护 | `routine --user-id <id>`（默认只读） | 需要结算/刷新时先看帮助并显式 `--mode maintain`，按 `next_actions` 继续。 |
 | 计划登记、全局时间表、待办执行、按计划回顾 | `.agent/docs/research/playbooks/execution_plans.md` | 先查日历和原计划，再处理或修订，不只在报告里留下承诺。 |
 | 新对话只给代码或名称 | `.agent/docs/research/cold_start_intake.md` | 身份、目标或当前公共入口存在实质歧义时只问最小问题。 |
 | 单标的完整研究 | `.agent/docs/research/mainline.md` | 按是否、时点、仓位三个轨道推进；调用统一编排入口。 |

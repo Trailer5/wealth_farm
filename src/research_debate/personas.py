@@ -53,7 +53,37 @@ class Persona:
         return {key: list(value) if isinstance(value, tuple) else value for key, value in asdict(self).items()} | {
             "party": self.party,
             "layer_label": LAYER_LABELS[self.layer],
+            "use_when": list(USE_WHEN.get(self.persona_id, ())),
         }
+
+
+MAX_CAST_PER_LAYER = 3
+
+# When a lens earns its cost; casting picks by the question's main uncertainty, not by habit.
+USE_WHEN: dict[str, tuple[str, ...]] = {
+    "dalio": ("利率、汇率、信用与流动性变化", "大类资产配置与对冲", "国际秩序、资本管制"),
+    "soros": ("价格与叙事明显背离", "急涨急跌后的转折判断", "卖出或加仓要看趋势阶段"),
+    "marks": ("估值与情绪已计入多少", "周期位置", "宽基或大类资产该配多少"),
+    "industry_analyst": ("技术路线、产能与供需", "产业链传导与利润分配"),
+    "policy_analyst": ("出口管制、制裁、产业政策与监管事件", "有官方文本与时间表的政策节点"),
+    "duan_yongping": ("个股生意变好还是变差", "竞争优势与客户粘性"),
+    "buffett": ("估值与安全边际", "利润是不是真钱"),
+    "munger": ("重大或不可逆的决策要反向检验失败路径", "用户或 Agent 有强烈倾向时检查误判心理"),
+    "li_lu": ("持有 3 年以上的长期配置", "范式转移或永久性损失风险"),
+    "chanos": ("财报复杂（股权激励、关联交易、供应商或客户融资）", "叙事驱动的高估值"),
+}
+
+
+def check_cast(persona_ids: tuple[str, ...] | list[str], layers: tuple[str, ...]) -> tuple[str, ...]:
+    """Known personas, no duplicates, at most MAX_CAST_PER_LAYER per layer in play."""
+
+    cast = tuple(dict.fromkeys(persona(item).persona_id for item in persona_ids))
+    limit = MAX_CAST_PER_LAYER * len(layers)
+    if len(cast) > limit:
+        raise ValueError(
+            f"本场最多 {limit} 个视角（每层 {MAX_CAST_PER_LAYER} 个）：按本题主要的不确定性挑选，用途见 --action personas 的 use_when"
+        )
+    return cast
 
 
 _BERKSHIRE = "references/ai-berkshire（MIT）四大师框架"

@@ -132,6 +132,8 @@ from .decision_review import DecisionReviewService
 from .debate import DebateWorkflow
 from .routine import RoutineService
 from .execution_plans import ExecutionPlanService
+from .agent_operations import AgentOperationService
+from .batch_execution import BatchExecutionService
 from .price_history import PriceHistoryService
 from .event_watch import ObservableWatchService
 from .position_guidance import PositionGuidanceService
@@ -215,6 +217,8 @@ class ResearchOrchestrationContainer:
     portfolio_plan: PortfolioPlanService
     decision_review: DecisionReviewService
     execution_plans: ExecutionPlanService
+    operations: AgentOperationService
+    batch: BatchExecutionService
     routine: RoutineService
     strategy_archive: StrategyArchiveService
     strategy_backtest: StrategyBacktestService
@@ -416,6 +420,7 @@ def create_default_container(
     )
     execution_plans = ExecutionPlanService(
         registry=PlanRegistryService(SQLitePlanRegistryRepository(database_path)), users=user_space,
+        rule_source=lambda user: debates.rules(user_id=user),
     )
     research_state_repository = SQLiteResearchStateRepository(
         database_path
@@ -459,6 +464,7 @@ def create_default_container(
     user_context = UserSpaceContextReader(
         user_space=user_space,
         portfolio_risk=portfolio_risk,
+        execution_context=lambda user, day: execution_plans.context(user_id=user, as_of_date=day),
     )
     router = QuestionRouter(
         subject_resolver=PlannerSubjectResolver(request_planner),
@@ -693,6 +699,7 @@ def create_default_container(
         decision_review=decision_review,
         strategy=StrategyRecipeRunner(archives=strategy_archive, evaluate=strategy_evaluate, track=strategy_track),
     )
+    operations = AgentOperationService(plans=execution_plans, debates=debates)
     return ResearchOrchestrationContainer(
         master_data=master_data,
         data_fetch=data_fetch,
@@ -742,6 +749,8 @@ def create_default_container(
         portfolio_plan=portfolio_plan,
         decision_review=decision_review,
         execution_plans=execution_plans,
+        operations=operations,
+        batch=BatchExecutionService(execution_plans.registry.repository),
         routine=RoutineService(
             settlement=ledger_settlement,
             market=market_state,

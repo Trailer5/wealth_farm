@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from datetime import date
+from typing import Any, Callable, Protocol
 
 from src.discovery_funnel import DEFAULT_BASE_PACKS, DiscoveryFunnelService, DiscoveryScope
 from src.data_access import AssetInput, DataAccessRequest
@@ -114,9 +115,11 @@ class UserSpaceContextReader:
         *,
         user_space: UserSpaceService,
         portfolio_risk: PortfolioRiskService,
+        execution_context: Callable[[str, str], dict[str, Any]] | None = None,
     ) -> None:
         self.user_space = user_space
         self.portfolio_risk = portfolio_risk
+        self.execution_context = execution_context
 
     def has_positions(self, user_id: str, asset_id: str | None) -> bool:
         return any(
@@ -124,10 +127,12 @@ class UserSpaceContextReader:
             for item in self.portfolio_summary(user_id)["holdings"]
         )
 
-    def portfolio_summary(self, user_id: str) -> dict[str, Any]:
+    def portfolio_summary(self, user_id: str, *, as_of_date: str | None = None) -> dict[str, Any]:
         context = self._context(user_id)
         if context is None:
             return {"holdings": [], "latest_valuation": None}
+        as_of_date = as_of_date or date.today().isoformat()
+        date.fromisoformat(as_of_date)
         master_data = self.portfolio_risk.research_state.master_data
         holdings = []
         for item in self.portfolio_risk.research_state.list_holdings(context):
@@ -151,22 +156,40 @@ class UserSpaceContextReader:
             if snapshots
             else None
         )
+        weights = self.portfolio_risk.latest_weights(context, on_or_before=as_of_date)
+        basis = "quantity" if holdings else "none"
+        if not holdings and weights is not None:
+            basis = "weight"
+            for item in weights.items:
+                asset = master_data.get_asset(item.asset_id) if item.asset_id else None
+                holdings.append({
+                    **to_payload(item), "quantity": None,
+                    "symbol": asset.standard_symbol if asset else None,
+                    "name": asset.display_name if asset else item.label,
+                    "asset_type": asset.asset_type if asset else None,
+                    "position_basis": "weight",
+                })
         return {
             "holdings": holdings,
+            "holdings_basis": basis,
+            "weight_snapshot": weights.to_dict() if weights is not None else None,
+            "as_of_date": as_of_date,
             "latest_valuation": (
                 to_payload(latest) if latest is not None else None
             ),
         }
 
-    def describe(self, user_id: str) -> dict[str, Any]:
+    def describe(self, user_id: str, *, as_of_date: str | None = None) -> dict[str, Any]:
         user = self.user_space.get_user(user_id)
         if user is None:
             raise KeyError(f"Unknown user_id: {user_id}")
         context = UserContext(user_id=user_id)
-        preferences = self.portfolio_risk.list_preferences(context)
+        as_of_date = as_of_date or date.today().isoformat()
+        preferences = [item for item in self.portfolio_risk.list_preferences(context)
+                   if item.recorded_on <= as_of_date]
         return {
             "user": to_payload(user),
-            **self.portfolio_summary(user_id),
+            **self.portfolio_summary(user_id, as_of_date=as_of_date),
             "preference": (
                 {**preferences[-1].to_dict(), "readable": preferences[-1].describe()["lines"]}
                 if preferences
@@ -182,6 +205,9 @@ class UserSpaceContextReader:
                 }
                 for item in preferences
             ],
+            "execution_context": self.execution_context(user_id, as_of_date) if self.execution_context else None,
+            "notes": ["比例持仓不推算真实金额或数量；数量持仓仅为当前快照，不构成历史重建。",
+                      "通用偏好与计划范围例外分开返回；已确认例外以所属计划当前修订为准。"],
             "mandates": [
                 item.to_dict()
                 for item in self.portfolio_risk.list_mandates(context)

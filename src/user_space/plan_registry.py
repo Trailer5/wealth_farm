@@ -21,6 +21,11 @@ TERMINAL = frozenset({"completed", "not_triggered", "cancelled", "executed"})
 OUTCOMES = TERMINAL | {"deferred", "blocked", "awaiting_confirmation"}
 
 
+class PlanRevisionConflict(ValueError):
+    code = "revision_conflict"
+    retryable = False
+
+
 def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -46,7 +51,7 @@ def normalize_plan(payload: dict[str, Any]) -> dict[str, Any]:
     point to reports, debates, ledger entries, observables or other research facts.
     """
 
-    allowed = {"title", "objective", "status", "source_refs", "tasks", "reason", "constraints", "uncertainties"}
+    allowed = {"title", "objective", "status", "source_refs", "tasks", "reason", "constraints", "uncertainties", "rule_exclusions"}
     if not isinstance(payload, dict) or set(payload) - allowed:
         raise ValueError("invalid plan fields")
     result = {key: _text(payload.get(key), key) for key in ("title", "objective")}
@@ -58,12 +63,17 @@ def normalize_plan(payload: dict[str, Any]) -> dict[str, Any]:
     for key in ("constraints", "uncertainties"):
         if key in payload:
             result[key] = _texts(payload[key], key)
+    if "rule_exclusions" in payload:
+        if not isinstance(payload["rule_exclusions"], dict):
+            raise ValueError("rule_exclusions must map rule IDs to reasons")
+        result["rule_exclusions"] = {_text(key, "rule_id"): _text(reason, "exclusion reason")
+                                     for key, reason in payload["rule_exclusions"].items()}
     tasks = payload.get("tasks")
     if not isinstance(tasks, list) or (result["status"] == "active" and not tasks):
         raise ValueError("active plan needs tasks")
     result["tasks"] = []
     task_fields = {"task_id", "title", "instruction", "completion", "schedule", "kind", "priority",
-                   "condition", "on_met", "on_unmet", "depends_on", "source_refs", "source_excerpt"}
+                   "condition", "on_met", "on_unmet", "depends_on", "source_refs", "source_excerpt", "rule_refs"}
     for raw in tasks:
         if not isinstance(raw, dict) or set(raw) - task_fields:
             raise ValueError("invalid task fields")
@@ -77,6 +87,17 @@ def normalize_plan(payload: dict[str, Any]) -> dict[str, Any]:
         task["source_refs"] = _texts(raw.get("source_refs", []), "source_refs")
         if "source_excerpt" in raw:
             task["source_excerpt"] = _text(raw["source_excerpt"], "source_excerpt")
+        if "rule_refs" in raw:
+            if not isinstance(raw["rule_refs"], list):
+                raise ValueError("rule_refs must be a list of rule_id/content_hash pairs")
+            task["rule_refs"] = []
+            for ref in raw["rule_refs"]:
+                if not isinstance(ref, dict) or set(ref) != {"rule_id", "content_hash"}:
+                    raise ValueError("rule_refs need rule_id and content_hash")
+                digest = _text(ref["content_hash"], "content_hash")
+                if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+                    raise ValueError("content_hash must be a lowercase SHA256 digest")
+                task["rule_refs"].append({"rule_id": _text(ref["rule_id"], "rule_id"), "content_hash": digest})
         for key in ("condition", "on_met", "on_unmet"):
             task[key] = _text(raw[key], key) if raw.get(key) else None
         if task["condition"] and not (task["on_met"] and task["on_unmet"]):
@@ -209,7 +230,7 @@ class PlanRegistryService:
                 return {"plan_id": current["plan_id"], "revision": current["revision"], "changed": False}
             if current:
                 if expected_revision != current["revision"]:
-                    raise ValueError("plan revision conflict; reload plan-show before revising")
+                    raise PlanRevisionConflict("plan revision conflict; reload plan-show before revising")
                 old = {task["task_id"]: task for task in current["plan"]["tasks"]}
                 handled = {record["task_id"] for record in current["records"]}
                 for task in body["tasks"]:
@@ -229,6 +250,12 @@ class PlanRegistryService:
         """Return the complete plan, revisions and handling evidence owned by this user."""
 
         return self._find(self.repository.read(user_id, known_at=self._known(known_at)), plan_id)
+
+    def list_plans(self, *, user_id: str, known_at: str | None = None) -> list[dict[str, Any]]:
+        """Current snapshots at a knowledge cutoff, without repeating revision/handling history."""
+
+        return [{key: row[key] for key in ("user_id", "plan_id", "registration_key", "revision", "plan")}
+                for row in self.repository.read(user_id, known_at=self._known(known_at))]
 
     @staticmethod
     def _find(plans: list[dict[str, Any]], plan_id: str) -> dict[str, Any]:

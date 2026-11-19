@@ -3,9 +3,13 @@ import json
 import tempfile
 import unittest
 from dataclasses import replace
+from decimal import Decimal
+from datetime import datetime
 from pathlib import Path
 
 from src.master_data import ASSET_TYPE_STOCK, Asset
+from src.portfolio_risk.weights import HoldingWeights, WeightItem
+from src.user_space import UserContext
 from src.research_contracts import (
     Personalization,
     ResearchIntent,
@@ -119,6 +123,38 @@ class UserContextCliTest(unittest.TestCase):
         outcome = next(item for item in run.step_outcomes if item.step_id == "confirm_preference")
         self.assertEqual(outcome.status, StepOutcomeStatus.COMPLETED)
         self.assertIn("权益比例上限", outcome.summary)
+
+    def test_weight_only_context_is_a_position_without_invented_quantities(self):
+        self.container.portfolio_risk.record_weights(UserContext(user_id="user:default"), HoldingWeights(
+            user_id="user:default", as_of_date="2026-01-01", user_statement="Stock and cash shares only",
+            items=(WeightItem(label="Bank", weight=Decimal("0.2"), asset_id="stock:000001"),
+                   WeightItem(label="Cash", weight=Decimal("0.8"), asset_class="cash")),
+        ))
+        reader = self.container.user_context
+        payload = reader.describe("user:default", as_of_date="2026-01-02")
+        self.assertEqual(payload["holdings_basis"], "weight")
+        self.assertEqual(payload["holdings"][0]["symbol"], "000001")
+        self.assertTrue(all(item["quantity"] is None for item in payload["holdings"]))
+        self.assertIsNone(payload["holdings"][1]["asset_id"])
+        self.assertTrue(reader.has_positions("user:default", "stock:000001"))
+        self.assertFalse(reader.has_positions("user:default", "stock:other"))
+        self.assertEqual(reader.describe("user:default", as_of_date="2025-12-31")["holdings"], [])
+
+    def test_context_includes_scoped_confirmations_without_future_leakage(self):
+        registry = self.container.execution_plans.registry
+        registry.clock = lambda: datetime.fromisoformat("2026-01-03T10:00:00+00:00")
+        self.container.execution_plans.register(user_id="user:default", registration_key="scoped", plan={
+            "title": "Scoped rules", "objective": "Keep the exception local", "status": "active",
+            "reason": "User confirmed", "source_refs": ["confirmation:test"],
+            "constraints": ["This index is reviewed instead of sold by the generic stop"],
+            "tasks": [{"task_id": "check", "title": "Check", "instruction": "Inspect", "completion": "Evidence",
+                       "schedule": {"start": "2026-01-03"}}],
+        })
+        current = self.container.user_context.describe("user:default", as_of_date="2026-01-03")
+        self.assertIn("generic stop", current["execution_context"]["plans"][0]["constraints"][0])
+        self.assertIsNone(current["preference"])
+        past = self.container.user_context.describe("user:default", as_of_date="2026-01-02")
+        self.assertEqual(past["execution_context"]["plans"], [])
 
 
 if __name__ == "__main__":

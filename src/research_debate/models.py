@@ -73,6 +73,9 @@ class Debate:
     subjects: tuple[str, ...] = ()
     parent_debate_id: str | None = None
     significance: str = SIGNIFICANCE_MAJOR
+    # Persona IDs cast for this debate; empty on debates started before casting existed (all lenses count).
+    personas: tuple[str, ...] = ()
+    cast_notes: tuple[dict[str, Any], ...] = ()
     conclusion: str | None = None
     decisions: tuple[dict[str, Any], ...] = ()
     blockers: tuple[str, ...] = ()
@@ -92,6 +95,8 @@ class Debate:
                 "evidence_refs": tuple(payload.get("evidence_refs") or ()),
                 "layers": tuple(payload.get("layers") or (LAYER_WORLD,)),
                 "subjects": tuple(payload.get("subjects") or ()),
+                "personas": tuple(payload.get("personas") or ()),
+                "cast_notes": tuple(payload.get("cast_notes") or ()),
                 "decisions": tuple(payload.get("decisions") or ()),
                 "blockers": tuple(payload.get("blockers") or ()),
                 "amendments": tuple(payload.get("amendments") or ()),
@@ -117,6 +122,10 @@ class Position:
     ledger_refs: tuple[str, ...] = ()
     created_at: str = ""
     resolved_at: str | None = None
+    provenance: str = "legacy_unverified"
+    original_text: str | None = None
+    source_position_id: str | None = None
+    user_acceptances: tuple[dict[str, Any], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return _plain(asdict(self)) | {"status_label": POSITION_LABELS[self.status]}
@@ -124,7 +133,7 @@ class Position:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "Position":
         data = {key: value for key, value in payload.items() if key != "status_label"}
-        for key in ("falsifiers", "evidence_refs", "ledger_refs"):
+        for key in ("falsifiers", "evidence_refs", "ledger_refs", "user_acceptances"):
             data[key] = tuple(data.get(key) or ())
         return cls(**data)
 

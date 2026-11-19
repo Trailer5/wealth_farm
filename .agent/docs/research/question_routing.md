@@ -5,13 +5,13 @@
 ## 一、环境
 
 1. PowerShell 先执行 `[Console]::OutputEncoding=[Text.Encoding]::UTF8; $env:PYTHONIOENCODING="utf-8"; $env:PYTHONPATH="."`。
-2. 命令写作 `python -m src.research_orchestration.cli <命令>`，输出 JSON，默认数据库 `data/database/wealth_farm.sqlite3`。
+2. 命令写作 `python -m src.research_orchestration.cli <命令>`，默认数据库 `data/database/wealth_farm.sqlite3`；机器消费可加 `--envelope`，参数发现先用 `--describe <命令>` 或对应 `--help`。
 3. stderr 另存文件（`2> temp/<任务>/x.err`），不要丢弃；脚本先写进 `temp/` 再运行，带 `if __name__ == "__main__":`。
 
 ## 二、标准流程
 
 1. **判断问题**：研究对象、意图、是否需要用户的持仓、偏好或约束。这一步由你判断，代码不做意图分类。
-2. **确认用户**：单用户本地使用时用 `user:default`；`user-context` 查看已有持仓、偏好和约束。问题不涉及个人情况（`personalization=none`，如策略、行业现状）时跳过。
+2. **确认用户**：单用户本地使用时用 `user:default`；`user-context --as-of-date <日期>` 查看有效持仓、偏好、当前计划约束及确认例外，不重复问已记录信息。问题不涉及个人情况（`personalization=none`，如策略、行业现状）时跳过。
 3. **写请求**：看 `route --help`（字段、问题形态对照表、示例），把请求 JSON 写进 `temp/`。
 4. **路由**：`route --request-json <path>`，按第四节的状态表行动。
 5. **执行**：`run-recipe --request-json <path>`（组合问题加 `--cash <元>`）；逐步看每步的 `status`、`summary` 和 `next_actions`。
@@ -30,7 +30,7 @@
 | 策略好不好 | `playbooks/strategy.md` |
 | 全球事件、政策与新闻；美股价格；事件类观点入账与跟踪；只按比例管理的持仓（雇主股票） | `playbooks/global_events.md` |
 | 重大消息后形成前瞻判断并落到投资计划；用户与 Agent 观点互相驳斥；没有观点时主动提出行业、市场与世界观观点；投资大师视角参与讨论 | `playbooks/debate.md` |
-| 例行维护（结算、刷新档案、检查论点、到期复盘） | `routine --user-id <id>`，按 `next_actions` 继续 |
+| 例行巡检或维护 | 查待办用 `routine --user-id <id>`；需结算/刷新时显式 `--mode maintain`，先看其 `--help` 并按 `next_actions` 继续 |
 | 计划登记、全局时间表、待办执行、按计划回顾 | `playbooks/execution_plans.md` |
 | 重大事件名称、谐音或错配 | `event_name_discovery.md` |
 | 新对话只给代码、名称或模糊请求 | `cold_start_intake.md` |

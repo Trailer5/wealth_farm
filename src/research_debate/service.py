@@ -10,8 +10,10 @@ Discipline enforced here (the Agent cannot skip it):
 - a debate concludes only when no position is open and no rebuttal is pending;
 - a major debate (the default) concludes with decisions; when none can be made, the method or
   infrastructure gaps that blocked them are recorded as blockers and shown as gaps.
-Coverage (not a gate): for each layer in play, which persona lenses spoke, declared no view, or are
-absent; absent lenses are blind spots listed in next_actions and gaps.
+Coverage (not a gate): for each layer in play, which cast persona lenses spoke, declared no view, or are
+absent; absent lenses are blind spots listed in next_actions and gaps. A debate casts at most three
+lenses per layer when it starts; adding one later needs a written reason. Debates started before casting
+existed count every lens of their layers.
 Design notes: docs/modules/5-研究产物/观点辩论模块.md.
 """
 
@@ -54,7 +56,7 @@ from .models import (
     Rebuttal,
     Signpost,
 )
-from .personas import persona, persona_brief, personas_for
+from .personas import check_cast, persona, persona_brief, personas_for
 from .sqlite_repository import SQLiteDebateRepository
 
 _CLI = "python -m src.research_orchestration.cli debate"
@@ -83,6 +85,7 @@ class DebateService:
         layers: tuple[str, ...] = (LAYER_WORLD,),
         subjects: tuple[str, ...] = (),
         significance: str = SIGNIFICANCE_MAJOR,
+        personas: tuple[str, ...] = (),
     ) -> Debate:
         if not topic.strip() or not trigger.strip():
             raise ValueError("辩题 topic 与起因 trigger 都要写")
@@ -92,6 +95,8 @@ class DebateService:
             raise ValueError(f"layers 取 {', '.join(LAYERS)}（world 第一层，asset 第二层）")
         if LAYER_ASSET in layers and not subjects:
             raise ValueError("第二层辩论要写 subjects（标的代码与名称）")
+        layers = tuple(dict.fromkeys(layers))
+        cast = check_cast(personas, layers) if personas else ()
         if parent_debate_id is not None:
             self._record(parent_debate_id)
         digest = hashlib.sha1(f"{user_id}|{topic}|{as_of_date}".encode("utf-8")).hexdigest()[:8]
@@ -102,10 +107,11 @@ class DebateService:
             trigger=trigger.strip(),
             as_of_date=as_of_date,
             evidence_refs=tuple(evidence_refs),
-            layers=tuple(dict.fromkeys(layers)),
+            layers=layers,
             subjects=tuple(subjects),
             parent_debate_id=parent_debate_id,
             significance=significance,
+            personas=cast,
             created_at=self._now(),
         )
         if self.repository.get_debate(debate.debate_id) is not None:
@@ -126,6 +132,9 @@ class DebateService:
         supersedes: str | None = None,
         layer: str = LAYER_WORLD,
         subject: str | None = None,
+        original_text: str | None = None,
+        source_position_id: str | None = None,
+        user_confirmation: dict[str, str] | None = None,
     ) -> Position:
         record = self._open(debate_id)
         _check_party(party)
@@ -139,6 +148,18 @@ class DebateService:
             raise ValueError("第二层观点要写 subject（标的代码与名称）")
         if party != PARTY_USER and not falsifiers:
             raise ValueError("Agent 与角色的观点必须写证伪条件 falsifiers")
+        acceptance = None
+        if user_confirmation is not None:
+            if not all(isinstance(user_confirmation.get(key), str) and user_confirmation[key].strip()
+                       for key in ("statement", "ref")):
+                raise ValueError("user_confirmation requires the user's statement and confirmation ref")
+            acceptance = {**user_confirmation, "recorded_at": self._now()}
+        if party == PARTY_USER and supersedes and acceptance is None:
+            raise ValueError("用户观点改写需要明确 user_confirmation；Agent 建议请用 source_position_id，不可冒充用户确认")
+        if source_position_id:
+            _find(record.positions, source_position_id, "原观点")
+            if party == PARTY_USER:
+                raise ValueError("source_position_id marks an Agent proposal, not a user assertion")
         previous = None
         if supersedes is not None:
             previous = _find(record.positions, supersedes, "观点")
@@ -158,6 +179,11 @@ class DebateService:
             subject=(subject or "").strip() or None,
             supersedes=supersedes,
             created_at=self._now(),
+            provenance=("user_confirmed_revision" if supersedes else "user_original") if party == PARTY_USER
+                       else "agent_proposal" if source_position_id else "authored",
+            original_text=original_text or (statement.strip() if party == PARTY_USER and not supersedes else None),
+            source_position_id=source_position_id,
+            user_acceptances=(acceptance,) if acceptance else (),
         )
         self.repository.save("debate_positions", position, seq)
         if previous is not None:
@@ -171,6 +197,24 @@ class DebateService:
                 ),
             )
         return position
+
+    def accept_position(self, debate_id: str, *, position_id: str, statement: str,
+                        confirmation_ref: str) -> Position:
+        """Append explicit user acceptance without changing the original author or wording."""
+
+        record = self._record(debate_id)
+        target = _find(record.positions, position_id, "观点")
+        if not statement.strip() or not confirmation_ref.strip():
+            raise ValueError("acceptance needs the user's exact statement and confirmation_ref")
+        previous = next((item for item in target.user_acceptances if item["ref"] == confirmation_ref), None)
+        if previous:
+            if previous["statement"] != statement:
+                raise ValueError("confirmation_ref already records a different statement")
+            return target
+        acceptance = {"statement": statement, "ref": confirmation_ref, "recorded_at": self._now()}
+        accepted = replace(target, user_acceptances=target.user_acceptances + (acceptance,))
+        self.repository.save("debate_positions", accepted)
+        return accepted
 
     def rebut(
         self,
@@ -413,9 +457,31 @@ class DebateService:
     def records(self, *, user_id: str | None = None) -> list[DebateRecord]:
         return [self._record(item.debate_id) for item in self.repository.list_debates(user_id=user_id)]
 
+    def cast(self, debate_id: str, *, personas: tuple[str, ...], reason: str) -> dict[str, Any]:
+        """Add lenses to an open debate's cast; the reason says which uncertainty the cast left uncovered."""
+
+        debate = self._open(debate_id).debate
+        if not reason.strip():
+            raise ValueError("reason 写明原名单漏掉了哪个不确定性，为什么要加这个视角")
+        added = tuple(persona(item).persona_id for item in personas)
+        if not added:
+            raise ValueError("personas 至少一个")
+        cast = check_cast(debate.personas + added, debate.layers)
+        note = {"added": list(added), "reason": reason.strip(), "at": self._now()}
+        self.repository.save_debate(replace(debate, personas=cast, cast_notes=debate.cast_notes + (note,)))
+        return self.show(debate_id)
+
     def brief(self, debate_id: str, persona_id: str) -> dict[str, Any]:
         item = persona(persona_id)
+        self._check_cast(self._record(debate_id).debate, item.persona_id)
         return {"persona": item.to_dict(), "debate_id": debate_id, "brief": persona_brief(item, self.show(debate_id))}
+
+    @staticmethod
+    def _check_cast(debate: Debate, persona_id: str) -> None:
+        if debate.personas and persona_id not in debate.personas:
+            raise ValueError(
+                f"{persona_id} 不在本场名单（{', '.join(debate.personas)}）；确有未覆盖的不确定性时先 --action cast 并写理由"
+            )
 
     def import_persona(self, debate_id: str, persona_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         """Record a sub-agent's JSON answer (the format asked for in ``brief``) under its persona party.
@@ -427,6 +493,7 @@ class DebateService:
         item_persona = persona(persona_id)
         party = item_persona.party
         debate = self._open(debate_id).debate
+        self._check_cast(debate, item_persona.persona_id)
         default_layer = item_persona.layer if item_persona.layer in debate.layers else debate.layers[0]
         positions = [
             self.add_position(
@@ -566,7 +633,12 @@ def _coverage(record: DebateRecord) -> dict[str, list[dict[str, str]]]:
             {"party": party, "name": name, "status": "spoke" if party in spoke else "absent"}
             for party, name in ((PARTY_USER, "用户"), (PARTY_AGENT, "Agent"))
         ]
-        for item in personas_for(layer):
+        if record.debate.personas:
+            cast = [persona(item) for item in record.debate.personas]
+            members = [item for item in cast if item.layer == layer or (item.layer not in layers and layer == layers[0])]
+        else:
+            members = personas_for(layer)
+        for item in members:
             status = "spoke" if item.party in spoke else "no_view" if item.party in declined else "absent"
             rows.append({"party": item.party, "name": item.name, "status": status})
         coverage[layer] = rows
