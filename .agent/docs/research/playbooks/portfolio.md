@@ -46,3 +46,16 @@
 1. 研究给出标的、数量和执行窗口后，下单前运行 `entry-timing --symbol <代码> --side buy|sell --window-days <窗口交易日数>`（读法与纪律见 `entry-timing --help`），不凭“最近在跌”“最近在涨”的印象择时。
 2. 按 `recommendation` 告诉用户每批比例与大致日期，并说明依据的相似状态、段数和与全部交易日的差距；样本不足或差距很小时照常分两批。
 3. 延后的批次在窗口末必须执行（研究的退出或停止条件触发除外）；节奏改变已登记的执行计划时，按 `playbooks/execution_plans.md` 修订节点。
+
+## H. 现在值得把钱部署到哪里（没有指定标的或行业）
+
+1. 请求：`subject_type=portfolio`，`intents=["discover"]`（要顺带时间表时加 `plan`），`personal_refs` 写最新偏好；`subject_refs[0]` 写发现范围（用户没有主题时用 `index:000300`，有主题时映射到申万行业并写明依据）。用户没说“更激进/更稳”时不走 C。
+2. `route` → `run-recipe`（范围 ≤300 只时漏斗约 15–20 分钟，一次跑完）。按步骤顺序读输出：
+   - `plan_constraints`：生效计划的约束和回避清单，后面的筛选和额度都受它约束。
+   - `plan_nodes`：对到期节点用 `plan-show --task-id` 读条件原文，价格条件用 `prices --symbols <代码> --state` 核对，结果用 `task-resolve` 记录（写法见其 `--help`）。
+   - `market_state`、`risk_budget`：市场状态和各大类还能部署多少。
+   - `strategy_funnel`、`multi_strategy_priority`：候选与前 5 名基础包，读法见 `discover --help`。
+3. 挑候选：先按回避清单和偏好剔除，再按 `discover --help` 的读法剔除周期高点和非经常性利润；交易权限只标注。前 5 名之外的候选按 `discover --help` 生成基础包。
+4. 组合适配：`adjustment-proposal --user-id <id> --candidate <代码>[:<类型>] ...`，看额度、重叠和压力情景；给用户的仓位区间以它和计划约束为准，不自己推算。
+5. 作答顺序：条件已成立的既定动作 → 各大类还能部署多少 → 未触发的计划条件及当前距离 → 新候选（研究邀请，优先级和理由）→ 写入与未登记事项。
+6. 用户要买某个候选：转 `mainline.md` 做单标的研究，得出是否、何时、多少和退出线后，按 `playbooks/execution_plans.md` 登记。

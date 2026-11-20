@@ -5,5 +5,7 @@ temp/
 *.sqlite3
 *.sqlite3-*
 docs/personal_info/
+# 用户自行放入的外部资料（含嵌套 git 仓库与二进制工具），不随项目提交
+references/one_stop_database/
 # 个人待执行买卖清单（含持仓比例）
 /待执行动作.md

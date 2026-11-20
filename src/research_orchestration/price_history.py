@@ -82,8 +82,11 @@ class PriceHistoryService:
         start_date: str,
         end_date: str,
         rows: bool = False,
+        state: bool = False,
         allow_remote: bool = True,
     ) -> dict[str, Any]:
+        """``state`` adds the last-day price state used by plan conditions (see ``price_state``)."""
+
         dataset = _DATASETS.get(asset.asset_type)
         if dataset is None:
             raise ValueError(f"{asset.asset_type} 没有总回报日线；指数用 market-archive 或 sector-archive")
@@ -118,6 +121,8 @@ class PriceHistoryService:
             "error": response.error,
         }
         payload.update(_summary(bars))
+        if state:
+            payload["state"] = price_state(bars)
         payload["notes"] = _notes(asset, payload)
         if rows:
             payload["rows"] = [
@@ -130,6 +135,61 @@ class PriceHistoryService:
                 for item in bars
             ]
         return payload
+
+
+STATE_HIGH_WINDOWS = (20, 60)
+STATE_AVERAGE_WINDOWS = (20, 60)
+STATE_RANGE_WINDOW = 60
+STATE_CHANGE_WINDOWS = (5, 20)
+
+
+def price_state(bars: list[dict[str, Any]]) -> dict[str, Any]:
+    """Last-day state of the actual closes, in the vocabulary of plan conditions.
+
+    prior_high_<n>: highest close of the n sessions before the last one (a breakout compares the
+    last close with it); ma_<n>: mean close including the last day; range_<n>: low/high of the last
+    n closes including the last day; change_<n>: total-return change over n sessions. Levels use
+    actual closes because plan lines are quoted in traded prices; an ex-dividend day inside a window
+    shifts averages slightly. Windows the bars cannot fill are listed in ``missing``.
+    """
+
+    bars = [item for item in bars if item.get("unadjusted_close") is not None]
+    if not bars:
+        return {"bars": 0, "missing": ["no bars with actual closes"]}
+    closes = [float(item["unadjusted_close"]) for item in bars]
+    levels = [float(item["close"]) for item in bars]
+    last = closes[-1]
+    result: dict[str, Any] = {"date": bars[-1]["trade_date"], "close": last, "bars": len(bars)}
+    missing: list[str] = []
+    for n in STATE_HIGH_WINDOWS:
+        if len(closes) > n:
+            high = max(closes[-n - 1:-1])
+            result[f"prior_high_{n}"] = high
+            result[f"above_prior_high_{n}"] = last > high
+        else:
+            missing.append(f"prior_high_{n}")
+    for n in STATE_AVERAGE_WINDOWS:
+        if len(closes) >= n:
+            average = sum(closes[-n:]) / n
+            result[f"ma_{n}"] = round(average, 6)
+            result[f"above_ma_{n}"] = last > average
+        else:
+            missing.append(f"ma_{n}")
+    n = STATE_RANGE_WINDOW
+    if len(closes) >= n:
+        low, high = min(closes[-n:]), max(closes[-n:])
+        result[f"range_{n}"] = {"low": low, "high": high}
+        result[f"at_low_{n}"] = last <= low
+        result[f"at_high_{n}"] = last >= high
+    else:
+        missing.append(f"range_{n}")
+    for n in STATE_CHANGE_WINDOWS:
+        if len(levels) > n:
+            result[f"change_{n}"] = round(levels[-1] / levels[-n - 1] - 1, 6)
+        else:
+            missing.append(f"change_{n}")
+    result["missing"] = missing
+    return result
 
 
 def _summary(bars: list[dict[str, Any]]) -> dict[str, Any]:

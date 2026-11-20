@@ -1,0 +1,31 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:27dbe42d-e336-4ffc-a50b-c2af729fcec6",
+  "asset_name": "顺丰控股",
+  "benchmark_asset_id": null,
+  "chart_type": "price_volume",
+  "currency": "CNY",
+  "files": {
+    "data": "price_volume-92b740702a2b.data.json",
+    "png": "price_volume-92b740702a2b.png",
+    "svg": "price_volume-92b740702a2b.svg"
+  },
+  "input_digest": "92b740702a2bbd7208d3c9a11083bd1f32cfa6ac6fe25086ffd9b58bd0361904",
+  "parameters": {
+    "moving_averages": [
+      5,
+      20
+    ]
+  },
+  "point_count": 486,
+  "price_adjustment": "none",
+  "source_datasets": [
+    "stock_daily_bars"
+  ],
+  "task_id": "research:fdb1e781-42b0-43e7-89f7-dd43e0cc0b78",
+  "title": "Price, Volume, and Moving Averages",
+  "unit": "price",
+  "version": "research_chart_v1",
+  "x_label": "Trade date",
+  "y_label": "Price"
+}

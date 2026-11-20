@@ -122,7 +122,7 @@ class QuestionRouter:
             questions = (USER_CONTEXT_QUESTIONS[UserContextNeed.INVESTMENT_PREFERENCE], *questions)
         if request.user_id is not None and (
             request.subject_type is SubjectType.PORTFOLIO or recipe.recipe_id == "sector_view_recommendation"
-        ):
+        ) and not self._cash_recorded(request.user_id):
             questions = (*questions, PORTFOLIO_CASH_QUESTION)
         if ResearchIntent.TEST_VIEW in request.intents and request.horizon is None:
             questions = (VIEW_HORIZON_QUESTION, *questions)
@@ -143,6 +143,10 @@ class QuestionRouter:
             user_questions=questions,
             subjects=subjects,
         )
+
+    def _cash_recorded(self, user_id: str) -> bool:
+        probe = getattr(self.context_probe, "cash_recorded", None)
+        return bool(probe(user_id)) if probe is not None else False
 
     def _ref_recorded(
         self,

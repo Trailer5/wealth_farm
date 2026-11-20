@@ -9,6 +9,7 @@ from src.discovery_funnel import (
     SQLiteDiscoveryFunnelRepository,
 )
 from src.discovery_funnel.features import shift_quarter
+from src.discovery_funnel.service import listing_board
 from src.sector_data import IndustryMember, SwIndustry
 
 AS_OF = "2026-10-23"
@@ -229,6 +230,14 @@ class DiscoveryFunnelTest(unittest.TestCase):
             DiscoveryScope.parse("index")
         self.assertEqual(shift_quarter("2026-03-31", -1), "2025-12-31")
         self.assertEqual(shift_quarter("2026-06-30", -4), "2025-06-30")
+
+    def test_candidates_carry_the_listing_board_that_needs_its_own_permission(self):
+        boards = {code: listing_board(code) for code in ("600519", "002352", "300750", "688012", "920001", "830799")}
+        self.assertEqual(
+            boards,
+            {"600519": "主板", "002352": "主板", "300750": "创业板", "688012": "科创板",
+             "920001": "北交所", "830799": "北交所"},
+        )
 
 
 if __name__ == "__main__":

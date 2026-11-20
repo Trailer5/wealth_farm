@@ -412,6 +412,7 @@ def _rank_candidates(
                 "rank": rank,
                 "symbol": symbol,
                 "name": f.name,
+                "board": listing_board(symbol),
                 "industry_l1": f.industry_l1,
                 "strategies": list(passed),
                 "priority": round(len(scores[symbol]) + mean(scores[symbol].values()), 4),
@@ -425,6 +426,18 @@ def _rank_candidates(
             }
         )
     return candidates
+
+
+def listing_board(symbol: str) -> str:
+    """A-share board by code prefix; boards matter because they need separate trading permissions."""
+
+    if symbol.startswith(("688", "689")):
+        return "科创板"
+    if symbol.startswith(("300", "301", "302")):
+        return "创业板"
+    if symbol.startswith(("4", "8", "92")):
+        return "北交所"
+    return "主板"
 
 
 def _disclosure_note(features: list[MemberFeatures]) -> str | None:

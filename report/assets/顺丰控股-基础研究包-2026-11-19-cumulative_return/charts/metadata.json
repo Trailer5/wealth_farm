@@ -1,0 +1,32 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:27dbe42d-e336-4ffc-a50b-c2af729fcec6",
+  "asset_name": "顺丰控股",
+  "benchmark_asset_id": null,
+  "chart_type": "cumulative_return",
+  "currency": null,
+  "files": {
+    "data": "cumulative_return-b4fb280861f2.data.json",
+    "png": "cumulative_return-b4fb280861f2.png",
+    "svg": "cumulative_return-b4fb280861f2.svg"
+  },
+  "input_digest": "b4fb280861f28a909658d09096c27ef3415d451a984db2006e3bd7be1c63533c",
+  "parameters": {
+    "factor_names": [
+      "cumulative_return"
+    ],
+    "input_end_date": "2026-11-19",
+    "input_start_date": "2024-11-19"
+  },
+  "point_count": 486,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:fdb1e781-42b0-43e7-89f7-dd43e0cc0b78",
+  "title": "Cumulative Return (2024-11-19 to 2026-11-19)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Cumulative Return"
+}

@@ -1,0 +1,32 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:27dbe42d-e336-4ffc-a50b-c2af729fcec6",
+  "asset_name": "顺丰控股",
+  "benchmark_asset_id": null,
+  "chart_type": "drawdown",
+  "currency": null,
+  "files": {
+    "data": "drawdown-7839dc3b6579.data.json",
+    "png": "drawdown-7839dc3b6579.png",
+    "svg": "drawdown-7839dc3b6579.svg"
+  },
+  "input_digest": "7839dc3b657979b33472ea4d5b2819541efad96341683d99a6c5ed4572935920",
+  "parameters": {
+    "factor_names": [
+      "drawdown_series"
+    ],
+    "input_end_date": "2026-11-19",
+    "input_start_date": "2024-11-19"
+  },
+  "point_count": 486,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:fdb1e781-42b0-43e7-89f7-dd43e0cc0b78",
+  "title": "Drawdown (2024-11-19 to 2026-11-19)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Drawdown"
+}

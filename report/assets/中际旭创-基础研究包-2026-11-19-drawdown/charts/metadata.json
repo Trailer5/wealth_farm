@@ -1,0 +1,32 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:0733b979-a5d9-42e4-89e6-260af312c5e2",
+  "asset_name": "中际旭创",
+  "benchmark_asset_id": null,
+  "chart_type": "drawdown",
+  "currency": null,
+  "files": {
+    "data": "drawdown-9daca2737606.data.json",
+    "png": "drawdown-9daca2737606.png",
+    "svg": "drawdown-9daca2737606.svg"
+  },
+  "input_digest": "9daca2737606ae27296d7824798c26cd76e4d73cf0db500acea394129b7ecd62",
+  "parameters": {
+    "factor_names": [
+      "drawdown_series"
+    ],
+    "input_end_date": "2026-11-19",
+    "input_start_date": "2024-11-19"
+  },
+  "point_count": 486,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:d6cf06ad-90da-4cda-8ab8-e47660dd6b3a",
+  "title": "Drawdown (2024-11-19 to 2026-11-19)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Drawdown"
+}

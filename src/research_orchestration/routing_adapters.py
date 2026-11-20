@@ -12,6 +12,7 @@ from src.fundamental_analysis import growth_profile_signals, recurring_profit_su
 from src.master_data import ASSET_TYPE_INDEX, ASSET_TYPE_STOCK, SW_INDEX_EXCHANGE, MasterDataService
 from src.portfolio_risk import InvestmentPreference, PortfolioRiskService, preference_changes
 from src.research_contracts import (
+    ASSET_CLASS_CASH,
     PROFILE_CYCLICAL_RESOURCE,
     DecisionIntent,
     DecisionLane,
@@ -126,6 +127,15 @@ class UserSpaceContextReader:
             asset_id is None or item["asset_id"] == asset_id
             for item in self.portfolio_summary(user_id)["holdings"]
         )
+
+    def cash_recorded(self, user_id: str) -> bool:
+        """Whether the latest weight snapshot has a cash line, so uninvested cash is already known."""
+
+        context = self._context(user_id)
+        if context is None:
+            return False
+        weights = self.portfolio_risk.latest_weights(context, on_or_before=date.today().isoformat())
+        return weights is not None and any(item.asset_class == ASSET_CLASS_CASH for item in weights.items)
 
     def portfolio_summary(self, user_id: str, *, as_of_date: str | None = None) -> dict[str, Any]:
         context = self._context(user_id)

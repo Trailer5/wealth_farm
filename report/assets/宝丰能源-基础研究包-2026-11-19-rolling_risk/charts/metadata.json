@@ -1,0 +1,33 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:9a3cd3db-fc59-45dc-94c0-ac0de938a61a",
+  "asset_name": "宝丰能源",
+  "benchmark_asset_id": null,
+  "chart_type": "rolling_risk",
+  "currency": null,
+  "files": {
+    "data": "rolling_risk-80b25fb6018f.data.json",
+    "png": "rolling_risk-80b25fb6018f.png",
+    "svg": "rolling_risk-80b25fb6018f.svg"
+  },
+  "input_digest": "80b25fb6018fe0fcd3d10fbc5143b40b8d44c2e747f66621eb050fe62a211674",
+  "parameters": {
+    "factor_names": [
+      "rolling_annualized_volatility_60d",
+      "rolling_sharpe_60d"
+    ],
+    "input_end_date": "2026-11-19",
+    "input_start_date": "2025-02-20"
+  },
+  "point_count": 426,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:cf64265f-5aed-484d-822f-1327242cb1f9",
+  "title": "Rolling Risk Metrics (2025-02-20 to 2026-11-19)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Rolling Risk Metrics"
+}

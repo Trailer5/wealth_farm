@@ -87,6 +87,10 @@ class RecipeRunResult:
         }
 
 
+class ExecutionPlansProtocol(Protocol):
+    def calendar(self, *, user_id: str, at: str | None = None) -> dict[str, Any]: ...
+
+
 class SingleAssetRunnerProtocol(Protocol):
     def run_baseline(
         self,
@@ -191,6 +195,7 @@ class RecipeExecutor:
         plan: PortfolioDiagnosisProtocol | None = None,
         decision_review: PortfolioDiagnosisProtocol | None = None,
         strategy: StrategyRunnerProtocol | None = None,
+        plans: ExecutionPlansProtocol | None = None,
     ) -> None:
         self.router = router
         self.single_asset = single_asset
@@ -210,6 +215,7 @@ class RecipeExecutor:
         self.plan = plan
         self.decision_review = decision_review
         self.strategy = strategy
+        self.plans = plans
 
     def run(
         self,
@@ -259,6 +265,8 @@ class RecipeExecutor:
             )
         elif recipe_id == "portfolio_review":
             outcomes = (self._diagnose(request, cash),)
+        elif recipe_id == "portfolio_deployment":
+            outcomes = self._deployment(request, cash)
         elif recipe_id == "decision_review":
             outcomes = self._decision_review(request, cash)
         elif recipe_id == "sector_discovery":
@@ -534,6 +542,82 @@ class RecipeExecutor:
                 "--supersedes-entry-id <本条> 入账可结算版本：指标类 observed_id 写 "
                 "macro:<series_id>，价格类写标的 ID",
                 "先收集反方证据，再收集支持证据，并标注来源与发布日期",
+            ),
+        )
+
+    def _deployment(self, request: ResearchRequest, cash: float | None = None) -> tuple[StepOutcome, ...]:
+        """Existing plans first, then state, room and new candidates; buying stays with single-asset research."""
+
+        outcomes = [
+            self._plan_constraints(request),
+            self._plan_nodes(request),
+            self._state_archive("market_state", "市场", self.market, request),
+            self._allocate(request, cash),
+        ]
+        if self.funnel is None or not request.subject_refs:
+            outcomes.append(
+                StepOutcome(
+                    "strategy_funnel",
+                    StepOutcomeStatus.NEEDS_INPUT,
+                    "请求没有写发现范围：在 subject_refs[0].resolved_id 写 index:<指数代码>、sector:sw:<代码>[,<代码>] "
+                    "或 symbols:<代码,...>，text 写范围名和选择理由；没有主题时用 index:000300。",
+                )
+            )
+        else:
+            outcomes.extend(
+                item for item in self._funnel(request) if item.step_id in ("strategy_funnel", "multi_strategy_priority")
+            )
+        outcomes.append(
+            StepOutcome(
+                "candidate_fit",
+                StepOutcomeStatus.NEEDS_INPUT,
+                "由 Agent 挑选候选后运行：先按 plan_constraints 的回避清单和偏好筛掉不合适的候选（交易权限只标注不过滤），"
+                "再把 1–3 个候选交给 adjustment-proposal。",
+                next_actions=(
+                    f"adjustment-proposal --user-id {request.user_id} --candidate <代码>[:<类型>] ...：看额度、重叠和压力情景",
+                    "准备买入的候选按 mainline.md 做单标的研究，得出是否、何时、多少和退出线后再登记计划",
+                ),
+            )
+        )
+        return tuple(outcomes)
+
+    def _plan_constraints(self, request: ResearchRequest) -> StepOutcome:
+        reader = getattr(self.portfolio, "execution_context", None)
+        if reader is None or request.user_id is None:
+            return StepOutcome("plan_constraints", StepOutcomeStatus.GAP, "执行计划未接入当前执行器。")
+        context = reader(request.user_id, request.as_of_date)
+        plans = context.get("plans", [])
+        return StepOutcome(
+            "plan_constraints",
+            StepOutcomeStatus.COMPLETED,
+            f"生效计划 {len(plans)} 份：" + "；".join(item["title"] for item in plans)
+            if plans
+            else "没有生效的执行计划。",
+            artifacts=context,
+            next_actions=(
+                "逐条读 constraints：权益上限、回避清单和批次前提约束后面的候选筛选和额度；计划里已定的批次优先于新候选",
+                "需要计划来源时读 source_refs 里的辩论与报告，不凭记忆复述",
+            ),
+        )
+
+    def _plan_nodes(self, request: ResearchRequest) -> StepOutcome:
+        if self.plans is None or request.user_id is None:
+            return StepOutcome("plan_nodes", StepOutcomeStatus.GAP, "执行日历未接入当前执行器。")
+        calendar = self.plans.calendar(user_id=request.user_id, at=request.as_of_date)
+        pending = [
+            {key: row.get(key) for key in ("plan_id", "task_id", "title", "kind", "status", "deadline_at", "next_check")}
+            for group in ("overdue", "due")
+            for row in calendar.get(group, [])
+        ]
+        return StepOutcome(
+            "plan_nodes",
+            StepOutcomeStatus.COMPLETED,
+            f"已到期或逾期节点 {len(pending)} 个（动作 {sum(1 for item in pending if item['kind'] == 'action')} 个）。",
+            artifacts={"pending": pending, "counts": calendar.get("counts"), "gaps": calendar.get("gaps", [])},
+            next_actions=(
+                "对买卖和观察节点用 plan-show --task-id 读条件原文；价格条件用 prices --symbols <代码> --state 核对，"
+                "宽度条件用 market_state 的宽度维度；核对结果用 task-resolve 记录，未触发的给 next_check",
+                "条件已成立的既定动作排在新候选之前告诉用户",
             ),
         )
 

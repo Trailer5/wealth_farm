@@ -1,0 +1,31 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:9a3cd3db-fc59-45dc-94c0-ac0de938a61a",
+  "asset_name": "宝丰能源",
+  "benchmark_asset_id": null,
+  "chart_type": "price_volume",
+  "currency": "CNY",
+  "files": {
+    "data": "price_volume-468c86212e1c.data.json",
+    "png": "price_volume-468c86212e1c.png",
+    "svg": "price_volume-468c86212e1c.svg"
+  },
+  "input_digest": "468c86212e1cc988e4c916bc1b19ec61a393bdbb206a9753e0f02b25d41e7e46",
+  "parameters": {
+    "moving_averages": [
+      5,
+      20
+    ]
+  },
+  "point_count": 486,
+  "price_adjustment": "none",
+  "source_datasets": [
+    "stock_daily_bars"
+  ],
+  "task_id": "research:cf64265f-5aed-484d-822f-1327242cb1f9",
+  "title": "Price, Volume, and Moving Averages",
+  "unit": "price",
+  "version": "research_chart_v1",
+  "x_label": "Trade date",
+  "y_label": "Price"
+}

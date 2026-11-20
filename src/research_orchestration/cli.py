@@ -345,6 +345,10 @@ def build_parser() -> argparse.ArgumentParser:
     prices.add_argument("--start-date", required=True)
     prices.add_argument("--end-date", default=date.today().isoformat())
     prices.add_argument("--rows", action="store_true", help="Include the daily rows.")
+    prices.add_argument(
+        "--state", action="store_true",
+        help="Add the last-day state used by plan conditions: prior highs, moving averages, 60-day range, 5/20-day change.",
+    )
     prices.add_argument("--no-remote", action="store_true")
     prices.add_argument("--request-id", help="Stable batch ID for checkpoint/resume with unchanged items and parameters.")
     prices.add_argument("--retry-failed", action="store_true")
@@ -1359,10 +1363,11 @@ def _main(
                 if asset is None:
                     raise KeyError(f"unknown asset_id {key}")
                 return container.price_history.history(asset, start_date=args.start_date, end_date=args.end_date,
-                    rows=args.rows, allow_remote=not args.no_remote)
+                    rows=args.rows, state=args.state, allow_remote=not args.no_remote)
 
             parameters = {"start_date": args.start_date, "end_date": args.end_date, "market": args.market,
-                          "asset_type": args.asset_type, "rows": args.rows, "no_remote": args.no_remote,
+                          "asset_type": args.asset_type, "rows": args.rows, "state": args.state,
+                          "no_remote": args.no_remote,
                           "asset_id": args.asset_id, "symbols": args.symbols}
             payload = container.batch.run(items=targets, parameters=parameters, execute=fetch_price,
                                           request_id=args.request_id, retry_failed=args.retry_failed)

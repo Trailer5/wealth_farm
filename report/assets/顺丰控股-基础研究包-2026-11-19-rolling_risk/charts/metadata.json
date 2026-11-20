@@ -1,0 +1,33 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:27dbe42d-e336-4ffc-a50b-c2af729fcec6",
+  "asset_name": "顺丰控股",
+  "benchmark_asset_id": null,
+  "chart_type": "rolling_risk",
+  "currency": null,
+  "files": {
+    "data": "rolling_risk-8f4ede9df283.data.json",
+    "png": "rolling_risk-8f4ede9df283.png",
+    "svg": "rolling_risk-8f4ede9df283.svg"
+  },
+  "input_digest": "8f4ede9df283b778f6bda524c3d669ec005071e2f1664b44fa0bd2c4350357f7",
+  "parameters": {
+    "factor_names": [
+      "rolling_annualized_volatility_60d",
+      "rolling_sharpe_60d"
+    ],
+    "input_end_date": "2026-11-19",
+    "input_start_date": "2025-02-20"
+  },
+  "point_count": 426,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:fdb1e781-42b0-43e7-89f7-dd43e0cc0b78",
+  "title": "Rolling Risk Metrics (2025-02-20 to 2026-11-19)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Rolling Risk Metrics"
+}

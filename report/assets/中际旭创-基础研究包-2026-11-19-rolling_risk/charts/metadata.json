@@ -1,0 +1,33 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:0733b979-a5d9-42e4-89e6-260af312c5e2",
+  "asset_name": "中际旭创",
+  "benchmark_asset_id": null,
+  "chart_type": "rolling_risk",
+  "currency": null,
+  "files": {
+    "data": "rolling_risk-fb4c80e8eb52.data.json",
+    "png": "rolling_risk-fb4c80e8eb52.png",
+    "svg": "rolling_risk-fb4c80e8eb52.svg"
+  },
+  "input_digest": "fb4c80e8eb5268a01c313cf830ff9888efb6e5724a84676a12e68493a8c94158",
+  "parameters": {
+    "factor_names": [
+      "rolling_annualized_volatility_60d",
+      "rolling_sharpe_60d"
+    ],
+    "input_end_date": "2026-11-19",
+    "input_start_date": "2025-02-20"
+  },
+  "point_count": 426,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:d6cf06ad-90da-4cda-8ab8-e47660dd6b3a",
+  "title": "Rolling Risk Metrics (2025-02-20 to 2026-11-19)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Rolling Risk Metrics"
+}

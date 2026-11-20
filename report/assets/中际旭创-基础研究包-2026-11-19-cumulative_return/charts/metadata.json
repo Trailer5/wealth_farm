@@ -1,0 +1,32 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:0733b979-a5d9-42e4-89e6-260af312c5e2",
+  "asset_name": "中际旭创",
+  "benchmark_asset_id": null,
+  "chart_type": "cumulative_return",
+  "currency": null,
+  "files": {
+    "data": "cumulative_return-a752a51ff8a6.data.json",
+    "png": "cumulative_return-a752a51ff8a6.png",
+    "svg": "cumulative_return-a752a51ff8a6.svg"
+  },
+  "input_digest": "a752a51ff8a6866ce01e2df54167152ad06310170c95990dcb4a8caed2084616",
+  "parameters": {
+    "factor_names": [
+      "cumulative_return"
+    ],
+    "input_end_date": "2026-11-19",
+    "input_start_date": "2024-11-19"
+  },
+  "point_count": 486,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:d6cf06ad-90da-4cda-8ab8-e47660dd6b3a",
+  "title": "Cumulative Return (2024-11-19 to 2026-11-19)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Cumulative Return"
+}

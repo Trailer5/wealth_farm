@@ -1,0 +1,33 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:9c448271-a325-4ef2-a5bb-1c6912a930dd",
+  "asset_name": "恒瑞医药",
+  "benchmark_asset_id": null,
+  "chart_type": "rolling_risk",
+  "currency": null,
+  "files": {
+    "data": "rolling_risk-c7618a2d5b27.data.json",
+    "png": "rolling_risk-c7618a2d5b27.png",
+    "svg": "rolling_risk-c7618a2d5b27.svg"
+  },
+  "input_digest": "c7618a2d5b272bbda0f0c0921757d85cd0bd5cb01190806456886d91ce42d99c",
+  "parameters": {
+    "factor_names": [
+      "rolling_annualized_volatility_60d",
+      "rolling_sharpe_60d"
+    ],
+    "input_end_date": "2026-11-19",
+    "input_start_date": "2025-02-20"
+  },
+  "point_count": 426,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:76725a5d-4346-40b0-9416-89f566153a12",
+  "title": "Rolling Risk Metrics (2025-02-20 to 2026-11-19)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Rolling Risk Metrics"
+}

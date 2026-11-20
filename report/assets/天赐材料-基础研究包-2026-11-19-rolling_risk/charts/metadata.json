@@ -1,0 +1,33 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:ad55bbd2-eb5e-417f-a9f6-f36cf74814d3",
+  "asset_name": "天赐材料",
+  "benchmark_asset_id": null,
+  "chart_type": "rolling_risk",
+  "currency": null,
+  "files": {
+    "data": "rolling_risk-92c90e0f5ead.data.json",
+    "png": "rolling_risk-92c90e0f5ead.png",
+    "svg": "rolling_risk-92c90e0f5ead.svg"
+  },
+  "input_digest": "92c90e0f5eada1080b1188679e30f7c90cfbb11c73915756136d632aebcde989",
+  "parameters": {
+    "factor_names": [
+      "rolling_annualized_volatility_60d",
+      "rolling_sharpe_60d"
+    ],
+    "input_end_date": "2026-11-19",
+    "input_start_date": "2025-02-20"
+  },
+  "point_count": 426,
+  "price_adjustment": null,
+  "source_datasets": [
+    "risk_daily_v1"
+  ],
+  "task_id": "research:56e3310b-9ccd-4395-ba92-fe4795578940",
+  "title": "Rolling Risk Metrics (2025-02-20 to 2026-11-19)",
+  "unit": "ratio",
+  "version": "research_chart_v1",
+  "x_label": "Date",
+  "y_label": "Rolling Risk Metrics"
+}

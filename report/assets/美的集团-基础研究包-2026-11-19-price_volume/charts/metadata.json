@@ -1,0 +1,31 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:ca9f2884-c284-4012-aa06-e087b7c0cd94",
+  "asset_name": "美的集团",
+  "benchmark_asset_id": null,
+  "chart_type": "price_volume",
+  "currency": "CNY",
+  "files": {
+    "data": "price_volume-afccef61ec22.data.json",
+    "png": "price_volume-afccef61ec22.png",
+    "svg": "price_volume-afccef61ec22.svg"
+  },
+  "input_digest": "afccef61ec22d18ecf16dd4fa4b4a267f154bbbb13cba20297d156b621e0be03",
+  "parameters": {
+    "moving_averages": [
+      5,
+      20
+    ]
+  },
+  "point_count": 486,
+  "price_adjustment": "none",
+  "source_datasets": [
+    "stock_daily_bars"
+  ],
+  "task_id": "research:985a1546-3aaf-4ba1-a31c-c6b2c9b71c29",
+  "title": "Price, Volume, and Moving Averages",
+  "unit": "price",
+  "version": "research_chart_v1",
+  "x_label": "Trade date",
+  "y_label": "Price"
+}

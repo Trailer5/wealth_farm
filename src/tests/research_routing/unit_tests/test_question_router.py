@@ -117,6 +117,46 @@ class QuestionRouterTest(unittest.TestCase):
         self.assertNotIn(baseline, recorded.user_questions)
         self.assertEqual(fresh.user_questions[-1], PORTFOLIO_CASH_QUESTION)
 
+    def test_deployment_question_needs_only_holdings_and_a_baseline_preference(self):
+        probe = _Holdings({("user:a", None)})
+        probe.preferences = {"preference:plain": PREFERENCE_RECORDED}
+        router = QuestionRouter(context_probe=probe)
+        request = ResearchRequest(
+            request_id="q-deploy",
+            subject_type=SubjectType.PORTFOLIO,
+            subject_refs=(SubjectRef("沪深300成分", "index:000300"),),
+            intents=(ResearchIntent.DISCOVER,),
+            personalization=Personalization.REQUIRED,
+            as_of_date="2026-11-19",
+            user_id="user:a",
+            personal_refs=("preference:plain",),
+        )
+
+        routed = router.route(request)
+        without_preference = router.route(_replace(request, personal_refs=()))
+
+        self.assertEqual(routed.recipe_ids[0], "portfolio_deployment")
+        self.assertEqual(routed.status, RoutingStatus.EXECUTABLE)
+        self.assertFalse(any("更激进" in item for item in routed.user_questions))
+        self.assertEqual(without_preference.status, RoutingStatus.NEEDS_USER_CONTEXT)
+        self.assertEqual(
+            without_preference.user_questions[0],
+            USER_CONTEXT_QUESTIONS[UserContextNeed.INVESTMENT_PREFERENCE],
+        )
+
+    def test_cash_question_is_skipped_when_recorded_weights_include_cash(self):
+        probe = _Holdings({("user:a", None)})
+        probe.preferences = {"preference:plain": PREFERENCE_RECORDED}
+        router = QuestionRouter(context_probe=probe)
+        request = _replace(self.requests["Q5"], personal_refs=("preference:plain",))
+
+        asked = router.route(request)
+        probe.cash = True
+        skipped = router.route(request)
+
+        self.assertIn(PORTFOLIO_CASH_QUESTION, asked.user_questions)
+        self.assertNotIn(PORTFOLIO_CASH_QUESTION, skipped.user_questions)
+
     def test_holding_review_needs_positions_recorded_for_the_asset(self):
         probe = _Holdings(set())
         router = QuestionRouter(context_probe=probe)
@@ -286,9 +326,13 @@ class _Holdings:
     def __init__(self, held):
         self.held = held
         self.preferences = {}
+        self.cash = False
 
     def has_positions(self, user_id, asset_id):
         return (user_id, asset_id) in self.held
+
+    def cash_recorded(self, user_id):
+        return self.cash
 
     def preference_status(self, user_id, ref):
         return self.preferences.get(ref)

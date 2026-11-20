@@ -1,0 +1,31 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:9c448271-a325-4ef2-a5bb-1c6912a930dd",
+  "asset_name": "恒瑞医药",
+  "benchmark_asset_id": null,
+  "chart_type": "price_volume",
+  "currency": "CNY",
+  "files": {
+    "data": "price_volume-c1bd5516b6e8.data.json",
+    "png": "price_volume-c1bd5516b6e8.png",
+    "svg": "price_volume-c1bd5516b6e8.svg"
+  },
+  "input_digest": "c1bd5516b6e8a965ba273db8fcafc35f9811954841c9e9420509fc958f3f069a",
+  "parameters": {
+    "moving_averages": [
+      5,
+      20
+    ]
+  },
+  "point_count": 486,
+  "price_adjustment": "none",
+  "source_datasets": [
+    "stock_daily_bars"
+  ],
+  "task_id": "research:76725a5d-4346-40b0-9416-89f566153a12",
+  "title": "Price, Volume, and Moving Averages",
+  "unit": "price",
+  "version": "research_chart_v1",
+  "x_label": "Trade date",
+  "y_label": "Price"
+}

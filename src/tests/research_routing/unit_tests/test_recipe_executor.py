@@ -464,6 +464,61 @@ class RecipeExecutorTest(unittest.TestCase):
         self.assertIn("1 个完成", packs.summary)
         self.assertEqual(funnel.calls, [("801730", AS_OF)])
 
+    def test_deployment_reads_plans_before_new_candidates_and_leaves_buying_to_research(self):
+        calendar_calls = []
+        portfolio = SimpleNamespace(
+            portfolio_summary=lambda user_id: {"holdings": [], "latest_valuation": None},
+            execution_context=lambda user, day: {
+                "plans": [{"plan_id": "execution-plan:core", "title": "核心配置", "constraints": ["不买红利指数"]}]
+            },
+        )
+        plans = SimpleNamespace(
+            calendar=lambda **kwargs: calendar_calls.append(kwargs) or {
+                "overdue": [],
+                "due": [
+                    {"plan_id": "execution-plan:core", "task_id": "broad-second-batch", "title": "宽基第二批", "kind": "action"},
+                    {"plan_id": "execution-plan:core", "task_id": "gold-watch", "title": "黄金观察", "kind": "watch"},
+                ],
+                "counts": {"due": 2},
+            }
+        )
+        executor = RecipeExecutor(
+            router=QuestionRouter(),
+            single_asset=SingleAssetRecipeRunner(planner=self.planner, pipeline=self.pipeline),
+            ledger=self.ledger,
+            portfolio=portfolio,
+            market=_Market(),
+            funnel=_Funnel(),
+            allocation=SimpleNamespace(run=lambda **kwargs: {"summary": ["权益比例已在目标区间内"]}),
+            plans=plans,
+        )
+        request = replace(
+            self.requests["Q10"],
+            intents=(ResearchIntent.DISCOVER,),
+            subject_refs=(SubjectRef("电力设备", "sector:sw:801730"),),
+            personal_refs=("preference:p",),
+        )
+
+        run = executor.run(request)
+        no_scope = executor.run(replace(request, subject_refs=()))
+
+        self.assertEqual(run.routing.recipe_ids[0], "portfolio_deployment")
+        steps = {item.step_id: item for item in run.step_outcomes}
+        self.assertEqual(
+            [item.step_id for item in run.step_outcomes][:4],
+            ["plan_constraints", "plan_nodes", "market_state", "risk_budget"],
+        )
+        self.assertIn("核心配置", steps["plan_constraints"].summary)
+        self.assertIn("动作 1 个", steps["plan_nodes"].summary)
+        self.assertEqual(calendar_calls[0], {"user_id": request.user_id, "at": request.as_of_date})
+        self.assertEqual(steps["strategy_funnel"].artifacts["run_id"], "discovery-funnel:x")
+        self.assertEqual(steps["candidate_fit"].status, StepOutcomeStatus.NEEDS_INPUT)
+        self.assertIn("adjustment-proposal", steps["candidate_fit"].next_actions[0])
+        self.assertEqual(run.status, RecipeRunStatus.EXECUTED)
+        unscoped = {item.step_id: item for item in no_scope.step_outcomes}
+        self.assertEqual(unscoped["strategy_funnel"].status, StepOutcomeStatus.NEEDS_INPUT)
+        self.assertIn("index:000300", unscoped["strategy_funnel"].summary)
+
     def test_funnel_runner_resolves_scopes_and_builds_base_packs(self):
         service = _FunnelService()
         baseline = _BaselineRunner()

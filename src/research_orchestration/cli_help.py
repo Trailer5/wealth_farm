@@ -19,7 +19,7 @@ _REQUEST = """\
     - 行业 sector:sw:<代码>[,<代码>...]；范围 index:<代码>、market:cn_a、symbols:<代码,...>。
     - 策略写已登记的策略 id（或完整的登记名），取自 strategy-archive；route 不解析策略，subjects 为空是正常的，
       run-recipe 执行时才匹配；没登记的说法会返回 needs_input 与可用模板。
-    - 组合问题 subject_refs 留空。
+    - 组合问题 subject_refs 留空；资金部署（portfolio + discover）把发现范围写在 subject_refs[0]（写法同行业与范围）。
   personal_refs：投资任务 mandate:<id>、约束 constraints:<id>（ID 取自 user-context）、
     偏好 preference:<id>（record-preference 返回的 personal_ref；--dry-run 返回的未入账，不要写）、
     原买入理由 thesis:<说明>。
@@ -32,6 +32,7 @@ _REQUEST = """\
   已持有标的怎么办          asset         decide                required
   策略好不好                strategy      evaluate              none
   组合改造                  portfolio     evaluate+plan         required
+  现在值得把钱部署到哪里    portfolio     discover(+plan)       required
   组合风险在哪里            portfolio     evaluate              required
   时间表或计划              portfolio     plan                  required
   复盘判断、偏好设得对不对  portfolio     review                required
@@ -42,6 +43,8 @@ _REQUEST = """\
   “我觉得……”（对市场、宏观、行业、标的的看法）是观点：user_view 写原文、intents 用 test_view、
   必须带 user_id；观点入账需要 horizon，缺少时路由会在 user_questions 里先问。
   “我觉得太保守了”是偏好表达，不是观点：走 record-preference。
+  “组合改造”配方服务于“更激进/更稳”这类改变风险档位的请求，会先问含义；用户只问“现在买什么、钱放哪里”时用
+  资金部署（只要求已记录的持仓和偏好）。用户最新的比例持仓里有现金行时，不再问未投资现金。
   示例：{"request_id": "q-market-2026-10-26", "subject_type": "market", "subject_refs": [{"text": "A股"}],
          "intents": ["understand"], "personalization": "optional", "as_of_date": "2026-10-26",
          "user_id": "user:default", "depth": "quick"}
@@ -61,6 +64,12 @@ needs_input / blocked 照实转述（观点缺时间窗口、周期资源公司�
 基础研究被阻断、偏好冲突等）。这些是工程或数据阻塞，不得绕过公共入口手工补齐。
 
 标的配方：基础步骤 artifacts 里有 workflow_run_id 与 decision_brief_id，之后按 mainline.md 探索。
+
+资金部署配方：plan_constraints（生效计划的约束与回避清单）→ plan_nodes（已到期与逾期节点，条件由 Agent 用
+  plan-show 与 prices --state 核对）→ market_state（入账）→ risk_budget（权益空间）→ strategy_funnel 与
+  multi_strategy_priority（写入漏斗运行与前 5 名基础包，范围 ≤300 只时约 15–20 分钟）→ candidate_fit
+  （needs_input：Agent 挑候选后运行 adjustment-proposal --candidate）。回答顺序：条件已成立的既定动作 →
+  各大类还能部署多少 → 未触发的计划条件与当前距离 → 新候选（研究邀请）。不按候选下买入结论。
 
 策略配方（Q4）：逐个策略输出 strategy_spec（档案与状态）、selection_samples（只对选股策略是缺口，其余写“不适用”）、
   backtest_validation（完整验证，字段同 strategy-evaluate --help，evaluation_id 是验证记录）、regime_analysis、
@@ -219,6 +228,13 @@ run-recipe 只列前 10 个候选，全量用 --run-id <id> --limit 0；问某�
   - 截面没有扣非利润：生成基础包时前列候选逐只核对扣非 TTM（recurring 字段）；one_off_suspected 的候选排在
     最后、不生成基础包、不作推荐。引用利润和市盈率优先用基础包的扣非口径。
   - “低估值高股息”这类没有对应策略的风格：说明差异，用最接近的策略并标注。
+  - 利润同比数倍、ROE 较一年前大幅抬升的低市盈率候选，先按周期高点检查：看基础包的近 3 年扣非复合增速与
+    价格隐含增速，低市盈率可能只是盈利处在高点，不当作便宜的证据。
+  - board 是上市板块（主板/创业板/科创板/北交所）。用户没有某板块权限时照常列出并标注，作为提示而不是过滤条件；
+    推荐买入时说明需要开通的权限或可替代的主板标的。
+  - 前 5 名之外由 Agent 挑选的候选，用 --scope symbols:<代码,...> --label <挑选理由> --no-history 生成基础包
+    （每只约 2–3 分钟），挑选理由写进回答。
+耗时：≤300 只的范围含规则历史回放，当天首次运行约 15–20 分钟（财报与扣非核对会缓存）；命令同步返回。
 """
 
 _VALUATION_MODEL = """\
@@ -679,6 +695,13 @@ high/low（实际收盘价）、from_high（相对区间最高的回撤）；--r
 source_conflict_count 非零时引用单日前先核对。指数没有总回报日线（用 market-archive、sector-archive）。
 美股观点入账：用输出的 asset_id 写 price_relative，基准用同市场标的（SMH、QQQ）。
 港股加 --market hk（代码如 00700，不足 5 位自动补零）：港元计价，香港 16:30 后才算当天可得，只有新浪一个来源。
+--state：核对执行计划里的价格条件（“收盘高于前 20 日最高收盘”“站上 60 日均价”“60 日新低”“五日跌幅”）。
+  result.state 给最后一个交易日的 close、prior_high_20/60（不含当天的前 N 日最高收盘）与 above_prior_high_N、
+  ma_20/60 与 above_ma_N（含当天）、range_60 与 at_low_60/at_high_60、change_5/20（总回报涨跌）；窗口不够的列在
+  missing。--start-date 至少比截止日早 100 个自然日。水平用实际收盘价（计划里的价位就是成交价），区间内除息
+  会让均线略有偏差。先看 state.date 是不是截止日前最后一个交易日，再判断条件；判断结论用 task-resolve 记录。
+  全 A 新高新低家数不在这里，用 market-archive 的宽度维度。
+  截止日当天还没收盘时，--end-date 写上一个交易日，否则远程源可能全部失败；已缓存的区间可加 --no-remote。
 口径见 docs/modules/1-数据/存储与统一访问模块.md「美股」。
 """
 

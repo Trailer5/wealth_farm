@@ -1,0 +1,31 @@
+{
+  "as_of_date": "2026-11-19",
+  "asset_id": "asset:ad55bbd2-eb5e-417f-a9f6-f36cf74814d3",
+  "asset_name": "天赐材料",
+  "benchmark_asset_id": null,
+  "chart_type": "price_volume",
+  "currency": "CNY",
+  "files": {
+    "data": "price_volume-35f1421538bc.data.json",
+    "png": "price_volume-35f1421538bc.png",
+    "svg": "price_volume-35f1421538bc.svg"
+  },
+  "input_digest": "35f1421538bc89d5d8a64d8398ad2058faaf80fb661dc280f4a6cd763504401e",
+  "parameters": {
+    "moving_averages": [
+      5,
+      20
+    ]
+  },
+  "point_count": 486,
+  "price_adjustment": "none",
+  "source_datasets": [
+    "stock_daily_bars"
+  ],
+  "task_id": "research:56e3310b-9ccd-4395-ba92-fe4795578940",
+  "title": "Price, Volume, and Moving Averages",
+  "unit": "price",
+  "version": "research_chart_v1",
+  "x_label": "Trade date",
+  "y_label": "Price"
+}

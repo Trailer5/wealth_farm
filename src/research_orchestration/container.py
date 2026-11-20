@@ -698,6 +698,7 @@ def create_default_container(
         plan=portfolio_plan,
         decision_review=decision_review,
         strategy=StrategyRecipeRunner(archives=strategy_archive, evaluate=strategy_evaluate, track=strategy_track),
+        plans=execution_plans,
     )
     operations = AgentOperationService(plans=execution_plans, debates=debates)
     return ResearchOrchestrationContainer(
